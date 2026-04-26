@@ -54,35 +54,40 @@ final class HomeViewModel: ObservableObject {
     private func isNegativeNode(_ node: WorkflowNodeRaw) -> Bool {
         let classLower = node.classType?.lowercased() ?? ""
         let titleLower = node.meta?.title?.lowercased() ?? ""
-        let negKeywords = ["negative", "neg", "负向", "反向", "nega"]
-        return negKeywords.contains(where: { classLower.contains($0) || titleLower.contains($0) })
+        // Use word-boundary-like checks to avoid false positives (e.g. "positive" contains "pos")
+        let negPatterns = ["negative", "负向", "反向", "neg prompt", "neg_prompt"]
+        return negPatterns.contains(where: { classLower.contains($0) || titleLower.contains($0) })
     }
 
     private func buildFormFields(from nodes: [WorkflowNodeRaw]) -> [FormField] {
         var fields: [FormField] = []
         let nodeDict = workflowDetail?.parsedNodes ?? [:]
 
-        // Pass 1: find positive prompt node
-        // Prefer nodes whose title explicitly says positive/正向, fall back to any non-negative text node
-        let textNodeTypes = ["cliptextencode", "cr text", "text multiline", "string"]
-        let textNodes = nodeDict.filter { (_, node) in
-            guard let ct = node.classType?.lowercased() else { return false }
-            return textNodeTypes.contains(where: { ct.contains($0) }) && !isNegativeNode(node)
-        }
+        // Collect all text-type nodes that are not negative
+        let textClassTypes = ["cliptextencode", "cr text", "text multiline", "string", "note"]
+        let textNodes = nodeDict
+            .filter { (_, node) in
+                guard let ct = node.classType?.lowercased() else { return false }
+                return textClassTypes.contains(where: { ct.contains($0) }) && !isNegativeNode(node)
+            }
+            // Sort by node ID numerically so lower-numbered (earlier) nodes come first
+            .sorted { a, b in
+                let ai = Int(a.key) ?? Int.max
+                let bi = Int(b.key) ?? Int.max
+                return ai < bi
+            }
 
-        // Prefer explicitly positive-titled node
-        let positiveKeywords = ["positive", "pos", "正向", "提示词"]
-        let explicitPositive = textNodes.first(where: { (_, node) in
+        // Prefer node whose title explicitly says positive/正向
+        let positivePatterns = ["positive", "正向", "提示词", "prompt"]
+        let chosen = textNodes.first(where: { (_, node) in
             let title = node.meta?.title?.lowercased() ?? ""
-            return positiveKeywords.contains(where: { title.contains($0) })
-        })
-        let chosenEntry = explicitPositive ?? textNodes.first
+            return positivePatterns.contains(where: { title.contains($0) })
+        }) ?? textNodes.first  // fallback: lowest-ID non-negative text node
 
-        if let (nodeId, node) = chosenEntry {
+        if let (nodeId, node) = chosen {
             let inputs = node.inputs?.dictValue ?? [:]
-            // Default value may be a string, or absent (node output wired in) — show field regardless
             let defaultText = inputs["text"]?.stringValue ?? inputs["prompt"]?.stringValue ?? ""
-            let fieldName = inputs["text"] != nil ? "text" : "prompt"
+            let fieldName = (inputs["text"] != nil) ? "text" : "prompt"
             fields.append(FormField(
                 nodeId: nodeId,
                 fieldName: fieldName,
@@ -93,20 +98,20 @@ final class HomeViewModel: ObservableObject {
             ))
         }
 
-        // Pass 2: image input nodes
-        for (nodeId, node) in nodeDict {
-            guard let ct = node.classType?.lowercased() else { continue }
-            if ct.contains("loadimage") {
-                let label = node.meta?.title ?? "输入图片"
-                fields.append(FormField(
-                    nodeId: nodeId,
-                    fieldName: "image",
-                    label: label,
-                    placeholder: "图片 URL",
-                    value: "",
-                    type: .imageInput
-                ))
-            }
+        // Image input nodes — sorted by node ID
+        let imageNodes = nodeDict
+            .filter { (_, node) in node.classType?.lowercased().contains("loadimage") == true }
+            .sorted { a, b in (Int(a.key) ?? Int.max) < (Int(b.key) ?? Int.max) }
+
+        for (nodeId, node) in imageNodes {
+            fields.append(FormField(
+                nodeId: nodeId,
+                fieldName: "image",
+                label: node.meta?.title ?? "输入图片",
+                placeholder: "图片 URL",
+                value: "",
+                type: .imageInput
+            ))
         }
 
         // Duck password field
