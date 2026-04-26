@@ -1,0 +1,39 @@
+stages:
+  - build
+
+variables:
+  SCHEME: "RunningHub"
+  CONFIGURATION: "Release"
+  ARCHIVE_PATH: "build/RunningHub.xcarchive"
+
+build_ipa:
+  stage: build
+  tags:
+    - macos
+    - xcode
+  before_script:
+    - brew install xcodegen 2>/dev/null || true
+    - xcode-select --print-path
+  script:
+    - xcodegen generate
+    - xcodebuild clean archive
+      -scheme "$SCHEME"
+      -configuration "$CONFIGURATION"
+      -archivePath "$ARCHIVE_PATH"
+      -allowProvisioningUpdates
+      CODE_SIGN_STYLE=Automatic
+      DEVELOPMENT_TEAM=$DEVELOPMENT_TEAM
+    - xcodebuild -exportArchive
+      -archivePath "$ARCHIVE_PATH"
+      -exportPath "build/"
+      -exportOptionsPlist "ExportOptions.plist"
+      -allowProvisioningUpdates
+  artifacts:
+    name: "RunningHub-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - build/*.ipa
+    expire_in: 30 days
+  only:
+    - main
+    - /^release\/.*$/
+    - tags
