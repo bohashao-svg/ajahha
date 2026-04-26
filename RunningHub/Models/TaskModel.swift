@@ -2,6 +2,7 @@ import Foundation
 
 // MARK: - Task Status Enum
 enum TaskStatus: String, Codable, CaseIterable {
+    case queued    = "QUEUED"
     case pending   = "PENDING"
     case running   = "RUNNING"
     case completed = "COMPLETED"
@@ -10,6 +11,7 @@ enum TaskStatus: String, Codable, CaseIterable {
 
     var displayName: String {
         switch self {
+        case .queued:    return "排队中"
         case .pending:   return "排队中"
         case .running:   return "生成中"
         case .completed: return "已完成"

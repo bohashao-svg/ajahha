@@ -102,6 +102,7 @@ struct TaskCardView: View {
         case .completed: RHIcon(name: .check, size: 16, color: task.status.color)
         case .failed:    RHIcon(name: .close, size: 16, color: task.status.color)
         case .cancelled: RHIcon(name: .close, size: 16, color: task.status.color)
+        case .queued:    RHIcon(name: .refresh, size: 16, color: task.status.color)
         case .pending:   RHIcon(name: .refresh, size: 16, color: task.status.color)
         case .running:   EmptyView()
         }

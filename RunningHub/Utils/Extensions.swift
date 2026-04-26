@@ -80,6 +80,7 @@ extension View {
 extension TaskStatus {
     var color: Color {
         switch self {
+        case .queued:    return .rhWarning
         case .pending:   return .rhWarning
         case .running:   return .rhAccent
         case .completed: return .rhSuccess

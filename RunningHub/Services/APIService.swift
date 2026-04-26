@@ -7,9 +7,11 @@ final class APIService {
     private init() {}
 
     private let baseURL = "https://www.runninghub.cn"
-    private var apiKey: String { (StorageService.shared.apiKey ?? "").trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var apiKey: String {
+        (StorageService.shared.apiKey ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 
-    // MARK: - POST (generic Encodable body)
+    // MARK: - POST
     private func postEncodable<B: Encodable, T: Codable>(path: String, body: B) async throws -> T {
         guard !apiKey.isEmpty else { throw APIError.noAPIKey }
         guard let url = URL(string: baseURL + path) else { throw APIError.invalidURL }
@@ -17,29 +19,21 @@ final class APIService {
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         req.timeoutInterval = 30
         req.httpBody = try JSONEncoder().encode(body)
         return try await execute(req)
     }
 
-    // MARK: - POST (dict body — for simple key/value requests)
-    private func post<T: Codable>(path: String, body: [String: String]) async throws -> T {
-        guard !apiKey.isEmpty else { throw APIError.noAPIKey }
-        guard let url = URL(string: baseURL + path) else { throw APIError.invalidURL }
-
-        var req = URLRequest(url: url)
-        req.httpMethod = "POST"
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.timeoutInterval = 30
-        req.httpBody = try JSONSerialization.data(withJSONObject: body)
-        return try await execute(req)
-    }
-
     private func execute<T: Codable>(_ req: URLRequest) async throws -> T {
-        let (data, response) = try await URLSession.shared.data(for: req)
+        let (data, _) = try await URLSession.shared.data(for: req)
 
-        guard let http = response as? HTTPURLResponse else { throw APIError.invalidResponse }
-        guard (200...299).contains(http.statusCode) else { throw APIError.httpError(http.statusCode) }
+        // Debug: log raw response
+        #if DEBUG
+        if let str = String(data: data, encoding: .utf8) {
+            print("[API] \(req.url?.path ?? "") → \(str.prefix(500))")
+        }
+        #endif
 
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
@@ -52,43 +46,51 @@ final class APIService {
 
     // MARK: - Public APIs
 
-    /// POST /api/openapi/getJsonApiFormat
+    /// POST /api/openapi/getJsonApiFormat — fetch workflow detail
     func fetchWorkflowDetail(workflowId: String) async throws -> WorkflowDetailResponse {
         struct Body: Encodable { let apiKey: String; let workflowId: String }
-        return try await postEncodable(path: "/api/openapi/getJsonApiFormat",
-                                       body: Body(apiKey: apiKey, workflowId: workflowId))
+        return try await postEncodable(
+            path: "/api/openapi/getJsonApiFormat",
+            body: Body(apiKey: apiKey, workflowId: workflowId)
+        )
     }
 
-    /// POST /api/openapi/createTask
-    func runWorkflow(_ runReq: RunWorkflowRequest) async throws -> RunWorkflowResponse {
+    /// POST /task/openapi/create — run workflow
+    func runWorkflow(_ req: RunWorkflowRequest) async throws -> RunWorkflowResponse {
         struct Body: Encodable {
             let apiKey: String
             let workflowId: String
             let nodeInfoList: [NodeInput]
-            let mode: String?
+            let instanceType: String?
         }
         return try await postEncodable(
-            path: "/api/openapi/createTask",
-            body: Body(apiKey: apiKey,
-                       workflowId: runReq.workflowId,
-                       nodeInfoList: runReq.nodeInfoList,
-                       mode: runReq.mode)
+            path: "/task/openapi/create",
+            body: Body(
+                apiKey: apiKey,
+                workflowId: req.workflowId,
+                nodeInfoList: req.nodeInfoList,
+                instanceType: req.mode
+            )
         )
     }
 
-    /// POST /api/openapi/getTaskStatus
+    /// POST /task/openapi/outputs — get task outputs
     func fetchTaskStatus(taskId: String) async throws -> TaskStatusItem {
         struct Body: Encodable { let apiKey: String; let taskId: String }
-        return try await postEncodable(path: "/api/openapi/getTaskStatus",
-                                       body: Body(apiKey: apiKey, taskId: taskId))
+        return try await postEncodable(
+            path: "/task/openapi/outputs",
+            body: Body(apiKey: apiKey, taskId: taskId)
+        )
     }
 
-    /// POST /api/openapi/cancelTask
+    /// POST /task/openapi/cancel
     func cancelTask(taskId: String) async throws {
         struct Body: Encodable { let apiKey: String; let taskId: String }
         struct Res: Codable { let success: Bool? }
-        let _: Res = try await postEncodable(path: "/api/openapi/cancelTask",
-                                              body: Body(apiKey: apiKey, taskId: taskId))
+        let _: Res = try await postEncodable(
+            path: "/task/openapi/cancel",
+            body: Body(apiKey: apiKey, taskId: taskId)
+        )
     }
 }
 
