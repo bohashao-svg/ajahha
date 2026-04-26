@@ -24,17 +24,16 @@ jobs:
           xcodebuild clean archive \
             -scheme "RunningHub" \
             -configuration Release \
-            -archivePath "$RUNNER_TEMP/RunningHub.xcarchive" \
+            -archivePath "${{ runner.temp }}/RunningHub.xcarchive" \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            2>&1 | tee build.log; grep -E "error:|warning:" build.log || true; exit ${PIPESTATUS[0]}
+            CODE_SIGNING_ALLOWED=NO
 
       - name: Export IPA
         run: |
           xcodebuild -exportArchive \
-            -archivePath "$RUNNER_TEMP/RunningHub.xcarchive" \
-            -exportPath "$RUNNER_TEMP/export" \
+            -archivePath "${{ runner.temp }}/RunningHub.xcarchive" \
+            -exportPath "${{ runner.temp }}/export" \
             -exportOptionsPlist ExportOptions.plist
 
       - name: Upload IPA artifact
