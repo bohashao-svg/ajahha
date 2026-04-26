@@ -167,13 +167,51 @@ struct TaskDetailView: View {
                     Spacer()
                 }
 
-            if let decoded = liveTask.decodedImageData, let uiImage = UIImage(data: decoded) {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .scaledToFit()
-                    .cornerRadius(16)
-                    .overlay(
-                        Button { saveImage(uiImage) } label: {
+            if let decoded = liveTask.decodedImageData {
+                if let uiImage = UIImage(data: decoded) {
+                    // Decoded result is an image
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .scaledToFit()
+                        .cornerRadius(16)
+                        .overlay(
+                            Button { saveImage(uiImage) } label: {
+                                HStack(spacing: 5) {
+                                    Image(systemName: "square.and.arrow.down")
+                                        .font(.system(size: 13, weight: .semibold))
+                                    Text("保存")
+                                        .font(.system(size: 12, weight: .semibold))
+                                }
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(Color.black.opacity(0.55))
+                                .cornerRadius(12)
+                            }
+                            .padding(12),
+                            alignment: .bottomTrailing
+                        )
+                } else {
+                    // Decoded result is a video (.binpng → .mp4)
+                    HStack(spacing: 12) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(Color.rhAccentSoft)
+                                .frame(width: 44, height: 44)
+                            RHIcon(name: .video, size: 20, color: .rhAccent)
+                        }
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("解码成功（视频）")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(.rhPrimary)
+                            Text("点击保存到相册")
+                                .font(.system(size: 12))
+                                .foregroundColor(.rhSecondary)
+                        }
+                        Spacer()
+                        Button {
+                            saveVideo(decoded)
+                        } label: {
                             HStack(spacing: 5) {
                                 Image(systemName: "square.and.arrow.down")
                                     .font(.system(size: 13, weight: .semibold))
@@ -183,50 +221,25 @@ struct TaskDetailView: View {
                             .foregroundColor(.white)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
-                            .background(Color.black.opacity(0.55))
+                            .background(Color.rhAccent)
                             .cornerRadius(12)
                         }
-                        .padding(12),
-                        alignment: .bottomTrailing
-                    )
+                    }
+                    .padding(12)
+                    .background(Color.rhBackground)
+                    .cornerRadius(16)
+                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.rhBorder, lineWidth: 1))
+                }
             } else if liveTask.status == .completed, let url = liveTask.primaryOutputUrl {
-                let isVideo = DuckDecodeService.shared.isVideoUrl(url)
-
                 ZStack(alignment: .bottomLeading) {
-                    if isVideo {
-                        // Video duck: show placeholder with video icon
-                        HStack(spacing: 12) {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 10)
-                                    .fill(Color.rhAccentSoft)
-                                    .frame(width: 44, height: 44)
-                                RHIcon(name: .video, size: 20, color: .rhAccent)
-                            }
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text("视频鸭鸭图")
-                                    .font(.system(size: 14, weight: .medium))
-                                    .foregroundColor(.rhPrimary)
-                                Text("点击解码提取隐藏内容")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(.rhSecondary)
-                            }
-                            Spacer()
-                        }
-                        .frame(height: 80)
-                        .padding(12)
-                        .background(Color.rhBackground)
-                        .cornerRadius(16)
-                        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.rhBorder, lineWidth: 1))
-                    } else {
-                        AsyncImage(url: URL(string: url)) { phase in
-                            switch phase {
-                            case .success(let img):
-                                img.resizable().scaledToFit().cornerRadius(16)
-                            case .empty:
-                                ProgressView().frame(height: 120)
-                            default:
-                                Color.rhBackground.frame(height: 120).cornerRadius(16)
-                            }
+                    AsyncImage(url: URL(string: url)) { phase in
+                        switch phase {
+                        case .success(let img):
+                            img.resizable().scaledToFit().cornerRadius(16)
+                        case .empty:
+                            ProgressView().frame(height: 120)
+                        default:
+                            Color.rhBackground.frame(height: 120).cornerRadius(16)
                         }
                     }
 
@@ -364,6 +377,34 @@ struct TaskDetailView: View {
     }
 
     // MARK: - Helpers
+    private func saveVideo(_ data: Data) {
+        let tmpURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("mp4")
+        do {
+            try data.write(to: tmpURL)
+        } catch {
+            showToast("保存失败：\(error.localizedDescription)")
+            return
+        }
+        PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
+            DispatchQueue.main.async {
+                if status == .authorized || status == .limited {
+                    PHPhotoLibrary.shared().performChanges({
+                        PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: tmpURL)
+                    }) { success, err in
+                        DispatchQueue.main.async {
+                            try? FileManager.default.removeItem(at: tmpURL)
+                            showToast(success ? "视频已保存到相册" : "保存失败")
+                        }
+                    }
+                } else {
+                    showToast("请在设置中允许访问相册")
+                }
+            }
+        }
+    }
+
     private func saveImage(_ image: UIImage) {
         PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
             DispatchQueue.main.async {
