@@ -59,19 +59,40 @@ final class DuckDecodeService {
     }
 
     private func extractFirstFrame(from url: URL) async throws -> UIImage {
+        // For remote URLs, download to a temp file first so AVAssetImageGenerator
+        // can seek reliably (streaming URLs often fail with tolerance = .zero)
+        let localURL: URL
+        if url.isFileURL {
+            localURL = url
+        } else {
+            let (tmpURL, _) = try await URLSession.shared.download(from: url)
+            // Move to a stable temp path with the correct extension
+            let ext = url.pathExtension.isEmpty ? "mp4" : url.pathExtension
+            let stableURL = FileManager.default.temporaryDirectory
+                .appendingPathComponent(UUID().uuidString)
+                .appendingPathExtension(ext)
+            try? FileManager.default.moveItem(at: tmpURL, to: stableURL)
+            localURL = stableURL
+        }
+
+        defer {
+            if !url.isFileURL { try? FileManager.default.removeItem(at: localURL) }
+        }
+
         return try await withCheckedThrowingContinuation { continuation in
-            let asset = AVURLAsset(url: url)
+            let asset = AVURLAsset(url: localURL)
             let generator = AVAssetImageGenerator(asset: asset)
             generator.appliesPreferredTrackTransform = true
-            generator.requestedTimeToleranceBefore = .zero
-            generator.requestedTimeToleranceAfter = .zero
+            // Use generous tolerance so the generator can find a keyframe near t=0
+            generator.requestedTimeToleranceBefore = CMTime(seconds: 2, preferredTimescale: 600)
+            generator.requestedTimeToleranceAfter  = CMTime(seconds: 2, preferredTimescale: 600)
 
             let time = CMTime(seconds: 0, preferredTimescale: 600)
-            generator.generateCGImagesAsynchronously(forTimes: [NSValue(time: time)]) { _, cgImage, _, result, error in
+            generator.generateCGImagesAsynchronously(forTimes: [NSValue(time: time)]) { _, cgImage, _, result, _ in
                 if let cgImage = cgImage, result == .succeeded {
                     continuation.resume(returning: UIImage(cgImage: cgImage))
                 } else {
-                    continuation.resume(throwing: DecodeError.downloadFailed)
+                    continuation.resume(throwing: DecodeError.invalidImage)
                 }
             }
         }
