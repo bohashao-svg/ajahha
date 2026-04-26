@@ -14,7 +14,7 @@ struct WorkflowHistoryItem: Codable, Identifiable {
     }
 }
 
-// MARK: - Base Response
+// MARK: - Base Response (used by most endpoints)
 struct APIResponse<T: Codable>: Codable {
     let code: Int
     let msg: String?
@@ -90,7 +90,7 @@ struct DuckNodeInfo {
 // MARK: - Task Submission
 struct RunWorkflowRequest: Codable {
     let workflowId: String
-    let mode: String?       // instanceType: "plus"
+    let mode: String?           // maps to instanceType ("plus")
     let nodeInfoList: [NodeInput]
 }
 
@@ -100,37 +100,39 @@ struct NodeInput: Codable {
     let fieldValue: String
 }
 
-// POST /task/openapi/create response
+// POST /task/openapi/create response (wrapped in APIResponse)
 struct RunWorkflowResponse: Codable {
     let taskId: String
     let taskStatus: String?
-    let netWssUrl: String?
 }
 
-// MARK: - Task Outputs
-// POST /task/openapi/outputs
-// Returns list when done, dict (with netWssUrl) when still running, null when queued
-struct TaskOutputsResponse: Codable {
-    // When task is complete: array of file results
-    // We decode via custom logic in APIService
+// MARK: - Task Query (POST /openapi/v2/query)
+// Flat response — NOT wrapped in APIResponse
+struct TaskQueryResponse: Codable {
+    let taskId: String
+    let status: String          // QUEUED, RUNNING, SUCCESS, FAILED, CANCELLED
+    let errorCode: String?
+    let errorMessage: String?
+    let results: [TaskQueryResult]?
+
+    var taskStatus: TaskStatus {
+        switch status.uppercased() {
+        case "SUCCESS":   return .completed
+        case "RUNNING":   return .running
+        case "FAILED":    return .failed
+        case "CANCELLED": return .cancelled
+        default:          return .queued   // QUEUED or unknown
+        }
+    }
+
+    var outputUrls: [String] {
+        results?.compactMap { $0.url } ?? []
+    }
 }
 
-struct TaskOutputFile: Codable {
-    let fileUrl: String
-    let fileType: String
-    let nodeId: String?
-}
-
-// Intermediate state while task is running (outputs returns a dict)
-struct TaskRunningData: Codable {
-    let netWssUrl: String?
-    let taskStatus: String?
-}
-
-// MARK: - WebSocket message types
-struct WsMessage: Codable {
-    let type: String
-    let data: AnyCodable?
+struct TaskQueryResult: Codable {
+    let url: String
+    let outputType: String?
 }
 
 // MARK: - AnyCodable
