@@ -8,6 +8,7 @@ struct HomeView: View {
     @State private var showSettings = false
     @State private var showAPIKeyAlert = false
     @State private var showPremium = false
+    @State private var showAIApp = false
 
     var body: some View {
         NavigationView {
@@ -18,6 +19,10 @@ struct HomeView: View {
                     VStack(spacing: 16) {
                         // Top: Premium workflow entry card
                         premiumEntryCard
+                            .padding(.horizontal, 16)
+
+                        // AI App entry card
+                        aiAppEntryCard
                             .padding(.horizontal, 16)
 
                         // Center: Workflow input + detail
@@ -87,6 +92,9 @@ struct HomeView: View {
                     Task { await vm.fetchWorkflow() }
                 }
             }
+            .sheet(isPresented: $showAIApp) {
+                AppView()
+            }
             .sheet(isPresented: $vm.showPromptSelector) {
                 PromptSelectorView(fields: vm.availablePromptFields, onConfirm: { selections in
                     vm.applyPromptSelection(selections)
@@ -118,6 +126,45 @@ struct HomeView: View {
                 }
             }
         }
+    }
+
+    // MARK: - AI App Entry Card
+    private var aiAppEntryCard: some View {
+        Button { showAIApp = true } label: {
+            HStack(spacing: 14) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.rhAccent.opacity(0.12))
+                        .frame(width: 52, height: 52)
+                    VStack(spacing: 2) {
+                        Text("AI").font(.system(size: 14, weight: .bold)).foregroundColor(.rhAccent)
+                        Text("应用").font(.system(size: 9, weight: .bold)).foregroundColor(.rhAccent)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("AI 应用")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(.rhPrimary)
+                    Text("使用 RunningHub WebApp 快速生成")
+                        .font(.system(size: 12))
+                        .foregroundColor(.rhSecondary)
+                }
+
+                Spacer()
+
+                RHIcon(name: .chevron, size: 14, color: .rhAccent.opacity(0.6))
+            }
+            .padding(14)
+            .background(Color.rhCard)
+            .cornerRadius(18)
+            .overlay(
+                RoundedRectangle(cornerRadius: 18)
+                    .stroke(Color.rhAccent.opacity(0.15), lineWidth: 1)
+            )
+            .shadow(color: Color(hex: "#C8392B").opacity(0.08), radius: 12, x: 0, y: 4)
+        }
+        .buttonStyle(ScaleButtonStyle())
     }
 
     // MARK: - Premium Entry Card

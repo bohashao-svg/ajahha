@@ -150,6 +150,77 @@ final class APIService {
         return result.fileName
     }
 
+    // MARK: - AI App (WebApp) APIs
+
+    /// GET /api/webapp/apiCallDemo — fetch node list for a WebApp
+    func fetchAppNodes(webappId: String) async throws -> [AppNodeInfo] {
+        guard !apiKey.isEmpty else { throw APIError.noAPIKey }
+        let urlStr = baseURL + "/api/webapp/apiCallDemo?apiKey=\(apiKey)&webappId=\(webappId)"
+        guard let url = URL(string: urlStr) else { throw APIError.invalidURL }
+        var req = URLRequest(url: url)
+        req.httpMethod = "GET"
+        req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        req.timeoutInterval = 30
+        let (data, _) = try await URLSession.shared.data(for: req)
+        #if DEBUG
+        if let str = String(data: data, encoding: .utf8) {
+            print("[API] /api/webapp/apiCallDemo → \(str.prefix(800))")
+        }
+        #endif
+        let decoder = JSONDecoder()
+        let decoded = try decoder.decode(APIResponse<AppWebappData>.self, from: data)
+        guard decoded.isSuccess, let result = decoded.data else {
+            throw APIError.serverError(decoded.msg ?? "获取节点失败")
+        }
+        return result.nodeInfoList
+    }
+
+    /// POST /task/openapi/ai-app/run — submit AI app task
+    func runApp(webappId: String, nodeInfoList: [AppNodeInfo]) async throws -> AppRunData {
+        guard !apiKey.isEmpty else { throw APIError.noAPIKey }
+        guard let url = URL(string: baseURL + "/task/openapi/ai-app/run") else { throw APIError.invalidURL }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        req.timeoutInterval = 60
+        let body = AppRunRequest(webappId: webappId, apiKey: apiKey, nodeInfoList: nodeInfoList)
+        req.httpBody = try JSONEncoder().encode(body)
+        let (data, _) = try await URLSession.shared.data(for: req)
+        #if DEBUG
+        if let str = String(data: data, encoding: .utf8) {
+            print("[API] /task/openapi/ai-app/run → \(str.prefix(800))")
+        }
+        #endif
+        let decoder = JSONDecoder()
+        let decoded = try decoder.decode(APIResponse<AppRunData>.self, from: data)
+        guard decoded.isSuccess, let result = decoded.data else {
+            throw APIError.serverError(decoded.msg ?? "提交失败")
+        }
+        return result
+    }
+
+    /// POST /task/openapi/outputs — query AI app task outputs
+    func queryAppOutputs(taskId: String) async throws -> APIResponse<[AppOutputItem]> {
+        guard !apiKey.isEmpty else { throw APIError.noAPIKey }
+        guard let url = URL(string: baseURL + "/task/openapi/outputs") else { throw APIError.invalidURL }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        req.timeoutInterval = 30
+        struct Body: Encodable { let apiKey: String; let taskId: String }
+        req.httpBody = try JSONEncoder().encode(Body(apiKey: apiKey, taskId: taskId))
+        let (data, _) = try await URLSession.shared.data(for: req)
+        #if DEBUG
+        if let str = String(data: data, encoding: .utf8) {
+            print("[API] /task/openapi/outputs → \(str.prefix(800))")
+        }
+        #endif
+        let decoder = JSONDecoder()
+        return try decoder.decode(APIResponse<[AppOutputItem]>.self, from: data)
+    }
+
     /// POST /task/openapi/cancel
     func cancelTask(taskId: String) async throws {
         struct Body: Encodable { let apiKey: String; let taskId: String }

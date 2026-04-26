@@ -147,6 +147,39 @@ struct TaskQueryResult: Codable {
     let outputType: String?
 }
 
+// MARK: - AI App (WebApp) Models
+
+struct AppNodeInfo: Codable, Identifiable {
+    var id: String { nodeId + fieldName }
+    let nodeId: String
+    let nodeName: String?
+    let fieldName: String
+    var fieldValue: String
+    let fieldType: String   // IMAGE, STRING, LIST, AUDIO, VIDEO
+    let description: String?
+    let fieldData: AnyCodable?  // LIST options
+}
+
+struct AppWebappData: Codable {
+    let nodeInfoList: [AppNodeInfo]
+}
+
+struct AppRunRequest: Codable {
+    let webappId: String
+    let apiKey: String
+    let nodeInfoList: [AppNodeInfo]
+}
+
+struct AppRunData: Codable {
+    let taskId: String
+    let promptTips: String?
+}
+
+struct AppOutputItem: Codable {
+    let fileUrl: String?
+    let fileType: String?
+}
+
 // MARK: - AnyCodable
 struct AnyCodable: Codable {
     let value: Any
