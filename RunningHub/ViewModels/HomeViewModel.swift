@@ -51,53 +51,59 @@ final class HomeViewModel: ObservableObject {
         formFields = buildFormFields(from: nodes)
     }
 
+    private func isNegativeNode(_ node: WorkflowNodeRaw) -> Bool {
+        let classLower = node.classType?.lowercased() ?? ""
+        let titleLower = node.meta?.title?.lowercased() ?? ""
+        let negKeywords = ["negative", "neg", "负向", "反向", "nega"]
+        return negKeywords.contains(where: { classLower.contains($0) || titleLower.contains($0) })
+    }
+
     private func buildFormFields(from nodes: [WorkflowNodeRaw]) -> [FormField] {
         var fields: [FormField] = []
         let nodeDict = workflowDetail?.parsedNodes ?? [:]
 
-        // Collect positive prompt fields (one per workflow, skip negative/style variants)
-        var addedPositivePrompt = false
+        // Pass 1: find positive prompt node
+        // Prefer nodes whose title explicitly says positive/正向, fall back to any non-negative text node
+        let textNodeTypes = ["cliptextencode", "cr text", "text multiline", "string"]
+        let textNodes = nodeDict.filter { (_, node) in
+            guard let ct = node.classType?.lowercased() else { return false }
+            return textNodeTypes.contains(where: { ct.contains($0) }) && !isNegativeNode(node)
+        }
 
-        for (nodeId, node) in nodeDict {
-            guard let classType = node.classType else { continue }
-            let lower = classType.lowercased()
+        // Prefer explicitly positive-titled node
+        let positiveKeywords = ["positive", "pos", "正向", "提示词"]
+        let explicitPositive = textNodes.first(where: { (_, node) in
+            let title = node.meta?.title?.lowercased() ?? ""
+            return positiveKeywords.contains(where: { title.contains($0) })
+        })
+        let chosenEntry = explicitPositive ?? textNodes.first
 
-            if lower.contains("duck") { continue }
-
-            // Only positive CLIPTextEncode / CR Text — skip negative variants
-            if lower.contains("cliptextencode") || lower.contains("cr text") {
-                guard !addedPositivePrompt else { continue }
-                if let inputs = node.inputs?.dictValue {
-                    for key in ["text", "prompt"] {
-                        if let val = inputs[key], val.stringValue != nil {
-                            let metaTitle = node.meta?.title?.lowercased() ?? ""
-                            let isNeg = lower.contains("negative")
-                                || metaTitle.contains("negative")
-                                || metaTitle.contains("负向")
-                                || metaTitle.contains("neg")
-                            if isNeg { continue }
-                            fields.append(FormField(
-                                nodeId: nodeId,
-                                fieldName: key,
-                                label: "提示词",
-                                placeholder: "输入提示词...",
-                                value: val.stringValue ?? "",
-                                type: .multilineText
-                            ))
-                            addedPositivePrompt = true
-                            break
-                        }
-                    }
+        if let (nodeId, node) = chosenEntry,
+           let inputs = node.inputs?.dictValue {
+            for key in ["text", "prompt"] {
+                if let val = inputs[key], let str = val.stringValue {
+                    fields.append(FormField(
+                        nodeId: nodeId,
+                        fieldName: key,
+                        label: "提示词",
+                        placeholder: "输入提示词...",
+                        value: str,
+                        type: .multilineText
+                    ))
+                    break
                 }
             }
+        }
 
-            // LoadImage — image input (keep all, user may need multiple)
-            if lower.contains("loadimage") {
-                let metaTitle = node.meta?.title ?? "输入图片"
+        // Pass 2: image input nodes
+        for (nodeId, node) in nodeDict {
+            guard let ct = node.classType?.lowercased() else { continue }
+            if ct.contains("loadimage") {
+                let label = node.meta?.title ?? "输入图片"
                 fields.append(FormField(
                     nodeId: nodeId,
                     fieldName: "image",
-                    label: metaTitle,
+                    label: label,
                     placeholder: "图片 URL",
                     value: "",
                     type: .imageInput
