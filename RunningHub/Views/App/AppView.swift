@@ -5,9 +5,8 @@ import PhotosUI
 struct AppView: View {
     @StateObject private var vm = AppViewModel()
     @Environment(\.dismiss) private var dismiss
-    @State private var showSettings = false
     @State private var imagePickerNodeKey: String?
-    @State private var photoPickerItem: PhotosPickerItem?
+    @State private var showImagePicker = false
 
     var body: some View {
         NavigationView {
@@ -18,13 +17,9 @@ struct AppView: View {
                     VStack(spacing: 16) {
                         inputCard
                         if !vm.nodes.isEmpty { nodeFormCard }
-                        if vm.isPolling { pollingCard }
-                        if !vm.outputUrls.isEmpty { outputCard }
-                        if vm.taskFailed { failedCard }
                     }
                     .padding(16)
                     .animation(.spring(response: 0.38, dampingFraction: 0.82), value: vm.nodes.isEmpty)
-                    .animation(.spring(response: 0.38, dampingFraction: 0.82), value: vm.outputUrls.isEmpty)
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
@@ -39,23 +34,15 @@ struct AppView: View {
                         .font(.system(size: 17, weight: .semibold))
                 }
             }
-            // photosPicker 放在 NavigationView 内层，确保能正常弹出
-            .photosPicker(
-                isPresented: Binding(
-                    get: { imagePickerNodeKey != nil },
-                    set: { if !$0 { imagePickerNodeKey = nil } }
-                ),
-                selection: $photoPickerItem,
-                matching: .images
-            )
-            .onChange(of: photoPickerItem) { item in
-                guard let key = imagePickerNodeKey, let item else { return }
-                Task {
-                    if let data = try? await item.loadTransferable(type: Data.self),
-                       let img = UIImage(data: data) {
-                        await MainActor.run { vm.selectedImages[key] = img }
+        }
+        // 用 sheet 包裹 PHPickerView，与工作流图片选择方式一致，避免 NavigationView 层级问题
+        .sheet(isPresented: $showImagePicker) {
+            if let key = imagePickerNodeKey {
+                PHPickerView { image in
+                    if let image {
+                        vm.selectedImages[key] = image
                     }
-                    photoPickerItem = nil
+                    showImagePicker = false
                     imagePickerNodeKey = nil
                 }
             }
@@ -154,11 +141,10 @@ struct AppView: View {
             }
 
             if ft == "IMAGE" || ft == "AUDIO" || ft == "VIDEO" {
-                imagePickerRow(key: key, fieldType: ft, index: index)
+                imagePickerRow(key: key, fieldType: ft)
             } else if ft == "LIST" {
                 listFieldRow(index: index)
             } else {
-                // STRING or other text types
                 TextField(node.fieldValue.isEmpty ? "输入值..." : node.fieldValue,
                           text: Binding(
                             get: { vm.nodes[index].fieldValue },
@@ -174,27 +160,33 @@ struct AppView: View {
         }
     }
 
-    private func imagePickerRow(key: String, fieldType: String, index: Int) -> some View {
+    private func imagePickerRow(key: String, fieldType: String) -> some View {
         Button {
             imagePickerNodeKey = key
+            showImagePicker = true
         } label: {
             HStack(spacing: 10) {
                 if let img = vm.selectedImages[key] {
                     Image(uiImage: img)
                         .resizable()
                         .scaledToFill()
-                        .frame(width: 44, height: 44)
-                        .cornerRadius(8)
+                        .frame(width: 56, height: 56)
+                        .cornerRadius(10)
                         .clipped()
-                    Text("已选择图片")
-                        .font(.system(size: 13))
-                        .foregroundColor(.rhPrimary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("已选择图片")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.rhPrimary)
+                        Text("点击重新选择")
+                            .font(.system(size: 11))
+                            .foregroundColor(.rhSecondary)
+                    }
                 } else {
                     ZStack {
-                        RoundedRectangle(cornerRadius: 8)
+                        RoundedRectangle(cornerRadius: 10)
                             .fill(Color.rhAccentSoft)
-                            .frame(width: 44, height: 44)
-                        RHIcon(name: .image, size: 20, color: .rhAccent)
+                            .frame(width: 56, height: 56)
+                        RHIcon(name: .image, size: 22, color: .rhAccent)
                     }
                     Text("点击选择\(fieldType == "IMAGE" ? "图片" : "文件")")
                         .font(.system(size: 13))
@@ -213,12 +205,7 @@ struct AppView: View {
 
     private func listFieldRow(index: Int) -> some View {
         let node = vm.nodes[index]
-        let options: [String] = {
-            if let arr = node.fieldData?.arrayValue {
-                return arr.compactMap { $0.stringValue }
-            }
-            return []
-        }()
+        let options: [String] = node.fieldData?.arrayValue?.compactMap { $0.stringValue } ?? []
 
         return Group {
             if options.isEmpty {
@@ -263,7 +250,9 @@ struct AppView: View {
     // MARK: - Submit Button
     private var submitButton: some View {
         Button {
-            Task { await vm.submit() }
+            Task {
+                await vm.submit { dismiss() }
+            }
         } label: {
             HStack(spacing: 8) {
                 if vm.isSubmitting {
@@ -280,134 +269,41 @@ struct AppView: View {
             .background(vm.isSubmitting ? Color.rhSecondary.opacity(0.35) : Color.rhAccent)
             .cornerRadius(14)
         }
-        .disabled(vm.isSubmitting || vm.isPolling)
+        .disabled(vm.isSubmitting)
         .buttonStyle(ScaleButtonStyle())
-    }
-
-    // MARK: - Polling Card
-    private var pollingCard: some View {
-        HStack(spacing: 14) {
-            ProgressView().tint(.rhAccent)
-            VStack(alignment: .leading, spacing: 3) {
-                Text("任务运行中")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.rhPrimary)
-                if let tid = vm.taskId {
-                    Text("ID: \(tid)")
-                        .font(.system(size: 11))
-                        .foregroundColor(.rhSecondary)
-                        .lineLimit(1)
-                }
-            }
-            Spacer()
-        }
-        .rhCard(padding: 14)
-    }
-
-    // MARK: - Output Card
-    private var outputCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 6) {
-                RoundedRectangle(cornerRadius: 2).fill(Color.rhAccent).frame(width: 3, height: 14)
-                Text("生成结果")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.rhPrimary)
-            }
-            ForEach(vm.outputUrls, id: \.self) { url in
-                AppOutputItemView(url: url)
-            }
-        }
-        .rhCard()
-    }
-
-    // MARK: - Failed Card
-    private var failedCard: some View {
-        HStack(spacing: 10) {
-            Circle().fill(Color.rhError).frame(width: 8, height: 8)
-            VStack(alignment: .leading, spacing: 3) {
-                Text("任务失败")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.rhError)
-                if let reason = vm.failedReason {
-                    Text(reason)
-                        .font(.system(size: 12))
-                        .foregroundColor(.rhSecondary)
-                }
-            }
-            Spacer()
-        }
-        .rhCard(padding: 14)
     }
 }
 
-// MARK: - App Output Item View
-private struct AppOutputItemView: View {
-    let url: String
+// MARK: - PHPickerView (UIViewControllerRepresentable)
+// 与工作流图片选择保持一致的实现方式，避免 PhotosPicker 在 sheet 内的层级问题
+struct PHPickerView: UIViewControllerRepresentable {
+    let onPick: (UIImage?) -> Void
 
-    var isVideo: Bool {
-        ["mp4", "mov", "webm"].contains(url.split(separator: ".").last?.lowercased() ?? "")
+    func makeCoordinator() -> Coordinator { Coordinator(onPick: onPick) }
+
+    func makeUIViewController(context: Context) -> PHPickerViewController {
+        var config = PHPickerConfiguration()
+        config.filter = .images
+        config.selectionLimit = 1
+        let picker = PHPickerViewController(configuration: config)
+        picker.delegate = context.coordinator
+        return picker
     }
 
-    var body: some View {
-        if isVideo {
-            HStack(spacing: 12) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(Color.rhAccentSoft)
-                        .frame(width: 38, height: 38)
-                    RHIcon(name: .video, size: 18, color: .rhAccent)
-                }
-                Text("视频已生成")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.rhPrimary)
-                Spacer()
-                if let urlObj = URL(string: url) {
-                    Link(destination: urlObj) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "arrow.down.circle.fill").font(.system(size: 18))
-                            Text("下载").font(.system(size: 13, weight: .medium))
-                        }
-                        .foregroundColor(.rhAccent)
-                    }
-                }
+    func updateUIViewController(_ uiViewController: PHPickerViewController, context: Context) {}
+
+    class Coordinator: NSObject, PHPickerViewControllerDelegate {
+        let onPick: (UIImage?) -> Void
+        init(onPick: @escaping (UIImage?) -> Void) { self.onPick = onPick }
+
+        func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+            guard let result = results.first else {
+                onPick(nil)
+                return
             }
-            .padding(12)
-            .background(Color.rhBackground)
-            .cornerRadius(14)
-            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.rhBorder, lineWidth: 1))
-        } else {
-            AsyncImage(url: URL(string: url)) { phase in
-                switch phase {
-                case .success(let img):
-                    img.resizable().scaledToFit().cornerRadius(16)
-                        .overlay(
-                            Link(destination: URL(string: url)!) {
-                                HStack(spacing: 5) {
-                                    Image(systemName: "arrow.up.right.square")
-                                        .font(.system(size: 13, weight: .semibold))
-                                    Text("查看")
-                                        .font(.system(size: 12, weight: .semibold))
-                                }
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 8)
-                                .background(Color.black.opacity(0.55))
-                                .cornerRadius(12)
-                            }
-                            .padding(10),
-                            alignment: .bottomTrailing
-                        )
-                case .failure:
-                    HStack(spacing: 8) {
-                        RHIcon(name: .image, size: 18, color: .rhSecondary)
-                        Text("图片加载失败").font(.system(size: 13)).foregroundColor(.rhSecondary)
-                    }
-                    .frame(height: 80).frame(maxWidth: .infinity)
-                    .background(Color.rhBackground).cornerRadius(14)
-                case .empty:
-                    ProgressView().frame(height: 120)
-                @unknown default:
-                    EmptyView()
+            result.itemProvider.loadObject(ofClass: UIImage.self) { object, _ in
+                DispatchQueue.main.async {
+                    self.onPick(object as? UIImage)
                 }
             }
         }

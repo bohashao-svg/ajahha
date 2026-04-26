@@ -2,6 +2,8 @@ import Foundation
 import UIKit
 
 // MARK: - App (WebApp) ViewModel
+// 提交逻辑与 HomeViewModel 完全一致：
+// 提交成功 → 创建 RHTask → 加入 AppState → TaskPollingService 轮询 → 关闭界面
 @MainActor
 final class AppViewModel: ObservableObject {
 
@@ -10,13 +12,14 @@ final class AppViewModel: ObservableObject {
     @Published var nodes: [AppNodeInfo] = []
     @Published var isLoading: Bool = false
     @Published var isSubmitting: Bool = false
-    @Published var isPolling: Bool = false
     @Published var errorMessage: String?
-    @Published var taskId: String?
-    @Published var outputUrls: [String] = []
-    @Published var taskFailed: Bool = false
-    @Published var failedReason: String?
     @Published var selectedImages: [String: UIImage] = [:]  // nodeId+fieldName → UIImage
+
+    private let appState: AppState
+
+    init(appState: AppState = .shared) {
+        self.appState = appState
+    }
 
     // MARK: - Fetch Nodes
     func fetchNodes() async {
@@ -29,10 +32,6 @@ final class AppViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
         nodes = []
-        outputUrls = []
-        taskId = nil
-        taskFailed = false
-        failedReason = nil
         defer { isLoading = false }
         do {
             nodes = try await APIService.shared.fetchAppNodes(webappId: wid)
@@ -42,20 +41,18 @@ final class AppViewModel: ObservableObject {
     }
 
     // MARK: - Submit Task
-    func submit() async {
+    // 与 HomeViewModel.submit() 逻辑一致：上传图片 → 提交 → 创建 RHTask → AppState.addTask → 关闭
+    func submit(onSuccess: @escaping () -> Void) async {
         guard !nodes.isEmpty else {
             errorMessage = "请先获取节点信息"
             return
         }
         isSubmitting = true
         errorMessage = nil
-        taskFailed = false
-        failedReason = nil
-        outputUrls = []
         defer { isSubmitting = false }
 
         do {
-            // Upload image nodes first
+            // 图片节点先上传，拿到 fileName 替换 fieldValue
             var resolvedNodes = nodes
             for i in resolvedNodes.indices {
                 let key = resolvedNodes[i].nodeId + resolvedNodes[i].fieldName
@@ -71,42 +68,25 @@ final class AppViewModel: ObservableObject {
                 webappId: currentWebappId,
                 nodeInfoList: resolvedNodes
             )
-            taskId = result.taskId
-            isPolling = true
-            await pollOutputs(taskId: result.taskId)
+
+            // 创建任务，加入 AppState，由 TaskPollingService 统一轮询
+            let task = RHTask(
+                id: result.taskId,
+                workflowId: currentWebappId,
+                workflowName: "AI应用",
+                isDuckEncoded: false,
+                duckPassword: nil,
+                isPlusMode: false,
+                workflowType: "AI应用"
+            )
+            appState.addTask(task)
+
+            // 重置表单，关闭界面
+            reset()
+            onSuccess()
+
         } catch {
             errorMessage = error.localizedDescription
-        }
-    }
-
-    // MARK: - Poll Outputs
-    private func pollOutputs(taskId: String) async {
-        let timeout: TimeInterval = 600
-        let start = Date()
-        while true {
-            do {
-                let resp = try await APIService.shared.queryAppOutputs(taskId: taskId)
-                let code = resp.code
-                if code == 0, let items = resp.data, !items.isEmpty {
-                    outputUrls = items.compactMap { $0.fileUrl }
-                    isPolling = false
-                    return
-                } else if code == 805 {
-                    taskFailed = true
-                    failedReason = resp.msg
-                    isPolling = false
-                    return
-                }
-                // 804 = running, 813 = queued — keep polling
-            } catch {
-                // transient error, keep trying
-            }
-            if Date().timeIntervalSince(start) > timeout {
-                errorMessage = "等待超时（超过10分钟）"
-                isPolling = false
-                return
-            }
-            try? await Task.sleep(nanoseconds: 5_000_000_000)
         }
     }
 
@@ -115,10 +95,6 @@ final class AppViewModel: ObservableObject {
         webappInput = ""
         currentWebappId = ""
         nodes = []
-        outputUrls = []
-        taskId = nil
-        taskFailed = false
-        failedReason = nil
         errorMessage = nil
         selectedImages = [:]
     }
@@ -127,15 +103,13 @@ final class AppViewModel: ObservableObject {
 // MARK: - String extension for webappId extraction
 extension String {
     func extractWebappId() -> String {
+        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
         // Handle full URL: https://www.runninghub.cn/ai-detail/1234567890
-        if let url = URL(string: self),
+        if let url = URL(string: trimmed),
            let host = url.host, host.contains("runninghub"),
-           let last = url.pathComponents.last, !last.isEmpty {
+           let last = url.pathComponents.last, !last.isEmpty, last != "/" {
             return last
         }
-        // Plain numeric ID
-        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.allSatisfy({ $0.isNumber }) { return trimmed }
         return trimmed
     }
 }
