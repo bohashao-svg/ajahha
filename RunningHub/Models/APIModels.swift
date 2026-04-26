@@ -12,16 +12,16 @@ struct APIResponse<T: Codable>: Codable {
 struct UserQuota: Codable {
     let maxConcurrency: Int
     let usedConcurrency: Int
-    var availableConcurrency: Int { maxConcurrency - usedConcurrency }
-    var hasAvailableSlot: Bool { availableConcurrency > 0 }
+    let remainConcurrency: Int
+    let dailyQuota: Int?
+    let usedQuota: Int?
+    var hasAvailableSlot: Bool { remainConcurrency > 0 }
 }
 
 // MARK: - Workflow Detail
-// API returns: { "prompt": "<JSON string of ComfyUI nodes>" }
 struct WorkflowDetailResponse: Codable {
-    let prompt: String   // raw JSON string, needs second-pass decode
+    let prompt: String
 
-    // Parsed nodes (ComfyUI dict format: { "nodeId": { class_type, inputs, _meta } })
     var parsedNodes: [String: WorkflowNodeRaw] {
         guard let data = prompt.data(using: .utf8),
               let dict = try? JSONDecoder().decode([String: WorkflowNodeRaw].self, from: data)
@@ -60,7 +60,7 @@ enum WorkflowType {
         if types.contains(where: { $0.contains("video") || $0.contains("animate") }) {
             return .textToVideo
         }
-        if types.contains(where: { $0.contains("ksampler") || $0.contains("sampler") || $0.contains("image") }) {
+        if types.contains(where: { $0.contains("ksampler") || $0.contains("sampler") }) {
             return .textToImage
         }
         return .unknown
@@ -76,7 +76,7 @@ enum WorkflowType {
     }
 }
 
-// MARK: - Duck Node Detection
+// MARK: - Duck Node Info
 struct DuckNodeInfo {
     let nodeId: String
     let password: String?
@@ -87,7 +87,7 @@ struct DuckNodeInfo {
 struct RunWorkflowRequest: Codable {
     let workflowId: String
     let mode: String?
-    let prompt: String?       // full workflow JSON string (from WorkflowDetailResponse.prompt)
+    let prompt: String?
     let nodeInfoList: [NodeInput]
 }
 
@@ -102,19 +102,24 @@ struct RunWorkflowResponse: Codable {
 }
 
 // MARK: - Task Status
+// outputs: { "nodeId": { "images": ["url1", "url2"] } }
 struct TaskStatusItem: Codable {
-    let taskId: String
     let status: String
     let progress: Double?
-    let outputs: [TaskOutput]?
+    let costTime: Int?
+    let outputs: [String: NodeOutputItem]?
     let errorMsg: String?
+
+    // Flatten all image/video URLs from all output nodes
+    var allOutputUrls: [String] {
+        guard let outputs = outputs else { return [] }
+        return outputs.values.flatMap { $0.images ?? [] }
+    }
 }
 
-struct TaskOutput: Codable {
-    let type: String?
-    let url: String?
-    let fileUrl: String?
-    var resolvedUrl: String? { url ?? fileUrl }
+struct NodeOutputItem: Codable {
+    let images: [String]?
+    let videos: [String]?
 }
 
 // MARK: - AnyCodable
@@ -125,13 +130,13 @@ struct AnyCodable: Codable {
 
     init(from decoder: Decoder) throws {
         let c = try decoder.singleValueContainer()
-        if let v = try? c.decode(Bool.self)                  { value = v }
-        else if let v = try? c.decode(Int.self)              { value = v }
-        else if let v = try? c.decode(Double.self)           { value = v }
-        else if let v = try? c.decode(String.self)           { value = v }
+        if let v = try? c.decode(Bool.self)                      { value = v }
+        else if let v = try? c.decode(Int.self)                  { value = v }
+        else if let v = try? c.decode(Double.self)               { value = v }
+        else if let v = try? c.decode(String.self)               { value = v }
         else if let v = try? c.decode([String: AnyCodable].self) { value = v }
-        else if let v = try? c.decode([AnyCodable].self)     { value = v }
-        else                                                 { value = NSNull() }
+        else if let v = try? c.decode([AnyCodable].self)         { value = v }
+        else                                                     { value = NSNull() }
     }
 
     func encode(to encoder: Encoder) throws {

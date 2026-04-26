@@ -9,10 +9,9 @@ final class APIService {
     private let baseURL = "https://www.runninghub.cn"
     private var apiKey: String { StorageService.shared.apiKey ?? "" }
 
-    // MARK: - Generic POST Request
+    // MARK: - POST
     private func post<T: Codable>(path: String, body: [String: Any]) async throws -> T {
         guard !apiKey.isEmpty else { throw APIError.noAPIKey }
-
         guard let url = URL(string: baseURL + path) else { throw APIError.invalidURL }
 
         var req = URLRequest(url: url)
@@ -21,11 +20,27 @@ final class APIService {
         req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         req.timeoutInterval = 30
 
-        // apiKey also required in body
         var fullBody = body
         fullBody["apiKey"] = apiKey
         req.httpBody = try JSONSerialization.data(withJSONObject: fullBody)
 
+        return try await execute(req)
+    }
+
+    // MARK: - GET
+    private func get<T: Codable>(path: String) async throws -> T {
+        guard !apiKey.isEmpty else { throw APIError.noAPIKey }
+        guard let url = URL(string: baseURL + path) else { throw APIError.invalidURL }
+
+        var req = URLRequest(url: url)
+        req.httpMethod = "GET"
+        req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        req.timeoutInterval = 30
+
+        return try await execute(req)
+    }
+
+    private func execute<T: Codable>(_ req: URLRequest) async throws -> T {
         let (data, response) = try await URLSession.shared.data(for: req)
 
         guard let http = response as? HTTPURLResponse else { throw APIError.invalidResponse }
@@ -40,10 +55,12 @@ final class APIService {
 
     // MARK: - Public APIs
 
+    /// GET /api/openapi/accountStatus
     func fetchQuota() async throws -> UserQuota {
-        return try await post(path: "/api/openapi/accountStatus", body: [:])
+        return try await get(path: "/api/openapi/accountStatus")
     }
 
+    /// POST /api/openapi/getJsonApiFormat
     func fetchWorkflowDetail(workflowId: String) async throws -> WorkflowDetailResponse {
         return try await post(
             path: "/api/openapi/getJsonApiFormat",
@@ -51,6 +68,7 @@ final class APIService {
         )
     }
 
+    /// POST /api/openapi/createTask
     func runWorkflow(_ runReq: RunWorkflowRequest) async throws -> RunWorkflowResponse {
         var body: [String: Any] = [
             "workflowId": runReq.workflowId,
@@ -60,6 +78,7 @@ final class APIService {
         return try await post(path: "/api/openapi/createTask", body: body)
     }
 
+    /// POST /api/openapi/getTaskStatus
     func fetchTaskStatus(taskId: String) async throws -> TaskStatusItem {
         return try await post(
             path: "/api/openapi/getTaskStatus",
@@ -67,16 +86,17 @@ final class APIService {
         )
     }
 
+    /// POST /api/openapi/cancelTask
     func cancelTask(taskId: String) async throws {
-        struct Empty: Codable {}
-        let _: Empty = try await post(
+        struct CancelResult: Codable { let success: Bool? }
+        let _: CancelResult = try await post(
             path: "/api/openapi/cancelTask",
             body: ["taskId": taskId]
         )
     }
 }
 
-// MARK: - API Errors
+// MARK: - Errors
 enum APIError: LocalizedError {
     case invalidURL
     case invalidResponse

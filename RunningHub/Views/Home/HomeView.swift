@@ -129,7 +129,7 @@ struct HomeView: View {
                 .fill(appState.canSubmit ? Color.rhSuccess : Color.rhError)
                 .frame(width: 7, height: 7)
             if let q = appState.quota {
-                Text("并发 \(q.usedConcurrency)/\(q.maxConcurrency)  ·  剩余 \(q.availableConcurrency) 个")
+                Text("并发 \(q.usedConcurrency)/\(q.maxConcurrency)  ·  剩余 \(q.remainConcurrency) 个")
                     .font(.system(size: 12))
                     .foregroundColor(.rhSecondary)
             } else {

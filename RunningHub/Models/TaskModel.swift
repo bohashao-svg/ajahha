@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - Task Status Enum
 enum TaskStatus: String, Codable, CaseIterable {
-    case queued    = "QUEUED"
+    case pending   = "PENDING"
     case running   = "RUNNING"
     case completed = "COMPLETED"
     case failed    = "FAILED"
@@ -10,7 +10,7 @@ enum TaskStatus: String, Codable, CaseIterable {
 
     var displayName: String {
         switch self {
-        case .queued:    return "排队中"
+        case .pending:   return "排队中"
         case .running:   return "生成中"
         case .completed: return "已完成"
         case .failed:    return "失败"
@@ -21,17 +21,17 @@ enum TaskStatus: String, Codable, CaseIterable {
 
 // MARK: - Local Task Model
 struct RHTask: Codable, Identifiable {
-    let id: String           // taskId from server
+    let id: String
     let workflowId: String
     let workflowName: String
     var status: TaskStatus
-    var progress: Double     // 0.0 ~ 1.0
+    var progress: Double       // 0.0 ~ 1.0
     var outputUrls: [String]
-    var decodedImageData: Data?  // decoded duck image
+    var decodedImageData: Data?
     var isDuckEncoded: Bool
     var duckPassword: String?
     var isPlusMode: Bool
-    var workflowType: String     // WorkflowType.displayName
+    var workflowType: String
     var errorMsg: String?
     let createdAt: Date
     var updatedAt: Date
@@ -48,7 +48,7 @@ struct RHTask: Codable, Identifiable {
         self.id = id
         self.workflowId = workflowId
         self.workflowName = workflowName
-        self.status = .queued
+        self.status = .pending
         self.progress = 0
         self.outputUrls = []
         self.decodedImageData = nil

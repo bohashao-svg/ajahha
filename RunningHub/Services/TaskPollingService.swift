@@ -1,5 +1,4 @@
 import Foundation
-import Combine
 
 // MARK: - Task Polling Service
 final class TaskPollingService {
@@ -8,15 +7,11 @@ final class TaskPollingService {
     private init() {}
 
     private var pollingTasks: [String: Task<Void, Never>] = [:]
-    private let pollInterval: TimeInterval = 3.0
 
-    // Callback when a task status changes
     var onTaskUpdated: ((RHTask) -> Void)?
 
-    // Start polling for a task
     func startPolling(task: RHTask) {
         guard pollingTasks[task.id] == nil else { return }
-
         let taskId = task.id
         let pollingTask = Task<Void, Never> { [weak self] in
             guard let self = self else { return }
@@ -25,38 +20,36 @@ final class TaskPollingService {
         pollingTasks[taskId] = pollingTask
     }
 
-    // Stop polling for a specific task
     func stopPolling(taskId: String) {
         pollingTasks[taskId]?.cancel()
         pollingTasks.removeValue(forKey: taskId)
     }
 
-    // Stop all polling
     func stopAll() {
         pollingTasks.values.forEach { $0.cancel() }
         pollingTasks.removeAll()
     }
 
-    // Resume polling for all unfinished tasks on app launch
     func resumePolling(for tasks: [RHTask]) {
         tasks.filter { !$0.isFinished }.forEach { startPolling(task: $0) }
     }
 
     // MARK: - Poll Loop
+    // Per docs: PENDING → poll every 5s, RUNNING → poll every 2s
     private func pollLoop(taskId: String, originalTask: RHTask) async {
         var localTask = originalTask
 
         while !Task.isCancelled && !localTask.isFinished {
+            let interval: TimeInterval = localTask.status == .running ? 2.0 : 5.0
             do {
-                try await Task.sleep(nanoseconds: UInt64(pollInterval * 1_000_000_000))
+                try await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
                 guard !Task.isCancelled else { break }
 
                 let item = try await APIService.shared.fetchTaskStatus(taskId: taskId)
-
                 localTask = applyUpdate(item, to: localTask)
                 await MainActor.run { self.onTaskUpdated?(localTask) }
 
-                // If completed and duck-encoded, auto-decode
+                // Auto-decode duck image on completion
                 if localTask.status == .completed,
                    localTask.isDuckEncoded,
                    let url = localTask.primaryOutputUrl,
@@ -69,13 +62,13 @@ final class TaskPollingService {
                         localTask.decodedImageData = decoded
                         await MainActor.run { self.onTaskUpdated?(localTask) }
                     } catch {
-                        // Decode failed — keep duck image, user can retry manually
+                        // Decode failed — user can retry manually
                     }
                 }
 
             } catch {
-                // Network error — retry after interval
-                try? await Task.sleep(nanoseconds: UInt64(pollInterval * 1_000_000_000))
+                // Network error — wait then retry
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
             }
         }
 
@@ -85,8 +78,10 @@ final class TaskPollingService {
     private func applyUpdate(_ item: TaskStatusItem, to task: RHTask) -> RHTask {
         var updated = task
         updated.status = TaskStatus(rawValue: item.status) ?? task.status
-        updated.progress = (item.progress ?? 0) / 100.0
-        updated.outputUrls = item.outputs?.compactMap { $0.resolvedUrl } ?? task.outputUrls
+        // progress is already 0-1 per docs
+        if let p = item.progress { updated.progress = p }
+        let urls = item.allOutputUrls
+        if !urls.isEmpty { updated.outputUrls = urls }
         updated.errorMsg = item.errorMsg
         updated.updatedAt = Date()
         return updated
