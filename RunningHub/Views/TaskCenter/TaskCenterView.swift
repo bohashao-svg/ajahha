@@ -87,7 +87,7 @@ struct TaskCenterView: View {
                 emptyState
             } else {
                 ScrollView {
-                    LazyVStack(spacing: 12) {
+                    LazyVStack(spacing: 10) {
                         ForEach(tasks) { task in
                             HStack(spacing: 8) {
                                 NavigationLink {
@@ -96,11 +96,13 @@ struct TaskCenterView: View {
                                 } label: {
                                     TaskCardView(task: task)
                                 }
-                                .buttonStyle(.plain)
+                                .buttonStyle(ScaleButtonStyle())
 
                                 if task.isFinished {
                                     Button {
-                                        appState.removeTask(id: task.id)
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            appState.removeTask(id: task.id)
+                                        }
                                     } label: {
                                         ZStack {
                                             RoundedRectangle(cornerRadius: 12)
@@ -109,14 +111,18 @@ struct TaskCenterView: View {
                                             RHIcon(name: .trash, size: 15, color: .rhError)
                                         }
                                     }
+                                    .buttonStyle(ScaleButtonStyle())
                                 }
                             }
+                            .transition(.opacity.combined(with: .move(edge: .top)))
                         }
                     }
                     .padding(16)
+                    .animation(.easeInOut(duration: 0.22), value: tasks.count)
                 }
             }
         }
+        .animation(.easeInOut(duration: 0.2), value: vm.selectedTab)
     }
 
     private var emptyState: some View {

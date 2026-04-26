@@ -39,28 +39,17 @@ extension Date {
 
 // MARK: - Color
 extension Color {
-    // 奶白底色
-    static let rhBackground   = Color(hex: "#FDF6F0")
-    // 卡片：暖白带微红
-    static let rhCard         = Color(hex: "#FFFAF7")
-    // 主文字：深暖棕
+    static let rhBackground   = Color(hex: "#F5EDE4")   // 更深的暖米，与卡片拉开对比
+    static let rhCard         = Color(hex: "#FFFCF9")   // 卡片近白
     static let rhPrimary      = Color(hex: "#2D1A0E")
-    // 主题色：柔雾红
     static let rhAccent       = Color(hex: "#C8392B")
-    // 暖金
-    static let rhGold         = Color(hex: "#D4A017")
-    // 次要文字：暖灰
+    static let rhGold         = Color(hex: "#C9920A")   // 金色加深，更易辨认
     static let rhSecondary    = Color(hex: "#8C7B6E")
-    // 成功：柔绿
-    static let rhSuccess      = Color(hex: "#5A9E6F")
-    // 错误：柔红
+    static let rhSuccess      = Color(hex: "#4A8F5F")
     static let rhError        = Color(hex: "#C0392B")
-    // 警告：暖金
-    static let rhWarning      = Color(hex: "#D4A017")
-    // 边框：浅暖米
-    static let rhBorder       = Color(hex: "#EDE0D4")
-    // 浅红背景色（用于按钮、badge底色）
-    static let rhAccentSoft   = Color(hex: "#F9E8E6")
+    static let rhWarning      = Color(hex: "#C9920A")
+    static let rhBorder       = Color(hex: "#E8D5C4")   // 边框加深一点
+    static let rhAccentSoft   = Color(hex: "#F7E4E2")
 
     init(hex: String) {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
@@ -75,12 +64,12 @@ extension Color {
 
 // MARK: - View
 extension View {
-    func rhCard(padding: CGFloat = 16, cornerRadius: CGFloat = 20) -> some View {
+    func rhCard(padding: CGFloat = 16, cornerRadius: CGFloat = 16) -> some View {
         self
             .padding(padding)
             .background(Color.rhCard)
             .cornerRadius(cornerRadius)
-            .shadow(color: Color(hex: "#C8392B").opacity(0.07), radius: 12, x: 0, y: 4)
+            .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 2)
     }
 
     func hideKeyboard() {
@@ -93,12 +82,12 @@ extension View {
 extension TaskStatus {
     var color: Color {
         switch self {
-        case .queued:    return Color(hex: "#D4A017")   // 暖金
-        case .pending:   return Color(hex: "#D4A017")
-        case .running:   return Color(hex: "#C8392B")   // 柔雾红
-        case .completed: return Color(hex: "#5A9E6F")   // 柔绿
-        case .failed:    return Color(hex: "#C0392B")   // 深红
-        case .cancelled: return Color(hex: "#8C7B6E")   // 暖灰
+        case .queued:    return Color(hex: "#C9920A")
+        case .pending:   return Color(hex: "#C9920A")
+        case .running:   return Color(hex: "#C8392B")
+        case .completed: return Color(hex: "#4A8F5F")
+        case .failed:    return Color(hex: "#C0392B")
+        case .cancelled: return Color(hex: "#8C7B6E")
         }
     }
 }

@@ -127,6 +127,7 @@ struct TaskDetailView: View {
                         .fill(LinearGradient(colors: [Color(hex: "#C8392B"), Color.rhGold],
                                              startPoint: .leading, endPoint: .trailing))
                         .frame(width: geo.size.width * liveTask.progress, height: 7)
+                        .animation(.easeInOut(duration: 0.4), value: liveTask.progress)
                 }
             }
             .frame(height: 7)

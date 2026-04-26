@@ -19,12 +19,17 @@ struct HomeView: View {
 
                         if !vm.workflowHistory.isEmpty && vm.workflowDetail == nil {
                             workflowHistoryCard
+                                .transition(.move(edge: .top).combined(with: .opacity))
                         }
                         if vm.workflowDetail != nil {
                             workflowInfoCard
+                                .transition(.opacity.combined(with: .move(edge: .top)))
                             ParameterFormView(fields: $vm.formFields)
+                                .transition(.opacity.combined(with: .move(edge: .top)))
                             plusToggleCard
+                                .transition(.opacity)
                             submitButton
+                                .transition(.opacity)
                         }
                         Spacer(minLength: 20)
                         Text("By：iPhone83Plus")
@@ -35,6 +40,8 @@ struct HomeView: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.top, 12)
+                    .animation(.spring(response: 0.38, dampingFraction: 0.82), value: vm.workflowDetail == nil)
+                    .animation(.spring(response: 0.38, dampingFraction: 0.82), value: vm.workflowHistory.isEmpty)
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
@@ -100,27 +107,34 @@ struct HomeView: View {
                     .foregroundColor(.rhPrimary)
                     .autocapitalization(.none)
                     .disableAutocorrection(true)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .background(Color.rhBackground)
+                    .cornerRadius(10)
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.rhBorder, lineWidth: 1))
                     .onSubmit { Task { await vm.fetchWorkflow() } }
 
                 Button {
                     Task { await vm.fetchWorkflow() }
                 } label: {
                     if vm.isLoading {
-                        ProgressView().frame(width: 36, height: 36)
+                        ProgressView().frame(width: 40, height: 40)
                     } else {
                         RHIcon(name: .refresh, size: 18, color: .white)
-                            .frame(width: 36, height: 36)
+                            .frame(width: 40, height: 40)
                             .background(Color.rhAccent)
                             .cornerRadius(10)
                     }
                 }
                 .disabled(vm.isLoading || vm.workflowInput.isBlank)
+                .buttonStyle(ScaleButtonStyle())
             }
 
             if let err = vm.errorMessage {
                 Text(err)
                     .font(.system(size: 12))
                     .foregroundColor(.rhError)
+                    .transition(.opacity)
             }
 
             HStack(spacing: 6) {
@@ -209,10 +223,11 @@ struct HomeView: View {
             }
             .frame(maxWidth: .infinity)
             .frame(height: 50)
-            .background(canSubmitNow ? Color.rhAccent : Color.rhSecondary.opacity(0.4))
+            .background(canSubmitNow ? Color.rhAccent : Color.rhSecondary.opacity(0.35))
             .cornerRadius(14)
         }
         .disabled(!canSubmitNow)
+        .buttonStyle(ScaleButtonStyle())
     }
 
     // MARK: - Workflow History Card
@@ -270,5 +285,14 @@ struct HomeView: View {
 
     private var canSubmitNow: Bool {
         !vm.isSubmitting && appState.canSubmit && vm.workflowDetail != nil
+    }
+}
+
+// MARK: - Scale Button Style（点击缩放反馈）
+struct ScaleButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
+            .animation(.easeInOut(duration: 0.12), value: configuration.isPressed)
     }
 }

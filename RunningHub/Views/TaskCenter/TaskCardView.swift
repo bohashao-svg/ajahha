@@ -72,6 +72,7 @@ struct TaskCardView: View {
                                                    startPoint: .leading, endPoint: .trailing)
                                 )
                                 .frame(width: geo.size.width * task.progress, height: 4)
+                                .animation(.easeInOut(duration: 0.4), value: task.progress)
                         }
                     }
                     .frame(height: 4)
