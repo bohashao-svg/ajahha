@@ -36,7 +36,7 @@ struct TaskCenterView: View {
     // MARK: - Tab Bar
     private var tabBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: 0) {
                 ForEach(tabs, id: \.self) { tab in
                     let count = vm.tasks(for: tab).count
                     let isSelected = vm.selectedTab == tab
@@ -69,11 +69,13 @@ struct TaskCenterView: View {
                                                  startPoint: .topLeading, endPoint: .bottomTrailing)
                         )
                         .cornerRadius(12)
+                        .frame(maxWidth: .infinity)
                     }
                 }
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 12)
             .padding(.vertical, 10)
+            .frame(minWidth: UIScreen.main.bounds.width)
         }
         .background(Color.rhCard)
         .shadow(color: Color(hex: "#C8392B").opacity(0.05), radius: 6, x: 0, y: 2)

@@ -16,15 +16,15 @@ final class TaskCenterViewModel: ObservableObject {
     }
 
     func cancelTask(_ task: RHTask) {
-        Task {
-            do {
-                try await APIService.shared.cancelTask(taskId: task.id)
-                var updated = task
-                updated.status = .cancelled
-                updated.updatedAt = Date()
-                appState.updateTask(updated)
-            } catch {}
-        }
+        // 先停止轮询，防止轮询结果覆盖取消状态
+        TaskPollingService.shared.stopPolling(taskId: task.id)
+        // 立即本地标记已取消，UI 即时响应
+        var optimistic = task
+        optimistic.status = .cancelled
+        optimistic.updatedAt = Date()
+        appState.updateTask(optimistic)
+        // 异步通知服务端
+        Task { try? await APIService.shared.cancelTask(taskId: task.id) }
     }
 
     func retryDecode(task: RHTask, password: String) {

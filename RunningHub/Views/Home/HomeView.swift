@@ -115,6 +115,7 @@ struct HomeView: View {
         Button { showTaskCenter = true } label: {
             ZStack(alignment: .topTrailing) {
                 RHIcon(name: .tasks, size: 22, color: .rhPrimary)
+                    .padding(8)
                 if appState.pendingCount > 0 {
                     Text("\(appState.pendingCount)")
                         .font(.system(size: 10, weight: .bold))
@@ -122,9 +123,10 @@ struct HomeView: View {
                         .padding(3)
                         .background(Color.rhAccent)
                         .clipShape(Circle())
-                        .offset(x: 6, y: -6)
+                        .offset(x: 2, y: 2)
                 }
             }
+            .contentShape(Rectangle())
         }
     }
 

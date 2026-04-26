@@ -39,24 +39,25 @@ struct AppView: View {
                         .font(.system(size: 17, weight: .semibold))
                 }
             }
-        }
-        .photosPicker(
-            isPresented: Binding(
-                get: { imagePickerNodeKey != nil },
-                set: { if !$0 { imagePickerNodeKey = nil } }
-            ),
-            selection: $photoPickerItem,
-            matching: .images
-        )
-        .onChange(of: photoPickerItem) { item in
-            guard let key = imagePickerNodeKey, let item else { return }
-            Task {
-                if let data = try? await item.loadTransferable(type: Data.self),
-                   let img = UIImage(data: data) {
-                    await MainActor.run { vm.selectedImages[key] = img }
+            // photosPicker 放在 NavigationView 内层，确保能正常弹出
+            .photosPicker(
+                isPresented: Binding(
+                    get: { imagePickerNodeKey != nil },
+                    set: { if !$0 { imagePickerNodeKey = nil } }
+                ),
+                selection: $photoPickerItem,
+                matching: .images
+            )
+            .onChange(of: photoPickerItem) { item in
+                guard let key = imagePickerNodeKey, let item else { return }
+                Task {
+                    if let data = try? await item.loadTransferable(type: Data.self),
+                       let img = UIImage(data: data) {
+                        await MainActor.run { vm.selectedImages[key] = img }
+                    }
+                    photoPickerItem = nil
+                    imagePickerNodeKey = nil
                 }
-                photoPickerItem = nil
-                imagePickerNodeKey = nil
             }
         }
     }
