@@ -10,27 +10,41 @@ final class APIService {
     private var apiKey: String { StorageService.shared.apiKey ?? "" }
 
     // MARK: - Generic Request
+    // RunningHub API: apiKey is passed in the request body for POST,
+    // and as a query parameter for GET requests.
     private func request<T: Codable>(
         path: String,
         method: String = "GET",
         queryItems: [URLQueryItem]? = nil,
-        body: Encodable? = nil
+        body: [String: Any]? = nil
     ) async throws -> T {
+        guard !apiKey.isEmpty else { throw APIError.noAPIKey }
+
         guard var components = URLComponents(string: baseURL + path) else {
             throw APIError.invalidURL
         }
-        components.queryItems = queryItems
+
+        // For GET: append apiKey as query param
+        var allQueryItems = queryItems ?? []
+        if method == "GET" {
+            allQueryItems.append(URLQueryItem(name: "apiKey", value: apiKey))
+        }
+        if !allQueryItems.isEmpty {
+            components.queryItems = allQueryItems
+        }
 
         guard let url = components.url else { throw APIError.invalidURL }
 
         var req = URLRequest(url: url)
         req.httpMethod = method
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.setValue(apiKey, forHTTPHeaderField: "RUNNINGHUB-API-KEY")
         req.timeoutInterval = 30
 
-        if let body = body {
-            req.httpBody = try JSONEncoder().encode(body)
+        // For POST: include apiKey in body
+        if method == "POST" {
+            var bodyDict = body ?? [:]
+            bodyDict["apiKey"] = apiKey
+            req.httpBody = try JSONSerialization.data(withJSONObject: bodyDict)
         }
 
         let (data, response) = try await URLSession.shared.data(for: req)
@@ -52,32 +66,43 @@ final class APIService {
     // MARK: - Public APIs
 
     func fetchQuota() async throws -> UserQuota {
-        return try await request(path: "/v1/user/quota")
+        return try await request(path: "/task/openapi/account/info")
     }
 
     func fetchWorkflowDetail(workflowId: String) async throws -> WorkflowDetailResponse {
         return try await request(
-            path: "/v1/workflow/detail",
+            path: "/task/openapi/workflow/detail",
             queryItems: [URLQueryItem(name: "workflowId", value: workflowId)]
         )
     }
 
-    func runWorkflow(_ req: RunWorkflowRequest) async throws -> RunWorkflowResponse {
-        return try await request(path: "/v1/workflow/run", method: "POST", body: req)
+    func runWorkflow(_ runReq: RunWorkflowRequest) async throws -> RunWorkflowResponse {
+        var body: [String: Any] = [
+            "workflowId": runReq.workflowId,
+            "nodeInfoList": runReq.nodeInfoList.map {
+                ["nodeId": $0.nodeId, "fieldName": $0.fieldName, "fieldValue": $0.fieldValue]
+            }
+        ]
+        if let mode = runReq.mode {
+            body["mode"] = mode
+        }
+        return try await request(path: "/task/openapi/create", method: "POST", body: body)
     }
 
-    func fetchTaskBatch(taskIds: [String]) async throws -> [TaskStatusItem] {
+    func fetchTaskStatus(taskId: String) async throws -> TaskStatusItem {
         return try await request(
-            path: "/v1/task/batch",
-            queryItems: [URLQueryItem(name: "taskIds", value: taskIds.joined(separator: ","))]
+            path: "/task/openapi/status",
+            method: "POST",
+            body: ["taskId": taskId]
         )
     }
 
     func cancelTask(taskId: String) async throws {
         struct Empty: Codable {}
         let _: Empty = try await request(
-            path: "/v1/task/\(taskId)/cancel",
-            method: "POST"
+            path: "/task/openapi/cancel",
+            method: "POST",
+            body: ["taskId": taskId]
         )
     }
 }
@@ -92,11 +117,11 @@ enum APIError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .invalidURL:        return "无效的请求地址"
-        case .invalidResponse:   return "服务器响应异常"
-        case .httpError(let c):  return "HTTP 错误 \(c)"
+        case .invalidURL:         return "无效的请求地址"
+        case .invalidResponse:    return "服务器响应异常"
+        case .httpError(let c):   return "HTTP 错误 \(c)"
         case .serverError(let m): return m
-        case .noAPIKey:          return "请先配置 API 密钥"
+        case .noAPIKey:           return "请先在设置中配置 API 密钥"
         }
     }
 }

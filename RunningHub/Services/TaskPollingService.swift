@@ -51,8 +51,7 @@ final class TaskPollingService {
                 try await Task.sleep(nanoseconds: UInt64(pollInterval * 1_000_000_000))
                 guard !Task.isCancelled else { break }
 
-                let items = try await APIService.shared.fetchTaskBatch(taskIds: [taskId])
-                guard let item = items.first(where: { $0.taskId == taskId }) else { continue }
+                let item = try await APIService.shared.fetchTaskStatus(taskId: taskId)
 
                 localTask = applyUpdate(item, to: localTask)
                 await MainActor.run { self.onTaskUpdated?(localTask) }
