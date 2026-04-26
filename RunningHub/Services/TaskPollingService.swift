@@ -57,20 +57,7 @@ final class TaskPollingService {
                 let snapshot = localTask
                 await MainActor.run { self.onTaskUpdated?(snapshot) }
 
-                // Auto-decode duck image on completion
-                if localTask.status == .completed,
-                   localTask.isDuckEncoded,
-                   let url = localTask.primaryOutputUrl,
-                   let password = localTask.duckPassword,
-                   localTask.decodedImageData == nil {
-                    if let decoded = try? await DuckDecodeService.shared.decode(
-                        imageUrl: url, password: password
-                    ) {
-                        localTask.decodedImageData = decoded
-                        let snap2 = localTask
-                        await MainActor.run { self.onTaskUpdated?(snap2) }
-                    }
-                }
+                // No auto-decode — user triggers decode manually
 
             } catch {
                 try? await Task.sleep(nanoseconds: 5_000_000_000)
