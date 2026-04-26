@@ -224,6 +224,7 @@ struct TaskDetailView: View {
             Spacer()
         }
     }
+}
 
 // MARK: - Output Item View
 private struct OutputItemView: View {
