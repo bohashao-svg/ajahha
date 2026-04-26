@@ -90,8 +90,7 @@ struct DuckNodeInfo {
 // MARK: - Task Submission
 struct RunWorkflowRequest: Codable {
     let workflowId: String
-    let mode: String?
-    let prompt: String?
+    let mode: String?       // instanceType: "plus"
     let nodeInfoList: [NodeInput]
 }
 
@@ -101,29 +100,37 @@ struct NodeInput: Codable {
     let fieldValue: String
 }
 
+// POST /task/openapi/create response
 struct RunWorkflowResponse: Codable {
     let taskId: String
+    let taskStatus: String?
+    let netWssUrl: String?
 }
 
-// MARK: - Task Status
-// outputs: { "nodeId": { "images": ["url1", "url2"] } }
-struct TaskStatusItem: Codable {
-    let status: String
-    let progress: Double?
-    let costTime: Int?
-    let outputs: [String: NodeOutputItem]?
-    let errorMsg: String?
-
-    // Flatten all image/video URLs from all output nodes
-    var allOutputUrls: [String] {
-        guard let outputs = outputs else { return [] }
-        return outputs.values.flatMap { $0.images ?? [] }
-    }
+// MARK: - Task Outputs
+// POST /task/openapi/outputs
+// Returns list when done, dict (with netWssUrl) when still running, null when queued
+struct TaskOutputsResponse: Codable {
+    // When task is complete: array of file results
+    // We decode via custom logic in APIService
 }
 
-struct NodeOutputItem: Codable {
-    let images: [String]?
-    let videos: [String]?
+struct TaskOutputFile: Codable {
+    let fileUrl: String
+    let fileType: String
+    let nodeId: String?
+}
+
+// Intermediate state while task is running (outputs returns a dict)
+struct TaskRunningData: Codable {
+    let netWssUrl: String?
+    let taskStatus: String?
+}
+
+// MARK: - WebSocket message types
+struct WsMessage: Codable {
+    let type: String
+    let data: AnyCodable?
 }
 
 // MARK: - AnyCodable
@@ -158,4 +165,7 @@ struct AnyCodable: Codable {
 
     var stringValue: String? { value as? String }
     var dictValue: [String: AnyCodable]? { value as? [String: AnyCodable] }
+    var arrayValue: [AnyCodable]? { value as? [AnyCodable] }
+    var intValue: Int? { value as? Int }
+    var doubleValue: Double? { value as? Double }
 }

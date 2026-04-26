@@ -50,7 +50,7 @@ struct RHTask: Codable, Identifiable {
         self.id = id
         self.workflowId = workflowId
         self.workflowName = workflowName
-        self.status = .pending
+        self.status = .queued
         self.progress = 0
         self.outputUrls = []
         self.decodedImageData = nil
