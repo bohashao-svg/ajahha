@@ -76,6 +76,7 @@ final class AppViewModel: ObservableObject {
                 workflowName: "AI应用",
                 isDuckEncoded: false,
                 duckPassword: nil,
+                isTTEncoded: false,
                 isPlusMode: false,
                 workflowType: "AI应用"
             )

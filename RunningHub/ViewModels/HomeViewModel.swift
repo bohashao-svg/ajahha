@@ -231,6 +231,7 @@ final class HomeViewModel: ObservableObject {
                 workflowName: currentWorkflowId,
                 isDuckEncoded: duckNodeInfo != nil,
                 duckPassword: duckPassword?.isEmpty == false ? duckPassword : duckNodeInfo?.password,
+                isTTEncoded: TTDecodeService.shared.detectTTNode(in: workflowDetail?.allNodes ?? []),
                 isPlusMode: isPlusMode,
                 workflowType: workflowType.displayName
             )

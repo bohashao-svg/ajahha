@@ -12,6 +12,10 @@ struct TaskDetailView: View {
     @State private var showRetrySheet = false
     @State private var isDecoding = false
     @State private var decodeError: String?
+    @State private var ttRetryPassword = ""
+    @State private var showTTRetrySheet = false
+    @State private var isTTDecoding = false
+    @State private var ttDecodeError: String?
     @State private var saveToast: String?
 
     private var liveTask: RHTask {
@@ -27,6 +31,7 @@ struct TaskDetailView: View {
                     infoCard
                     if !liveTask.outputUrls.isEmpty { outputSection }
                     if liveTask.isDuckEncoded { duckSection }
+                    if liveTask.isTTEncoded { ttSection }
                     if liveTask.status == .running || liveTask.status == .pending || liveTask.status == .queued {
                         cancelButton
                     }
@@ -59,6 +64,9 @@ struct TaskDetailView: View {
         }
         .sheet(isPresented: $showRetrySheet) {
             retryDecodeSheet
+        }
+        .sheet(isPresented: $showTTRetrySheet) {
+            ttRetryDecodeSheet
         }
     }
 
@@ -308,6 +316,153 @@ struct TaskDetailView: View {
         }
     }
 
+    // MARK: - TT Section
+    private var ttSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 6) {
+                Image(systemName: "wand.and.stars")
+                    .font(.system(size: 14))
+                    .foregroundColor(.rhAccent)
+                Text("TT Tool 解码")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.rhPrimary)
+                Spacer()
+            }
+
+            if let decoded = liveTask.ttDecodedData {
+                if let uiImage = UIImage(data: decoded) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .scaledToFit()
+                        .cornerRadius(16)
+                        .overlay(
+                            Button { saveImage(uiImage) } label: {
+                                HStack(spacing: 5) {
+                                    Image(systemName: "square.and.arrow.down")
+                                        .font(.system(size: 13, weight: .semibold))
+                                    Text("保存")
+                                        .font(.system(size: 12, weight: .semibold))
+                                }
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(Color.black.opacity(0.55))
+                                .cornerRadius(12)
+                            }
+                            .padding(12),
+                            alignment: .bottomTrailing
+                        )
+                } else {
+                    HStack(spacing: 12) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(Color.rhAccentSoft)
+                                .frame(width: 44, height: 44)
+                            RHIcon(name: .video, size: 20, color: .rhAccent)
+                        }
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("解码成功（视频）")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(.rhPrimary)
+                            Text("点击保存到相册")
+                                .font(.system(size: 12))
+                                .foregroundColor(.rhSecondary)
+                        }
+                        Spacer()
+                        Button { saveVideo(decoded) } label: {
+                            HStack(spacing: 5) {
+                                Image(systemName: "square.and.arrow.down")
+                                    .font(.system(size: 13, weight: .semibold))
+                                Text("保存")
+                                    .font(.system(size: 12, weight: .semibold))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Color.rhAccent)
+                            .cornerRadius(12)
+                        }
+                    }
+                    .padding(12)
+                    .background(Color.rhBackground)
+                    .cornerRadius(16)
+                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.rhBorder, lineWidth: 1))
+                }
+            } else if liveTask.status == .completed, let url = liveTask.primaryOutputUrl {
+                ZStack(alignment: .bottomLeading) {
+                    AsyncImage(url: URL(string: url)) { phase in
+                        switch phase {
+                        case .success(let img):
+                            img.resizable().scaledToFit().cornerRadius(16)
+                        case .empty:
+                            ProgressView().frame(height: 120)
+                        default:
+                            Color.rhBackground.frame(height: 120).cornerRadius(16)
+                        }
+                    }
+                    ttOverlay
+                }
+
+                if let err = ttDecodeError {
+                    HStack(spacing: 6) {
+                        Circle().fill(Color.rhError).frame(width: 6, height: 6)
+                        Text(err)
+                            .font(.system(size: 12))
+                            .foregroundColor(.rhError)
+                    }
+                }
+            }
+        }
+        .rhCard()
+    }
+
+    private var ttOverlay: some View {
+        HStack(spacing: 8) {
+            if isTTDecoding {
+                ProgressView()
+                    .tint(.white)
+                    .padding(10)
+                    .background(Color.black.opacity(0.55))
+                    .cornerRadius(12)
+            } else {
+                Button { showTTRetrySheet = true } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "lock.open.fill")
+                            .font(.system(size: 12))
+                        Text("解码")
+                            .font(.system(size: 13, weight: .bold))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(
+                        LinearGradient(colors: [Color.rhAccent, Color.rhAccent.opacity(0.8)],
+                                       startPoint: .topLeading, endPoint: .bottomTrailing)
+                    )
+                    .cornerRadius(12)
+                }
+            }
+        }
+        .padding(10)
+    }
+
+    private func triggerTTDecode(password: String) {
+        guard let url = liveTask.primaryOutputUrl else { return }
+        isTTDecoding = true
+        ttDecodeError = nil
+        Task {
+            do {
+                let file = try await TTDecodeService.shared.decode(imageUrl: url, password: password)
+                var updated = liveTask
+                updated.ttDecodedData = file.data
+                appState.updateTask(updated)
+            } catch {
+                ttDecodeError = "解码失败：\(error.localizedDescription)"
+            }
+            isTTDecoding = false
+        }
+    }
+
     // MARK: - Cancel Button
     private var cancelButton: some View {
         Button { vm.cancelTask(liveTask) } label: {
@@ -366,6 +521,53 @@ struct TaskDetailView: View {
                         .frame(maxWidth: .infinity)
                         .frame(height: 46)
                         .background(Color.rhWarning)
+                        .cornerRadius(12)
+                }
+            }
+            .padding(.horizontal, 20)
+
+            Spacer()
+        }
+        .background(Color.rhBackground.ignoresSafeArea())
+    }
+
+    // MARK: - TT Retry Decode Sheet
+    private var ttRetryDecodeSheet: some View {
+        VStack(spacing: 20) {
+            Text("TT Tool 解码")
+                .font(.system(size: 16, weight: .semibold))
+                .padding(.top, 28)
+
+            Text("留空则使用默认密码解码")
+                .font(.system(size: 12))
+                .foregroundColor(.rhSecondary)
+
+            SecureField("留空则使用默认密码", text: $ttRetryPassword)
+                .font(.system(size: 14))
+                .padding(12)
+                .background(Color.rhBackground)
+                .cornerRadius(12)
+                .padding(.horizontal, 20)
+
+            HStack(spacing: 12) {
+                Button("取消") { showTTRetrySheet = false }
+                    .font(.system(size: 15))
+                    .foregroundColor(.rhSecondary)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 46)
+                    .background(Color.rhBackground)
+                    .cornerRadius(12)
+
+                Button {
+                    showTTRetrySheet = false
+                    triggerTTDecode(password: ttRetryPassword)
+                } label: {
+                    Text("解码")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 46)
+                        .background(Color.rhAccent)
                         .cornerRadius(12)
                 }
             }

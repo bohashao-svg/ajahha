@@ -32,6 +32,8 @@ struct RHTask: Codable, Identifiable {
     var decodedImageData: Data?
     var isDuckEncoded: Bool
     var duckPassword: String?
+    var isTTEncoded: Bool
+    var ttDecodedData: Data?
     var isPlusMode: Bool
     var workflowType: String
     var errorMsg: String?
@@ -44,6 +46,7 @@ struct RHTask: Codable, Identifiable {
         workflowName: String,
         isDuckEncoded: Bool,
         duckPassword: String?,
+        isTTEncoded: Bool,
         isPlusMode: Bool,
         workflowType: String
     ) {
@@ -56,6 +59,8 @@ struct RHTask: Codable, Identifiable {
         self.decodedImageData = nil
         self.isDuckEncoded = isDuckEncoded
         self.duckPassword = duckPassword
+        self.isTTEncoded = isTTEncoded
+        self.ttDecodedData = nil
         self.isPlusMode = isPlusMode
         self.workflowType = workflowType
         self.errorMsg = nil
