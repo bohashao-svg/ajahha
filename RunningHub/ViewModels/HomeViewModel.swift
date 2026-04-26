@@ -78,21 +78,19 @@ final class HomeViewModel: ObservableObject {
         })
         let chosenEntry = explicitPositive ?? textNodes.first
 
-        if let (nodeId, node) = chosenEntry,
-           let inputs = node.inputs?.dictValue {
-            for key in ["text", "prompt"] {
-                if let val = inputs[key], let str = val.stringValue {
-                    fields.append(FormField(
-                        nodeId: nodeId,
-                        fieldName: key,
-                        label: "提示词",
-                        placeholder: "输入提示词...",
-                        value: str,
-                        type: .multilineText
-                    ))
-                    break
-                }
-            }
+        if let (nodeId, node) = chosenEntry {
+            let inputs = node.inputs?.dictValue ?? [:]
+            // Default value may be a string, or absent (node output wired in) — show field regardless
+            let defaultText = inputs["text"]?.stringValue ?? inputs["prompt"]?.stringValue ?? ""
+            let fieldName = inputs["text"] != nil ? "text" : "prompt"
+            fields.append(FormField(
+                nodeId: nodeId,
+                fieldName: fieldName,
+                label: "提示词",
+                placeholder: "输入提示词...",
+                value: defaultText,
+                type: .multilineText
+            ))
         }
 
         // Pass 2: image input nodes
