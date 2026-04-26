@@ -30,6 +30,11 @@ final class HomeViewModel: ObservableObject {
             errorMessage = "请输入有效的工作流 ID 或链接"
             return
         }
+        // 先清空旧数据，避免切换工作流时显示上一个的表单
+        workflowDetail = nil
+        formFields = []
+        duckNodeInfo = nil
+        workflowType = .unknown
         currentWorkflowId = workflowId
         isLoading = true
         errorMessage = nil

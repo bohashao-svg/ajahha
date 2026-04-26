@@ -24,22 +24,12 @@ struct SettingsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    HStack(spacing: 6) {
-                        StarDecoration(size: 12, color: .rhGold)
-                        Text("设置")
-                            .font(.system(size: 17, weight: .bold))
-                            .foregroundColor(.rhAccent)
-                        StarDecoration(size: 12, color: .rhGold)
-                    }
+                    Text("设置")
+                        .font(.system(size: 17, weight: .semibold))
                 }
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button { dismiss() } label: {
-                        ZStack {
-                            Circle()
-                                .fill(Color.rhAccentSoft)
-                                .frame(width: 32, height: 32)
-                            RHIcon(name: .close, size: 14, color: .rhAccent)
-                        }
+                        RHIcon(name: .close, size: 20, color: .rhSecondary)
                     }
                 }
             }

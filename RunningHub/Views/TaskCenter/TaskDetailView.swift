@@ -53,13 +53,8 @@ struct TaskDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
-                HStack(spacing: 6) {
-                    StarDecoration(size: 12, color: .rhGold)
-                    Text("任务详情")
-                        .font(.system(size: 17, weight: .bold))
-                        .foregroundColor(.rhAccent)
-                    StarDecoration(size: 12, color: .rhGold)
-                }
+                Text("任务详情")
+                    .font(.system(size: 17, weight: .semibold))
             }
         }
         .sheet(isPresented: $showRetrySheet) {
@@ -164,13 +159,12 @@ struct TaskDetailView: View {
     private var duckSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 6) {
-                RoundedRectangle(cornerRadius: 2).fill(Color.rhGold).frame(width: 3, height: 14)
-                RHIcon(name: .duck, size: 15, color: .rhGold)
-                Text("鸭鸭图")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.rhPrimary)
-                Spacer()
-            }
+                    RHIcon(name: .duck, size: 15, color: .rhWarning)
+                    Text("鸭鸭图")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.rhPrimary)
+                    Spacer()
+                }
 
             if let decoded = liveTask.decodedImageData, let uiImage = UIImage(data: decoded) {
                 Image(uiImage: uiImage)
@@ -292,16 +286,11 @@ struct TaskDetailView: View {
 
     // MARK: - Retry Decode Sheet
     private var retryDecodeSheet: some View {
+        // 解码弹窗
         VStack(spacing: 20) {
-            // 顶部装饰
-            HStack(spacing: 8) {
-                StarDecoration(size: 12, color: .rhGold)
-                Text("输入解码密码")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(.rhPrimary)
-                StarDecoration(size: 12, color: .rhGold)
-            }
-            .padding(.top, 28)
+            Text("输入解码密码")
+                .font(.system(size: 16, weight: .semibold))
+                .padding(.top, 28)
 
             Text("留空则以无密码方式解码")
                 .font(.system(size: 12))
@@ -311,37 +300,29 @@ struct TaskDetailView: View {
                 .font(.system(size: 14))
                 .padding(12)
                 .background(Color.rhBackground)
-                .cornerRadius(14)
-                .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.rhBorder, lineWidth: 1))
+                .cornerRadius(12)
                 .padding(.horizontal, 20)
 
             HStack(spacing: 12) {
                 Button("取消") { showRetrySheet = false }
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.system(size: 15))
                     .foregroundColor(.rhSecondary)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 48)
+                    .frame(height: 46)
                     .background(Color.rhBackground)
-                    .cornerRadius(16)
+                    .cornerRadius(12)
 
                 Button {
                     showRetrySheet = false
                     triggerDecode(password: retryPassword)
                 } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "lock.open.fill")
-                            .font(.system(size: 13))
-                        Text("解码")
-                            .font(.system(size: 15, weight: .bold))
-                    }
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 48)
-                    .background(
-                        LinearGradient(colors: [Color.rhGold, Color(hex: "#B8860B")],
-                                       startPoint: .leading, endPoint: .trailing)
-                    )
-                    .cornerRadius(16)
+                    Text("解码")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 46)
+                        .background(Color.rhWarning)
+                        .cornerRadius(12)
                 }
             }
             .padding(.horizontal, 20)

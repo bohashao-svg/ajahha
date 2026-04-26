@@ -6,15 +6,10 @@ struct ParameterFormView: View {
 
     var body: some View {
         if !fields.isEmpty {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(spacing: 6) {
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(Color.rhAccent)
-                        .frame(width: 3, height: 14)
-                    Text("参数配置")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.rhPrimary)
-                }
+            VStack(alignment: .leading, spacing: 12) {
+                Text("参数配置")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.rhSecondary)
 
                 ForEach($fields) { $field in
                     FieldRow(field: $field)
