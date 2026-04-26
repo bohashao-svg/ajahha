@@ -5,8 +5,6 @@ import PhotosUI
 struct AppView: View {
     @StateObject private var vm = AppViewModel()
     @Environment(\.dismiss) private var dismiss
-    @State private var imagePickerNodeKey: String?
-    @State private var showImagePicker = false
 
     var body: some View {
         NavigationView {
@@ -32,18 +30,6 @@ struct AppView: View {
                 ToolbarItem(placement: .principal) {
                     Text("AI 应用")
                         .font(.system(size: 17, weight: .semibold))
-                }
-            }
-        }
-        // 用 sheet 包裹 PHPickerView，与工作流图片选择方式一致，避免 NavigationView 层级问题
-        .sheet(isPresented: $showImagePicker) {
-            if let key = imagePickerNodeKey {
-                PHPickerView { image in
-                    if let image {
-                        vm.selectedImages[key] = image
-                    }
-                    showImagePicker = false
-                    imagePickerNodeKey = nil
                 }
             }
         }
@@ -107,7 +93,7 @@ struct AppView: View {
             .padding(.bottom, 12)
 
             ForEach(vm.nodes.indices, id: \.self) { i in
-                nodeRow(index: i)
+                AppNodeRow(node: $vm.nodes[i], selectedImages: $vm.selectedImages)
                 if i < vm.nodes.count - 1 {
                     Divider().padding(.vertical, 8)
                 }
@@ -120,139 +106,10 @@ struct AppView: View {
         .rhCard()
     }
 
-    private func nodeRow(index: Int) -> some View {
-        let node = vm.nodes[index]
-        let key = node.nodeId + node.fieldName
-        let ft = node.fieldType.uppercased()
-
-        return VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
-                Text(node.description ?? node.fieldName)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.rhPrimary)
-                Spacer()
-                Text(ft)
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundColor(.rhAccent)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color.rhAccentSoft)
-                    .cornerRadius(5)
-            }
-
-            if ft == "IMAGE" || ft == "AUDIO" || ft == "VIDEO" {
-                imagePickerRow(key: key, fieldType: ft)
-            } else if ft == "LIST" {
-                listFieldRow(index: index)
-            } else {
-                TextField(node.fieldValue.isEmpty ? "输入值..." : node.fieldValue,
-                          text: Binding(
-                            get: { vm.nodes[index].fieldValue },
-                            set: { vm.nodes[index].fieldValue = $0 }
-                          ))
-                    .font(.system(size: 14))
-                    .foregroundColor(.rhPrimary)
-                    .padding(10)
-                    .background(Color.rhBackground)
-                    .cornerRadius(10)
-                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.rhBorder, lineWidth: 1))
-            }
-        }
-    }
-
-    private func imagePickerRow(key: String, fieldType: String) -> some View {
-        Button {
-            imagePickerNodeKey = key
-            showImagePicker = true
-        } label: {
-            HStack(spacing: 10) {
-                if let img = vm.selectedImages[key] {
-                    Image(uiImage: img)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 56, height: 56)
-                        .cornerRadius(10)
-                        .clipped()
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("已选择图片")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(.rhPrimary)
-                        Text("点击重新选择")
-                            .font(.system(size: 11))
-                            .foregroundColor(.rhSecondary)
-                    }
-                } else {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(Color.rhAccentSoft)
-                            .frame(width: 56, height: 56)
-                        RHIcon(name: .image, size: 22, color: .rhAccent)
-                    }
-                    Text("点击选择\(fieldType == "IMAGE" ? "图片" : "文件")")
-                        .font(.system(size: 13))
-                        .foregroundColor(.rhSecondary)
-                }
-                Spacer()
-                RHIcon(name: .chevron, size: 12, color: .rhBorder)
-            }
-            .padding(10)
-            .background(Color.rhBackground)
-            .cornerRadius(10)
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.rhBorder, lineWidth: 1))
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func listFieldRow(index: Int) -> some View {
-        let node = vm.nodes[index]
-        let options: [String] = node.fieldData?.arrayValue?.compactMap { $0.stringValue } ?? []
-
-        return Group {
-            if options.isEmpty {
-                TextField("输入值...", text: Binding(
-                    get: { vm.nodes[index].fieldValue },
-                    set: { vm.nodes[index].fieldValue = $0 }
-                ))
-                .font(.system(size: 14))
-                .foregroundColor(.rhPrimary)
-                .padding(10)
-                .background(Color.rhBackground)
-                .cornerRadius(10)
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.rhBorder, lineWidth: 1))
-            } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(options, id: \.self) { opt in
-                            let selected = vm.nodes[index].fieldValue == opt
-                            Button {
-                                vm.nodes[index].fieldValue = opt
-                            } label: {
-                                Text(opt)
-                                    .font(.system(size: 12, weight: selected ? .semibold : .regular))
-                                    .foregroundColor(selected ? .white : .rhPrimary)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 7)
-                                    .background(selected ? Color.rhAccent : Color.rhBackground)
-                                    .cornerRadius(8)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 8)
-                                            .stroke(selected ? Color.clear : Color.rhBorder, lineWidth: 1)
-                                    )
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     // MARK: - Submit Button
     private var submitButton: some View {
         Button {
-            Task {
-                await vm.submit { dismiss() }
-            }
+            Task { await vm.submit { dismiss() } }
         } label: {
             HStack(spacing: 8) {
                 if vm.isSubmitting {
@@ -274,36 +131,133 @@ struct AppView: View {
     }
 }
 
-// MARK: - PHPickerView (UIViewControllerRepresentable)
-// 与工作流图片选择保持一致的实现方式，避免 PhotosPicker 在 sheet 内的层级问题
-struct PHPickerView: UIViewControllerRepresentable {
-    let onPick: (UIImage?) -> Void
+// MARK: - App Node Row
+// 每个节点独立持有 @State photoItem，与 ParameterFormView 的 FieldRow 写法完全一致
+private struct AppNodeRow: View {
+    @Binding var node: AppNodeInfo
+    @Binding var selectedImages: [String: UIImage]
+    @State private var photoItem: PhotosPickerItem?
 
-    func makeCoordinator() -> Coordinator { Coordinator(onPick: onPick) }
+    private var key: String { node.nodeId + node.fieldName }
+    private var ft: String { node.fieldType.uppercased() }
 
-    func makeUIViewController(context: Context) -> PHPickerViewController {
-        var config = PHPickerConfiguration()
-        config.filter = .images
-        config.selectionLimit = 1
-        let picker = PHPickerViewController(configuration: config)
-        picker.delegate = context.coordinator
-        return picker
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Text(node.description ?? node.fieldName)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.rhPrimary)
+                Spacer()
+                Text(ft)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(.rhAccent)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.rhAccentSoft)
+                    .cornerRadius(5)
+            }
+
+            if ft == "IMAGE" || ft == "AUDIO" || ft == "VIDEO" {
+                imagePickerField
+            } else if ft == "LIST" {
+                listField
+            } else {
+                TextField(node.fieldValue.isEmpty ? "输入值..." : node.fieldValue,
+                          text: $node.fieldValue)
+                    .font(.system(size: 14))
+                    .foregroundColor(.rhPrimary)
+                    .padding(10)
+                    .background(Color.rhBackground)
+                    .cornerRadius(10)
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.rhBorder, lineWidth: 1))
+            }
+        }
     }
 
-    func updateUIViewController(_ uiViewController: PHPickerViewController, context: Context) {}
-
-    class Coordinator: NSObject, PHPickerViewControllerDelegate {
-        let onPick: (UIImage?) -> Void
-        init(onPick: @escaping (UIImage?) -> Void) { self.onPick = onPick }
-
-        func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
-            guard let result = results.first else {
-                onPick(nil)
-                return
+    // 与 ParameterFormView imageInput case 完全一致的写法
+    private var imagePickerField: some View {
+        PhotosPicker(selection: $photoItem, matching: .images) {
+            HStack(spacing: 10) {
+                if let img = selectedImages[key] {
+                    Image(uiImage: img)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 52, height: 52)
+                        .cornerRadius(10)
+                        .clipped()
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("已选择图片")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.rhPrimary)
+                        Text("点击重新选择")
+                            .font(.system(size: 11))
+                            .foregroundColor(.rhSecondary)
+                    }
+                } else {
+                    Image(systemName: "photo.on.rectangle.angled")
+                        .font(.system(size: 22))
+                        .foregroundColor(.rhAccent.opacity(0.7))
+                        .frame(width: 52, height: 52)
+                        .background(Color.rhAccentSoft)
+                        .cornerRadius(10)
+                    Text("从相册选择图片")
+                        .font(.system(size: 14))
+                        .foregroundColor(.rhSecondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13))
+                    .foregroundColor(.rhBorder)
             }
-            result.itemProvider.loadObject(ofClass: UIImage.self) { object, _ in
-                DispatchQueue.main.async {
-                    self.onPick(object as? UIImage)
+            .padding(10)
+            .background(Color.rhBackground)
+            .cornerRadius(12)
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.rhBorder, lineWidth: 1))
+        }
+        .onChange(of: photoItem) { newItem in
+            guard let newItem else { return }
+            Task {
+                if let data = try? await newItem.loadTransferable(type: Data.self),
+                   let img = UIImage(data: data) {
+                    selectedImages[key] = img
+                    node.fieldValue = "pending_upload"
+                }
+            }
+        }
+    }
+
+    private var listField: some View {
+        let options: [String] = node.fieldData?.arrayValue?.compactMap { $0.stringValue } ?? []
+        return Group {
+            if options.isEmpty {
+                TextField("输入值...", text: $node.fieldValue)
+                    .font(.system(size: 14))
+                    .foregroundColor(.rhPrimary)
+                    .padding(10)
+                    .background(Color.rhBackground)
+                    .cornerRadius(10)
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.rhBorder, lineWidth: 1))
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(options, id: \.self) { opt in
+                            let selected = node.fieldValue == opt
+                            Button { node.fieldValue = opt } label: {
+                                Text(opt)
+                                    .font(.system(size: 12, weight: selected ? .semibold : .regular))
+                                    .foregroundColor(selected ? .white : .rhPrimary)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 7)
+                                    .background(selected ? Color.rhAccent : Color.rhBackground)
+                                    .cornerRadius(8)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .stroke(selected ? Color.clear : Color.rhBorder, lineWidth: 1)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
                 }
             }
         }
