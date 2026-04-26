@@ -191,15 +191,21 @@ struct TaskDetailView: View {
 
     // MARK: - Retry Decode Sheet
     private var retryDecodeSheet: some View {
-        NavigationView {
-            VStack(spacing: 20) {
-                Text("输入解码密码")
-                    .font(.system(size: 16, weight: .semibold))
-                SecureField("密码", text: $retryPassword)
-                    .padding(12)
+        VStack(spacing: 20) {
+            Text("输入解码密码")
+                .font(.system(size: 16, weight: .semibold))
+                .padding(.top, 24)
+            SecureField("密码", text: $retryPassword)
+                .padding(12)
+                .background(Color.rhBackground)
+                .cornerRadius(10)
+                .padding(.horizontal)
+            HStack(spacing: 12) {
+                Button("取消") { showRetrySheet = false }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 46)
                     .background(Color.rhBackground)
-                    .cornerRadius(10)
-                    .padding(.horizontal)
+                    .cornerRadius(12)
                 Button {
                     vm.retryDecode(task: liveTask, password: retryPassword)
                     showRetrySheet = false
@@ -209,24 +215,15 @@ struct TaskDetailView: View {
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .frame(height: 46)
-                        .background(Color.rhAccent)
+                        .background(retryPassword.isEmpty ? Color.rhSecondary.opacity(0.4) : Color.rhAccent)
                         .cornerRadius(12)
-                        .padding(.horizontal)
                 }
                 .disabled(retryPassword.isEmpty)
-                Spacer()
             }
-            .padding(.top, 24)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("取消") { showRetrySheet = false }
-                }
-            }
+            .padding(.horizontal)
+            Spacer()
         }
-        .frame(height: 240)
     }
-}
 
 // MARK: - Output Item View
 private struct OutputItemView: View {

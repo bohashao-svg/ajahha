@@ -68,7 +68,7 @@ private struct FieldRow: View {
                     .font(.system(size: 14))
                     .foregroundColor(.rhPrimary)
                     .frame(minHeight: 80, maxHeight: 160)
-                    .onAppear { UITextView.appearance().backgroundColor = .clear }
+                    .background(Color.rhBackground)
             }
             .padding(10)
             .background(Color.rhBackground)
