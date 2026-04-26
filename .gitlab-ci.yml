@@ -20,14 +20,14 @@ build_ipa:
       -scheme "$SCHEME"
       -configuration "$CONFIGURATION"
       -archivePath "$ARCHIVE_PATH"
-      -allowProvisioningUpdates
-      CODE_SIGN_STYLE=Automatic
-      DEVELOPMENT_TEAM=$DEVELOPMENT_TEAM
+      CODE_SIGN_IDENTITY=""
+      CODE_SIGNING_REQUIRED=NO
+      CODE_SIGNING_ALLOWED=NO
+      AD_HOC_CODE_SIGNING_ALLOWED=YES
     - xcodebuild -exportArchive
       -archivePath "$ARCHIVE_PATH"
       -exportPath "build/"
       -exportOptionsPlist "ExportOptions.plist"
-      -allowProvisioningUpdates
   artifacts:
     name: "RunningHub-$CI_COMMIT_SHORT_SHA"
     paths:

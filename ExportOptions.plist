@@ -4,14 +4,14 @@
 <dict>
     <key>method</key>
     <string>ad-hoc</string>
-    <key>teamID</key>
-    <string>$(DEVELOPMENT_TEAM)</string>
+    <key>signingStyle</key>
+    <string>manual</string>
+    <key>stripSwiftSymbols</key>
+    <true/>
     <key>uploadBitcode</key>
     <false/>
     <key>compileBitcode</key>
     <false/>
-    <key>uploadSymbols</key>
-    <true/>
     <key>thinning</key>
     <string>&lt;none&gt;</string>
 </dict>
