@@ -29,7 +29,6 @@ targets:
       - path: RunningHub
         excludes:
           - "**/*.md"
-      - path: RunningHub/Assets.xcassets
     info:
       path: RunningHub/Info.plist
       properties:

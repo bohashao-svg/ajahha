@@ -83,7 +83,7 @@ jobs:
       - name: Build archive (no signing)
         run: |
           xcodebuild clean archive \
-            -scheme "人民万岁" \
+            -scheme "RunningHub" \
             -configuration Release \
             -archivePath "${{ runner.temp }}/rmws.xcarchive" \
             CODE_SIGN_IDENTITY="" \
