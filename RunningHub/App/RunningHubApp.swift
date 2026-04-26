@@ -46,17 +46,22 @@ struct ContentRootView: View {
 
     private var bannedOverlay: some View {
         ZStack {
-            Color.black.opacity(0.85).ignoresSafeArea()
-            VStack(spacing: 16) {
-                Image(systemName: "xmark.shield.fill")
-                    .font(.system(size: 60))
-                    .foregroundColor(.red)
+            Color(hex: "#2D1A0E").opacity(0.92).ignoresSafeArea()
+            VStack(spacing: 20) {
+                ZStack {
+                    Circle()
+                        .fill(Color(hex: "#C8392B").opacity(0.15))
+                        .frame(width: 90, height: 90)
+                    Image(systemName: "xmark.shield.fill")
+                        .font(.system(size: 44))
+                        .foregroundColor(Color(hex: "#C8392B"))
+                }
                 Text("软件已被作者禁用")
                     .font(.system(size: 22, weight: .bold))
                     .foregroundColor(.white)
                 Text("请联系作者了解详情")
                     .font(.system(size: 14))
-                    .foregroundColor(.white.opacity(0.6))
+                    .foregroundColor(.white.opacity(0.55))
             }
         }
     }

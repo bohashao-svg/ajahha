@@ -39,15 +39,28 @@ extension Date {
 
 // MARK: - Color
 extension Color {
-    static let rhBackground   = Color(hex: "#F4F4F6")
-    static let rhCard         = Color.white
-    static let rhPrimary      = Color(hex: "#1A1A1A")
-    static let rhAccent       = Color(hex: "#FF5C35")
-    static let rhSecondary    = Color(hex: "#6B7280")
-    static let rhSuccess      = Color(hex: "#10B981")
-    static let rhError        = Color(hex: "#EF4444")
-    static let rhWarning      = Color(hex: "#F59E0B")
-    static let rhBorder       = Color(hex: "#E5E7EB")
+    // 奶白底色
+    static let rhBackground   = Color(hex: "#FDF6F0")
+    // 卡片：暖白带微红
+    static let rhCard         = Color(hex: "#FFFAF7")
+    // 主文字：深暖棕
+    static let rhPrimary      = Color(hex: "#2D1A0E")
+    // 主题色：柔雾红
+    static let rhAccent       = Color(hex: "#C8392B")
+    // 暖金
+    static let rhGold         = Color(hex: "#D4A017")
+    // 次要文字：暖灰
+    static let rhSecondary    = Color(hex: "#8C7B6E")
+    // 成功：柔绿
+    static let rhSuccess      = Color(hex: "#5A9E6F")
+    // 错误：柔红
+    static let rhError        = Color(hex: "#C0392B")
+    // 警告：暖金
+    static let rhWarning      = Color(hex: "#D4A017")
+    // 边框：浅暖米
+    static let rhBorder       = Color(hex: "#EDE0D4")
+    // 浅红背景色（用于按钮、badge底色）
+    static let rhAccentSoft   = Color(hex: "#F9E8E6")
 
     init(hex: String) {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
@@ -62,12 +75,12 @@ extension Color {
 
 // MARK: - View
 extension View {
-    func rhCard(padding: CGFloat = 16, cornerRadius: CGFloat = 16) -> some View {
+    func rhCard(padding: CGFloat = 16, cornerRadius: CGFloat = 20) -> some View {
         self
             .padding(padding)
             .background(Color.rhCard)
             .cornerRadius(cornerRadius)
-            .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 2)
+            .shadow(color: Color(hex: "#C8392B").opacity(0.07), radius: 12, x: 0, y: 4)
     }
 
     func hideKeyboard() {
@@ -80,12 +93,12 @@ extension View {
 extension TaskStatus {
     var color: Color {
         switch self {
-        case .queued:    return .rhWarning
-        case .pending:   return .rhWarning
-        case .running:   return .rhAccent
-        case .completed: return .rhSuccess
-        case .failed:    return .rhError
-        case .cancelled: return .rhSecondary
+        case .queued:    return Color(hex: "#D4A017")   // 暖金
+        case .pending:   return Color(hex: "#D4A017")
+        case .running:   return Color(hex: "#C8392B")   // 柔雾红
+        case .completed: return Color(hex: "#5A9E6F")   // 柔绿
+        case .failed:    return Color(hex: "#C0392B")   // 深红
+        case .cancelled: return Color(hex: "#8C7B6E")   // 暖灰
         }
     }
 }
