@@ -39,7 +39,6 @@ final class TaskPollingService {
         var localTask = originalTask
 
         while !Task.isCancelled && !localTask.isFinished {
-            // RUNNING: poll every 3s; QUEUED: poll every 5s
             let interval: TimeInterval = localTask.status == .running ? 3.0 : 5.0
             do {
                 try await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
@@ -50,12 +49,13 @@ final class TaskPollingService {
                 localTask.status = response.taskStatus
                 localTask.errorMsg = response.errorMessage
                 localTask.updatedAt = Date()
-
                 if !response.outputUrls.isEmpty {
                     localTask.outputUrls = response.outputUrls
                 }
 
-                await MainActor.run { self.onTaskUpdated?(localTask) }
+                // Capture value for MainActor
+                let snapshot = localTask
+                await MainActor.run { self.onTaskUpdated?(snapshot) }
 
                 // Auto-decode duck image on completion
                 if localTask.status == .completed,
@@ -63,17 +63,16 @@ final class TaskPollingService {
                    let url = localTask.primaryOutputUrl,
                    let password = localTask.duckPassword,
                    localTask.decodedImageData == nil {
-                    do {
-                        let decoded = try await DuckDecodeService.shared.decode(
-                            imageUrl: url, password: password
-                        )
+                    if let decoded = try? await DuckDecodeService.shared.decode(
+                        imageUrl: url, password: password
+                    ) {
                         localTask.decodedImageData = decoded
-                        await MainActor.run { self.onTaskUpdated?(localTask) }
-                    } catch {}
+                        let snap2 = localTask
+                        await MainActor.run { self.onTaskUpdated?(snap2) }
+                    }
                 }
 
             } catch {
-                // Network error — wait then retry
                 try? await Task.sleep(nanoseconds: 5_000_000_000)
             }
         }

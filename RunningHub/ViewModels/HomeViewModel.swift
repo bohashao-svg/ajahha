@@ -142,8 +142,6 @@ final class HomeViewModel: ObservableObject {
 
         do {
             // prompt = the raw workflow JSON string returned by API
-            let promptString = workflowDetail?.prompt
-
             let nodeInputs = formFields
                 .filter { !$0.value.isBlank && $0.fieldName != "password" }
                 .map { NodeInput(nodeId: $0.nodeId, fieldName: $0.fieldName, fieldValue: $0.value) }
@@ -151,7 +149,6 @@ final class HomeViewModel: ObservableObject {
             let req = RunWorkflowRequest(
                 workflowId: currentWorkflowId,
                 mode: isPlusMode ? "plus" : nil,
-                prompt: promptString,
                 nodeInfoList: nodeInputs
             )
 
