@@ -46,7 +46,9 @@ final class APIService {
         guard let http = response as? HTTPURLResponse else { throw APIError.invalidResponse }
         guard (200...299).contains(http.statusCode) else { throw APIError.httpError(http.statusCode) }
 
-        let decoded = try JSONDecoder().decode(APIResponse<T>.self, from: data)
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let decoded = try decoder.decode(APIResponse<T>.self, from: data)
         guard decoded.isSuccess, let result = decoded.data else {
             throw APIError.serverError(decoded.msg ?? "未知错误")
         }

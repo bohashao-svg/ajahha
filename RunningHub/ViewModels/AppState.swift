@@ -17,19 +17,26 @@ final class AppState: ObservableObject {
     var activeTasks: [RHTask] { tasks.filter { !$0.isFinished } }
     var activeCount: Int { activeTasks.count }
 
+    @Published var quotaError: String?
+
     // MARK: - Quota
     func refreshQuota() {
         guard !isQuotaLoading else { return }
         isQuotaLoading = true
+        quotaError = nil
         Task { @MainActor in
             defer { isQuotaLoading = false }
             do {
                 quota = try await APIService.shared.fetchQuota()
-            } catch {}
+            } catch {
+                quotaError = error.localizedDescription
+            }
         }
     }
 
     var canSubmit: Bool {
+        // If quota failed to load, allow submission anyway
+        if quotaError != nil { return true }
         guard let q = quota else { return false }
         return q.hasAvailableSlot
     }
