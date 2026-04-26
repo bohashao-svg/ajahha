@@ -14,6 +14,7 @@ final class AppViewModel: ObservableObject {
     @Published var isSubmitting: Bool = false
     @Published var errorMessage: String?
     @Published var didSubmitSuccessfully: Bool = false
+    @Published var selectedImages: [String: UIImage] = [:]  // nodeId+fieldName → UIImage
 
     private let appState: AppState
 
