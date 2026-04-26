@@ -58,16 +58,24 @@ enum WorkflowType {
 
     static func detect(from nodes: [WorkflowNodeRaw]) -> WorkflowType {
         let types = nodes.compactMap { $0.classType?.lowercased() }
+
+        // 图生视频：同时含 video 和 image/i2v 相关节点
         if types.contains(where: { $0.contains("video") && ($0.contains("image") || $0.contains("i2v")) }) {
             return .imageToVideo
         }
-        if types.contains(where: { $0.contains("video") || $0.contains("animate") }) {
+        // 视频类：含 video / animate / wan / hunyuan_video / mochi 等
+        let videoKeywords = ["video", "animate", "wan", "mochi", "ltx", "cogvideo", "animatediff"]
+        if types.contains(where: { t in videoKeywords.contains(where: { t.contains($0) }) }) {
             return .textToVideo
         }
-        if types.contains(where: { $0.contains("ksampler") || $0.contains("sampler") }) {
+        // 图像类：含采样器或常见图像生成节点
+        let imageKeywords = ["ksampler", "sampler", "flux", "unet", "vae", "clip", "checkpoint",
+                             "diffusion", "stable", "sdxl", "sd3", "imagen", "controlnet"]
+        if types.contains(where: { t in imageKeywords.contains(where: { t.contains($0) }) }) {
             return .textToImage
         }
-        return .unknown
+        // 兜底：有节点就默认文生图，避免显示"未知类型"
+        return nodes.isEmpty ? .unknown : .textToImage
     }
 
     var displayName: String {
