@@ -8,6 +8,8 @@ struct PremiumWorkflowView: View {
     @State private var items: [PremiumWorkflowItem] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
+    @State private var importingId: String?   // workflowId currently being forked
+    @State private var importError: String?
 
     var body: some View {
         NavigationView {
@@ -16,9 +18,7 @@ struct PremiumWorkflowView: View {
 
                 if isLoading {
                     VStack(spacing: 16) {
-                        ProgressView()
-                            .scaleEffect(1.2)
-                            .tint(.rhAccent)
+                        ProgressView().scaleEffect(1.2).tint(.rhAccent)
                         Text("加载精品工作流...")
                             .font(.system(size: 14))
                             .foregroundColor(.rhSecondary)
@@ -31,11 +31,9 @@ struct PremiumWorkflowView: View {
                             .foregroundColor(.rhSecondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 32)
-                        Button("重试") {
-                            Task { await loadWorkflows() }
-                        }
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.rhAccent)
+                        Button("重试") { Task { await loadWorkflows() } }
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.rhAccent)
                     }
                 } else if items.isEmpty {
                     VStack(spacing: 16) {
@@ -53,6 +51,23 @@ struct PremiumWorkflowView: View {
                         }
                         .padding(16)
                     }
+                }
+
+                // Import error toast
+                if let err = importError {
+                    VStack {
+                        Spacer()
+                        Text(err)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 18)
+                            .padding(.vertical, 11)
+                            .background(Color.rhError.opacity(0.9))
+                            .cornerRadius(22)
+                            .padding(.bottom, 44)
+                    }
+                    .transition(.opacity)
+                    .animation(.easeInOut, value: importError)
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
@@ -73,27 +88,29 @@ struct PremiumWorkflowView: View {
 
     private func workflowRow(index: Int) -> some View {
         let item = items[index]
-        let workflowId = item.workflowId
+        let wid = item.workflowId
+        let isImporting = importingId == wid
 
         return Button {
-            onSelect(workflowId)
-            dismiss()
+            guard !isImporting else { return }
+            Task { await importWorkflow(workflowId: wid) }
         } label: {
             HStack(spacing: 12) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 10)
                         .fill(Color.rhAccentSoft)
                         .frame(width: 40, height: 40)
-                    RHIcon(name: .workflow, size: 18, color: .rhAccent)
+                    if isImporting {
+                        ProgressView().scaleEffect(0.8).tint(.rhAccent)
+                    } else {
+                        RHIcon(name: .workflow, size: 18, color: .rhAccent)
+                    }
                 }
 
                 VStack(alignment: .leading, spacing: 3) {
                     if item.name.isEmpty {
-                        // Still loading name
                         HStack(spacing: 6) {
-                            ProgressView()
-                                .scaleEffect(0.7)
-                                .tint(.rhSecondary)
+                            ProgressView().scaleEffect(0.7).tint(.rhSecondary)
                             Text("加载中...")
                                 .font(.system(size: 13))
                                 .foregroundColor(.rhSecondary)
@@ -104,15 +121,19 @@ struct PremiumWorkflowView: View {
                             .foregroundColor(.rhPrimary)
                             .lineLimit(1)
                     }
-                    Text(workflowId)
+                    Text(isImporting ? "正在导入..." : wid)
                         .font(.system(size: 11))
-                        .foregroundColor(.rhSecondary)
+                        .foregroundColor(isImporting ? .rhAccent : .rhSecondary)
                         .lineLimit(1)
                 }
 
                 Spacer()
 
-                RHIcon(name: .chevron, size: 12, color: .rhBorder)
+                if isImporting {
+                    EmptyView()
+                } else {
+                    RHIcon(name: .chevron, size: 12, color: .rhBorder)
+                }
             }
             .padding(12)
             .background(Color.rhCard)
@@ -120,7 +141,52 @@ struct PremiumWorkflowView: View {
             .shadow(color: Color(hex: "#C8392B").opacity(0.05), radius: 8, x: 0, y: 2)
         }
         .buttonStyle(ScaleButtonStyle())
+        .disabled(isImporting)
     }
+
+    // MARK: - Import with auto-fork
+
+    private func importWorkflow(workflowId: String) async {
+        importingId = workflowId
+        importError = nil
+
+        do {
+            // Try direct import first
+            let targetId = await forkIfNeeded(workflowId: workflowId)
+            await MainActor.run {
+                importingId = nil
+                onSelect(targetId)
+                dismiss()
+            }
+        }
+    }
+
+    /// Try to use workflowId directly; if it fails with NOT_SAVED error, fork it first
+    private func forkIfNeeded(workflowId: String) async -> String {
+        do {
+            // Probe: try fetching detail — if it succeeds the workflow is accessible
+            _ = try await APIService.shared.fetchWorkflowDetail(workflowId: workflowId)
+            return workflowId
+        } catch APIError.serverError(let msg) where msg.contains("NOT_SAVED") || msg.contains("WORKFLOW_NOT") {
+            // Workflow not in user's workspace — fork it
+            do {
+                let newId = try await APIService.shared.duplicateWorkflow(workflowId: workflowId)
+                return newId
+            } catch {
+                await MainActor.run {
+                    importingId = nil
+                    importError = "导入失败：\(error.localizedDescription)"
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) { importError = nil }
+                }
+                return workflowId
+            }
+        } catch {
+            // Other errors — still try to use the original id
+            return workflowId
+        }
+    }
+
+    // MARK: - Load list
 
     private func loadWorkflows() async {
         isLoading = true
@@ -130,7 +196,6 @@ struct PremiumWorkflowView: View {
             items = fetched
             isLoading = false
 
-            // Concurrently fetch names for all items
             await withTaskGroup(of: (Int, String).self) { group in
                 for (index, item) in fetched.enumerated() {
                     group.addTask {

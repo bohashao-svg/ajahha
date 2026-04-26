@@ -50,6 +50,19 @@ final class APIService {
         )
     }
 
+    /// POST /api/openapi/workflow/duplicate — fork a public workflow into user's workspace
+    /// Returns the new workflowId that belongs to the user
+    @discardableResult
+    func duplicateWorkflow(workflowId: String) async throws -> String {
+        struct Body: Encodable { let apiKey: String; let workflowId: String }
+        struct Res: Codable { let workflowId: String? }
+        let res: Res = try await postEncodable(
+            path: "/api/openapi/workflow/duplicate",
+            body: Body(apiKey: apiKey, workflowId: workflowId)
+        )
+        return res.workflowId ?? workflowId
+    }
+
     /// POST /task/openapi/create
     func runWorkflow(_ req: RunWorkflowRequest) async throws -> RunWorkflowResponse {
         struct Body: Encodable {

@@ -44,9 +44,19 @@ final class HomeViewModel: ObservableObject {
         defer { isLoading = false }
 
         do {
-            let detail = try await APIService.shared.fetchWorkflowDetail(workflowId: workflowId)
-            workflowDetail = detail
-            analyzeWorkflow(detail)
+            var targetId = workflowId
+            do {
+                let detail = try await APIService.shared.fetchWorkflowDetail(workflowId: workflowId)
+                workflowDetail = detail
+                analyzeWorkflow(detail)
+            } catch APIError.serverError(let msg) where msg.contains("NOT_SAVED") || msg.contains("WORKFLOW_NOT") {
+                // Workflow not in user's workspace — auto-fork then retry
+                targetId = try await APIService.shared.duplicateWorkflow(workflowId: workflowId)
+                currentWorkflowId = targetId
+                let detail = try await APIService.shared.fetchWorkflowDetail(workflowId: targetId)
+                workflowDetail = detail
+                analyzeWorkflow(detail)
+            }
         } catch {
             errorMessage = error.localizedDescription
         }
