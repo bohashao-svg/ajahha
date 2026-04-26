@@ -8,15 +8,15 @@ struct TaskDetailView: View {
     @EnvironmentObject private var appState: AppState
     @Environment(\.dismiss) private var dismiss
 
-    @State private var retryPassword = ""
-    @State private var showRetrySheet = false
+    // Unified decode state
     @State private var isDecoding = false
     @State private var decodeError: String?
-    @State private var ttRetryPassword = ""
-    @State private var showTTRetrySheet = false
-    @State private var isTTDecoding = false
-    @State private var ttDecodeError: String?
+    @State private var showDecodeToolSheet = false   // 无法自动识别时让用户选工具
+    @State private var decodePassword = ""
+    @State private var pendingDecodeTool: DecodeTool? = nil
     @State private var saveToast: String?
+
+    enum DecodeTool { case duck, tt }
 
     private var liveTask: RHTask {
         appState.tasks.first(where: { $0.id == task.id }) ?? task
@@ -30,8 +30,6 @@ struct TaskDetailView: View {
                 VStack(spacing: 16) {
                     infoCard
                     if !liveTask.outputUrls.isEmpty { outputSection }
-                    if liveTask.isDuckEncoded { duckSection }
-                    if liveTask.isTTEncoded { ttSection }
                     if liveTask.status == .running || liveTask.status == .pending || liveTask.status == .queued {
                         cancelButton
                     }
@@ -62,11 +60,17 @@ struct TaskDetailView: View {
                     .font(.system(size: 17, weight: .semibold))
             }
         }
-        .sheet(isPresented: $showRetrySheet) {
-            retryDecodeSheet
+        .sheet(isPresented: $showDecodeToolSheet) {
+            decodeToolSheet
         }
-        .sheet(isPresented: $showTTRetrySheet) {
-            ttRetryDecodeSheet
+        .onAppear {
+            // 任务完成且有输出图、还没解码过 → 自动尝试识别并解码
+            if liveTask.status == .completed,
+               liveTask.decodedImageData == nil,
+               liveTask.ttDecodedData == nil,
+               let url = liveTask.primaryOutputUrl {
+                autoDetectAndDecode(url: url)
+            }
         }
     }
 
@@ -160,307 +164,206 @@ struct TaskDetailView: View {
             ForEach(liveTask.outputUrls, id: \.self) { url in
                 OutputItemView(url: url) { showToast($0) }
             }
+
+            // 解码区块：已解码 → 显示结果；未解码 → 显示按钮
+            if liveTask.status == .completed {
+                decodeResultBlock
+            }
         }
         .rhCard()
     }
 
-    // MARK: - Duck Section
-    private var duckSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 6) {
-                    RHIcon(name: .duck, size: 15, color: .rhWarning)
-                    Text("鸭鸭图")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.rhPrimary)
-                    Spacer()
-                }
+    @ViewBuilder
+    private var decodeResultBlock: some View {
+        let duckData = liveTask.decodedImageData
+        let ttData   = liveTask.ttDecodedData
 
-            if let decoded = liveTask.decodedImageData {
-                if let uiImage = UIImage(data: decoded) {
-                    // Decoded result is an image
-                    Image(uiImage: uiImage)
-                        .resizable()
-                        .scaledToFit()
-                        .cornerRadius(16)
-                        .overlay(
-                            Button { saveImage(uiImage) } label: {
-                                HStack(spacing: 5) {
-                                    Image(systemName: "square.and.arrow.down")
-                                        .font(.system(size: 13, weight: .semibold))
-                                    Text("保存")
-                                        .font(.system(size: 12, weight: .semibold))
-                                }
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 8)
-                                .background(Color.black.opacity(0.55))
-                                .cornerRadius(12)
-                            }
-                            .padding(12),
-                            alignment: .bottomTrailing
-                        )
-                } else {
-                    // Decoded result is a video (.binpng → .mp4)
-                    HStack(spacing: 12) {
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 10)
-                                .fill(Color.rhAccentSoft)
-                                .frame(width: 44, height: 44)
-                            RHIcon(name: .video, size: 20, color: .rhAccent)
-                        }
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("解码成功（视频）")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(.rhPrimary)
-                            Text("点击保存到相册")
-                                .font(.system(size: 12))
-                                .foregroundColor(.rhSecondary)
-                        }
-                        Spacer()
-                        Button {
-                            saveVideo(decoded)
-                        } label: {
-                            HStack(spacing: 5) {
-                                Image(systemName: "square.and.arrow.down")
-                                    .font(.system(size: 13, weight: .semibold))
-                                Text("保存")
-                                    .font(.system(size: 12, weight: .semibold))
+        if let data = duckData ?? ttData {
+            // 已解码，显示结果
+            Divider()
+            HStack(spacing: 6) {
+                Image(systemName: duckData != nil ? "tortoise.fill" : "wand.and.stars")
+                    .font(.system(size: 13))
+                    .foregroundColor(duckData != nil ? .rhWarning : .rhAccent)
+                Text(duckData != nil ? "鸭鸭图解码结果" : "TT Tool 解码结果")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.rhPrimary)
+                Spacer()
+            }
+            if let uiImage = UIImage(data: data) {
+                Image(uiImage: uiImage)
+                    .resizable().scaledToFit().cornerRadius(14)
+                    .overlay(
+                        Button { saveImage(uiImage) } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "square.and.arrow.down").font(.system(size: 12, weight: .semibold))
+                                Text("保存").font(.system(size: 12, weight: .semibold))
                             }
                             .foregroundColor(.white)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(Color.rhAccent)
-                            .cornerRadius(12)
-                        }
-                    }
-                    .padding(12)
-                    .background(Color.rhBackground)
-                    .cornerRadius(16)
-                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.rhBorder, lineWidth: 1))
-                }
-            } else if liveTask.status == .completed, let url = liveTask.primaryOutputUrl {
-                ZStack(alignment: .bottomLeading) {
-                    AsyncImage(url: URL(string: url)) { phase in
-                        switch phase {
-                        case .success(let img):
-                            img.resizable().scaledToFit().cornerRadius(16)
-                        case .empty:
-                            ProgressView().frame(height: 120)
-                        default:
-                            Color.rhBackground.frame(height: 120).cornerRadius(16)
-                        }
-                    }
-
-                    duckOverlay
-                }
-
-                if let err = decodeError {
-                    HStack(spacing: 6) {
-                        Circle().fill(Color.rhError).frame(width: 6, height: 6)
-                        Text(err)
-                            .font(.system(size: 12))
-                            .foregroundColor(.rhError)
-                    }
-                }
-            }
-        }
-        .rhCard()
-    }
-
-    private var duckOverlay: some View {
-        HStack(spacing: 8) {
-            if isDecoding {
-                ProgressView()
-                    .tint(.white)
-                    .padding(10)
-                    .background(Color.black.opacity(0.55))
-                    .cornerRadius(12)
-            } else {
-                Button {
-                    showRetrySheet = true
-                } label: {
-                    HStack(spacing: 5) {
-                        Image(systemName: "lock.open.fill")
-                            .font(.system(size: 12))
-                        Text("解码")
-                            .font(.system(size: 13, weight: .bold))
-                    }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(
-                        LinearGradient(colors: [Color.rhGold, Color.rhGold.opacity(0.8)],
-                                       startPoint: .topLeading, endPoint: .bottomTrailing)
+                            .padding(.horizontal, 10).padding(.vertical, 7)
+                            .background(Color.black.opacity(0.55))
+                            .cornerRadius(10)
+                        }.padding(10),
+                        alignment: .bottomTrailing
                     )
-                    .cornerRadius(12)
+            } else {
+                // 视频
+                HStack(spacing: 10) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8).fill(Color.rhAccentSoft).frame(width: 38, height: 38)
+                        RHIcon(name: .video, size: 18, color: .rhAccent)
+                    }
+                    Text("解码成功（视频）").font(.system(size: 13, weight: .medium)).foregroundColor(.rhPrimary)
+                    Spacer()
+                    Button { saveVideo(data) } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "square.and.arrow.down").font(.system(size: 12))
+                            Text("保存").font(.system(size: 12, weight: .semibold))
+                        }
+                        .foregroundColor(.white).padding(.horizontal, 10).padding(.vertical, 7)
+                        .background(Color.rhAccent).cornerRadius(10)
+                    }
+                }
+                .padding(10).background(Color.rhBackground).cornerRadius(12)
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.rhBorder, lineWidth: 1))
+            }
+        } else {
+            // 未解码：显示解码按钮
+            Divider()
+            HStack(spacing: 10) {
+                if isDecoding {
+                    ProgressView().tint(.rhAccent)
+                    Text("正在识别并解码...").font(.system(size: 13)).foregroundColor(.rhSecondary)
+                } else {
+                    Button { autoDetectAndDecode(url: liveTask.primaryOutputUrl ?? "") } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "wand.and.rays").font(.system(size: 13))
+                            Text("智能解码").font(.system(size: 13, weight: .semibold))
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 14).padding(.vertical, 9)
+                        .background(Color.rhAccent).cornerRadius(10)
+                    }
+                    .disabled(liveTask.primaryOutputUrl == nil)
+
+                    if let err = decodeError {
+                        Text(err).font(.system(size: 11)).foregroundColor(.rhError).lineLimit(2)
+                    }
                 }
             }
         }
-        .padding(10)
     }
 
-    private func triggerDecode(password: String) {
+    // MARK: - Auto detect & decode
+    private func autoDetectAndDecode(url: String) {
+        guard !url.isEmpty, !isDecoding else { return }
+        isDecoding = true
+        decodeError = nil
+        Task {
+            guard let imgUrl = URL(string: url),
+                  let (data, _) = try? await URLSession.shared.data(from: imgUrl),
+                  let uiImage = UIImage(data: data),
+                  let cgImage = uiImage.cgImage else {
+                await MainActor.run {
+                    isDecoding = false
+                    decodeError = "下载图片失败"
+                }
+                return
+            }
+
+            // 先试 TT
+            if let ttFile = try? TTDecodeService.shared.decodeFromCGImage(cgImage, password: TTDecodeService.shared.defaultPassword) {
+                var updated = liveTask
+                updated.ttDecodedData = ttFile.data
+                await MainActor.run { appState.updateTask(updated); isDecoding = false }
+                return
+            }
+            // 再试 Duck（默认密码为空）
+            if let duckData = try? await DuckDecodeService.shared.decode(imageUrl: url, password: liveTask.duckPassword ?? "") {
+                var updated = liveTask
+                updated.decodedImageData = duckData
+                await MainActor.run { appState.updateTask(updated); isDecoding = false }
+                return
+            }
+            // 都识别不到 → 弹窗让用户选
+            await MainActor.run {
+                isDecoding = false
+                showDecodeToolSheet = true
+            }
+        }
+    }
+
+    private func triggerDecode(tool: DecodeTool, password: String) {
         guard let url = liveTask.primaryOutputUrl else { return }
         isDecoding = true
         decodeError = nil
         Task {
             do {
-                let data = try await DuckDecodeService.shared.decode(imageUrl: url, password: password)
-                var updated = liveTask
-                updated.decodedImageData = data
-                appState.updateTask(updated)
+                switch tool {
+                case .duck:
+                    let data = try await DuckDecodeService.shared.decode(imageUrl: url, password: password)
+                    var updated = liveTask; updated.decodedImageData = data
+                    await MainActor.run { appState.updateTask(updated) }
+                case .tt:
+                    let file = try await TTDecodeService.shared.decode(imageUrl: url, password: password)
+                    var updated = liveTask; updated.ttDecodedData = file.data
+                    await MainActor.run { appState.updateTask(updated) }
+                }
             } catch {
-                decodeError = "解码失败：\(error.localizedDescription)"
+                await MainActor.run { decodeError = error.localizedDescription }
             }
-            isDecoding = false
+            await MainActor.run { isDecoding = false }
         }
     }
 
-    // MARK: - TT Section
-    private var ttSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 6) {
-                Image(systemName: "wand.and.stars")
-                    .font(.system(size: 14))
-                    .foregroundColor(.rhAccent)
-                Text("TT Tool 解码")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.rhPrimary)
-                Spacer()
-            }
+    // MARK: - Decode Tool Sheet（无法自动识别时让用户选）
+    private var decodeToolSheet: some View {
+        VStack(spacing: 0) {
+            Text("选择解码工具")
+                .font(.system(size: 16, weight: .semibold))
+                .padding(.top, 28).padding(.bottom, 6)
+            Text("未能自动识别编码类型，请手动选择")
+                .font(.system(size: 12)).foregroundColor(.rhSecondary)
+                .padding(.bottom, 20)
 
-            if let decoded = liveTask.ttDecodedData {
-                if let uiImage = UIImage(data: decoded) {
-                    Image(uiImage: uiImage)
-                        .resizable()
-                        .scaledToFit()
-                        .cornerRadius(16)
-                        .overlay(
-                            Button { saveImage(uiImage) } label: {
-                                HStack(spacing: 5) {
-                                    Image(systemName: "square.and.arrow.down")
-                                        .font(.system(size: 13, weight: .semibold))
-                                    Text("保存")
-                                        .font(.system(size: 12, weight: .semibold))
-                                }
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 8)
-                                .background(Color.black.opacity(0.55))
-                                .cornerRadius(12)
-                            }
-                            .padding(12),
-                            alignment: .bottomTrailing
-                        )
-                } else {
-                    HStack(spacing: 12) {
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 10)
-                                .fill(Color.rhAccentSoft)
-                                .frame(width: 44, height: 44)
-                            RHIcon(name: .video, size: 20, color: .rhAccent)
-                        }
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("解码成功（视频）")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(.rhPrimary)
-                            Text("点击保存到相册")
-                                .font(.system(size: 12))
-                                .foregroundColor(.rhSecondary)
-                        }
-                        Spacer()
-                        Button { saveVideo(decoded) } label: {
-                            HStack(spacing: 5) {
-                                Image(systemName: "square.and.arrow.down")
-                                    .font(.system(size: 13, weight: .semibold))
-                                Text("保存")
-                                    .font(.system(size: 12, weight: .semibold))
-                            }
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(Color.rhAccent)
-                            .cornerRadius(12)
-                        }
-                    }
-                    .padding(12)
-                    .background(Color.rhBackground)
-                    .cornerRadius(16)
-                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.rhBorder, lineWidth: 1))
-                }
-            } else if liveTask.status == .completed, let url = liveTask.primaryOutputUrl {
-                ZStack(alignment: .bottomLeading) {
-                    AsyncImage(url: URL(string: url)) { phase in
-                        switch phase {
-                        case .success(let img):
-                            img.resizable().scaledToFit().cornerRadius(16)
-                        case .empty:
-                            ProgressView().frame(height: 120)
-                        default:
-                            Color.rhBackground.frame(height: 120).cornerRadius(16)
-                        }
-                    }
-                    ttOverlay
-                }
+            SecureField("密码（留空使用默认）", text: $decodePassword)
+                .font(.system(size: 14)).padding(12)
+                .background(Color.rhBackground).cornerRadius(12)
+                .padding(.horizontal, 20).padding(.bottom, 16)
 
-                if let err = ttDecodeError {
+            HStack(spacing: 12) {
+                Button {
+                    showDecodeToolSheet = false
+                    triggerDecode(tool: .duck, password: decodePassword)
+                } label: {
                     HStack(spacing: 6) {
-                        Circle().fill(Color.rhError).frame(width: 6, height: 6)
-                        Text(err)
-                            .font(.system(size: 12))
-                            .foregroundColor(.rhError)
+                        Image(systemName: "tortoise.fill").font(.system(size: 14))
+                        Text("鸭鸭图").font(.system(size: 14, weight: .semibold))
                     }
+                    .foregroundColor(.white).frame(maxWidth: .infinity).frame(height: 46)
+                    .background(Color.rhWarning).cornerRadius(12)
+                }
+                Button {
+                    showDecodeToolSheet = false
+                    triggerDecode(tool: .tt, password: decodePassword.isEmpty ? TTDecodeService.shared.defaultPassword : decodePassword)
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "wand.and.stars").font(.system(size: 14))
+                        Text("TT Tool").font(.system(size: 14, weight: .semibold))
+                    }
+                    .foregroundColor(.white).frame(maxWidth: .infinity).frame(height: 46)
+                    .background(Color.rhAccent).cornerRadius(12)
                 }
             }
-        }
-        .rhCard()
-    }
+            .padding(.horizontal, 20)
 
-    private var ttOverlay: some View {
-        HStack(spacing: 8) {
-            if isTTDecoding {
-                ProgressView()
-                    .tint(.white)
-                    .padding(10)
-                    .background(Color.black.opacity(0.55))
-                    .cornerRadius(12)
-            } else {
-                Button { showTTRetrySheet = true } label: {
-                    HStack(spacing: 5) {
-                        Image(systemName: "lock.open.fill")
-                            .font(.system(size: 12))
-                        Text("解码")
-                            .font(.system(size: 13, weight: .bold))
-                    }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(
-                        LinearGradient(colors: [Color.rhAccent, Color.rhAccent.opacity(0.8)],
-                                       startPoint: .topLeading, endPoint: .bottomTrailing)
-                    )
-                    .cornerRadius(12)
-                }
-            }
-        }
-        .padding(10)
-    }
+            Button("取消") { showDecodeToolSheet = false }
+                .font(.system(size: 14)).foregroundColor(.rhSecondary)
+                .padding(.top, 16)
 
-    private func triggerTTDecode(password: String) {
-        guard let url = liveTask.primaryOutputUrl else { return }
-        isTTDecoding = true
-        ttDecodeError = nil
-        Task {
-            do {
-                let file = try await TTDecodeService.shared.decode(imageUrl: url, password: password)
-                var updated = liveTask
-                updated.ttDecodedData = file.data
-                appState.updateTask(updated)
-            } catch {
-                ttDecodeError = "解码失败：\(error.localizedDescription)"
-            }
-            isTTDecoding = false
+            Spacer()
         }
+        .background(Color.rhBackground.ignoresSafeArea())
     }
 
     // MARK: - Cancel Button
@@ -481,101 +384,6 @@ struct TaskDetailView: View {
                     .stroke(Color.rhError.opacity(0.2), lineWidth: 1)
             )
         }
-    }
-
-    // MARK: - Retry Decode Sheet
-    private var retryDecodeSheet: some View {
-        // 解码弹窗
-        VStack(spacing: 20) {
-            Text("输入解码密码")
-                .font(.system(size: 16, weight: .semibold))
-                .padding(.top, 28)
-
-            Text("留空则以无密码方式解码")
-                .font(.system(size: 12))
-                .foregroundColor(.rhSecondary)
-
-            SecureField("留空则无密码", text: $retryPassword)
-                .font(.system(size: 14))
-                .padding(12)
-                .background(Color.rhBackground)
-                .cornerRadius(12)
-                .padding(.horizontal, 20)
-
-            HStack(spacing: 12) {
-                Button("取消") { showRetrySheet = false }
-                    .font(.system(size: 15))
-                    .foregroundColor(.rhSecondary)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 46)
-                    .background(Color.rhBackground)
-                    .cornerRadius(12)
-
-                Button {
-                    showRetrySheet = false
-                    triggerDecode(password: retryPassword)
-                } label: {
-                    Text("解码")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 46)
-                        .background(Color.rhWarning)
-                        .cornerRadius(12)
-                }
-            }
-            .padding(.horizontal, 20)
-
-            Spacer()
-        }
-        .background(Color.rhBackground.ignoresSafeArea())
-    }
-
-    // MARK: - TT Retry Decode Sheet
-    private var ttRetryDecodeSheet: some View {
-        VStack(spacing: 20) {
-            Text("TT Tool 解码")
-                .font(.system(size: 16, weight: .semibold))
-                .padding(.top, 28)
-
-            Text("留空则使用默认密码解码")
-                .font(.system(size: 12))
-                .foregroundColor(.rhSecondary)
-
-            SecureField("留空则使用默认密码", text: $ttRetryPassword)
-                .font(.system(size: 14))
-                .padding(12)
-                .background(Color.rhBackground)
-                .cornerRadius(12)
-                .padding(.horizontal, 20)
-
-            HStack(spacing: 12) {
-                Button("取消") { showTTRetrySheet = false }
-                    .font(.system(size: 15))
-                    .foregroundColor(.rhSecondary)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 46)
-                    .background(Color.rhBackground)
-                    .cornerRadius(12)
-
-                Button {
-                    showTTRetrySheet = false
-                    triggerTTDecode(password: ttRetryPassword)
-                } label: {
-                    Text("解码")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 46)
-                        .background(Color.rhAccent)
-                        .cornerRadius(12)
-                }
-            }
-            .padding(.horizontal, 20)
-
-            Spacer()
-        }
-        .background(Color.rhBackground.ignoresSafeArea())
     }
 
     // MARK: - Helpers
