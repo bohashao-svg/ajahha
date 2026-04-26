@@ -162,6 +162,7 @@ final class HomeViewModel: ObservableObject {
 
     func selectHistory(_ item: WorkflowHistoryItem) {
         workflowInput = item.workflowId
+        showAllHistory = false
         Task { await fetchWorkflow() }
     }
 

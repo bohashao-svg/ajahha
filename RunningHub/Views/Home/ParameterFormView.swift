@@ -23,6 +23,7 @@ struct ParameterFormView: View {
 // MARK: - Field Row
 private struct FieldRow: View {
     @Binding var field: FormField
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -63,16 +64,20 @@ private struct FieldRow: View {
                         .foregroundColor(.rhSecondary.opacity(0.6))
                         .padding(.top, 8)
                         .padding(.leading, 4)
+                        .allowsHitTesting(false)
                 }
                 TextEditor(text: $field.value)
                     .font(.system(size: 14))
                     .foregroundColor(.rhPrimary)
                     .frame(minHeight: 80, maxHeight: 160)
                     .background(Color.rhBackground)
+                    .focused($isFocused)
+                    .scrollContentBackground(.hidden)
             }
             .padding(10)
             .background(Color.rhBackground)
             .cornerRadius(10)
+            .onTapGesture { isFocused = true }
 
         case .password:
             SecureField(field.placeholder, text: $field.value)
@@ -81,6 +86,7 @@ private struct FieldRow: View {
                 .padding(10)
                 .background(Color.rhBackground)
                 .cornerRadius(10)
+                .focused($isFocused)
 
         case .imageInput, .text:
             TextField(field.placeholder, text: $field.value)
@@ -91,6 +97,7 @@ private struct FieldRow: View {
                 .padding(10)
                 .background(Color.rhBackground)
                 .cornerRadius(10)
+                .focused($isFocused)
         }
     }
 }
