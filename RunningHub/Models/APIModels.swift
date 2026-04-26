@@ -24,8 +24,7 @@ struct WorkflowDetailResponse: Codable {
 }
 
 struct WorkflowGraph: Codable {
-    let nodes: [WorkflowNode]?
-    // ComfyUI format: dict keyed by node id
+    var nodes: [WorkflowNode]?
     private var _nodeDict: [String: WorkflowNodeRaw]?
 
     var allNodes: [WorkflowNodeRaw] {

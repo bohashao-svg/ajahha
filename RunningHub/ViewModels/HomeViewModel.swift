@@ -112,11 +112,11 @@ final class HomeViewModel: ObservableObject {
 
     // MARK: - Submit
     func submit() async {
-        guard let detail = workflowDetail,
-              let workflowId = detail.workflowId as String? else {
+        guard let detail = workflowDetail else {
             errorMessage = "请先拉取工作流"
             return
         }
+        let workflowId = detail.workflowId
 
         isSubmitting = true
         errorMessage = nil

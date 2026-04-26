@@ -288,8 +288,13 @@ private struct OutputItemView: View {
 
     private func saveButton(for image: Image) -> some View {
         Button {
-            if let uiImage = ImageRenderer(content: image).uiImage {
-                UIImageWriteToSavedPhotosAlbum(uiImage, nil, nil, nil)
+            // Download and save via URLSession
+            if let urlStr = url, let url = URL(string: urlStr) {
+                URLSession.shared.dataTask(with: url) { data, _, _ in
+                    if let data = data, let img = UIImage(data: data) {
+                        UIImageWriteToSavedPhotosAlbum(img, nil, nil, nil)
+                    }
+                }.resume()
             }
         } label: {
             RHIcon(name: .download, size: 18, color: .white)

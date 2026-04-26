@@ -4,7 +4,7 @@ import Foundation
 final class APIService {
 
     static let shared = APIService()
-    private init()
+    private init() {}
 
     private let baseURL = "https://www.runninghub.cn"
     private var apiKey: String { StorageService.shared.apiKey ?? "" }
