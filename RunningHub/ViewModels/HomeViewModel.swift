@@ -15,6 +15,8 @@ final class HomeViewModel: ObservableObject {
     @Published var duckNodeInfo: DuckNodeInfo?
     @Published var formFields: [FormField] = []
     @Published var currentWorkflowId: String = ""
+    @Published var workflowHistory: [WorkflowHistoryItem] = StorageService.shared.workflowHistory
+    @Published var showAllHistory: Bool = false
 
     private let appState: AppState
 
@@ -51,43 +53,51 @@ final class HomeViewModel: ObservableObject {
 
     private func buildFormFields(from nodes: [WorkflowNodeRaw]) -> [FormField] {
         var fields: [FormField] = []
-        // Use parsedNodes dict to get stable nodeId (the ComfyUI node key)
         let nodeDict = workflowDetail?.parsedNodes ?? [:]
+
+        // Collect positive prompt fields (one per workflow, skip negative/style variants)
+        var addedPositivePrompt = false
 
         for (nodeId, node) in nodeDict {
             guard let classType = node.classType else { continue }
             let lower = classType.lowercased()
 
-            // Skip duck node — password handled separately below
             if lower.contains("duck") { continue }
 
-            // CR Text / CLIPTextEncode — editable text prompt
-            if lower.contains("cr text") || lower.contains("cliptextencode") {
+            // Only positive CLIPTextEncode / CR Text — skip negative variants
+            if lower.contains("cliptextencode") || lower.contains("cr text") {
+                guard !addedPositivePrompt else { continue }
                 if let inputs = node.inputs?.dictValue {
                     for key in ["text", "prompt"] {
-                        if let val = inputs[key] {
+                        if let val = inputs[key], val.stringValue != nil {
+                            let metaTitle = node.meta?.title?.lowercased() ?? ""
                             let isNeg = lower.contains("negative")
-                                || (val.stringValue?.count ?? 0 > 50
-                                    && val.stringValue?.contains("低分辨率") == true)
+                                || metaTitle.contains("negative")
+                                || metaTitle.contains("负向")
+                                || metaTitle.contains("neg")
+                            if isNeg { continue }
                             fields.append(FormField(
                                 nodeId: nodeId,
                                 fieldName: key,
-                                label: isNeg ? "负向提示词" : "提示词",
+                                label: "提示词",
                                 placeholder: "输入提示词...",
                                 value: val.stringValue ?? "",
                                 type: .multilineText
                             ))
+                            addedPositivePrompt = true
+                            break
                         }
                     }
                 }
             }
 
-            // LoadImage — image input
+            // LoadImage — image input (keep all, user may need multiple)
             if lower.contains("loadimage") {
+                let metaTitle = node.meta?.title ?? "输入图片"
                 fields.append(FormField(
                     nodeId: nodeId,
                     fieldName: "image",
-                    label: "输入图片",
+                    label: metaTitle,
                     placeholder: "图片 URL",
                     value: "",
                     type: .imageInput
@@ -151,11 +161,25 @@ final class HomeViewModel: ObservableObject {
             )
 
             appState.addTask(task)
+
+            // Save to workflow history
+            let historyItem = WorkflowHistoryItem(
+                workflowId: currentWorkflowId,
+                workflowType: workflowType.displayName
+            )
+            StorageService.shared.addWorkflowHistory(historyItem)
+            workflowHistory = StorageService.shared.workflowHistory
+
             resetForm()
 
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    func selectHistory(_ item: WorkflowHistoryItem) {
+        workflowInput = item.workflowId
+        Task { await fetchWorkflow() }
     }
 
     private func resetForm() {

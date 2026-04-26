@@ -16,6 +16,9 @@ struct HomeView: View {
                 ScrollView {
                     VStack(spacing: 16) {
                         workflowInputCard
+                        if !vm.workflowHistory.isEmpty {
+                            workflowHistoryCard
+                        }
                         if vm.workflowDetail != nil {
                             workflowInfoCard
                             ParameterFormView(fields: $vm.formFields)
@@ -218,6 +221,60 @@ struct HomeView: View {
             .cornerRadius(14)
         }
         .disabled(!canSubmitNow)
+    }
+
+    private var workflowHistoryCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("历史工作流")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.rhSecondary)
+                Spacer()
+                if vm.workflowHistory.count > 3 {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            vm.showAllHistory.toggle()
+                        }
+                    } label: {
+                        Text(vm.showAllHistory ? "收起" : "更多")
+                            .font(.system(size: 12))
+                            .foregroundColor(.rhAccent)
+                    }
+                }
+            }
+
+            let displayed = vm.showAllHistory
+                ? vm.workflowHistory
+                : Array(vm.workflowHistory.prefix(3))
+
+            ForEach(displayed) { item in
+                Button {
+                    vm.selectHistory(item)
+                } label: {
+                    HStack(spacing: 10) {
+                        RHIcon(name: .workflow, size: 14, color: .rhAccent)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(item.workflowId)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.rhPrimary)
+                                .lineLimit(1)
+                            Text(item.workflowType)
+                                .font(.system(size: 11))
+                                .foregroundColor(.rhSecondary)
+                        }
+                        Spacer()
+                        RHIcon(name: .chevron, size: 12, color: .rhBorder)
+                    }
+                    .padding(.vertical, 6)
+                }
+                .buttonStyle(.plain)
+
+                if item.workflowId != displayed.last?.workflowId {
+                    Divider()
+                }
+            }
+        }
+        .rhCard()
     }
 
     private var canSubmitNow: Bool {

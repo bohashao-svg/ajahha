@@ -1,5 +1,19 @@
 import Foundation
 
+// MARK: - Workflow History Item
+struct WorkflowHistoryItem: Codable, Identifiable {
+    var id: String { workflowId }
+    let workflowId: String
+    let workflowType: String
+    let usedAt: Date
+
+    init(workflowId: String, workflowType: String) {
+        self.workflowId = workflowId
+        self.workflowType = workflowType
+        self.usedAt = Date()
+    }
+}
+
 // MARK: - Base Response
 struct APIResponse<T: Codable>: Codable {
     let code: Int

@@ -55,9 +55,9 @@ final class APIService {
 
     // MARK: - Public APIs
 
-    /// GET /api/openapi/accountStatus
+    /// POST /api/openapi/accountStatus
     func fetchQuota() async throws -> UserQuota {
-        return try await get(path: "/api/openapi/accountStatus")
+        return try await post(path: "/api/openapi/accountStatus", body: [:])
     }
 
     /// POST /api/openapi/getJsonApiFormat

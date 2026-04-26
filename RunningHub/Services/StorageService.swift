@@ -35,7 +35,35 @@ final class StorageService {
         set { defaults.set(newValue, forKey: "plusDefault") }
     }
 
-    // MARK: - Tasks (Encrypted UserDefaults)
+    // MARK: - Workflow History (plain UserDefaults, not sensitive)
+    private let historyKey = "rh_workflow_history"
+    private let historyLimit = 20
+
+    var workflowHistory: [WorkflowHistoryItem] {
+        get {
+            guard let data = defaults.data(forKey: historyKey),
+                  let items = try? JSONDecoder().decode([WorkflowHistoryItem].self, from: data)
+            else { return [] }
+            return items
+        }
+        set {
+            if let data = try? JSONEncoder().encode(newValue) {
+                defaults.set(data, forKey: historyKey)
+            }
+        }
+    }
+
+    func addWorkflowHistory(_ item: WorkflowHistoryItem) {
+        var history = workflowHistory
+        history.removeAll { $0.workflowId == item.workflowId }
+        history.insert(item, at: 0)
+        if history.count > historyLimit { history = Array(history.prefix(historyLimit)) }
+        workflowHistory = history
+    }
+
+    func clearWorkflowHistory() {
+        defaults.removeObject(forKey: historyKey)
+    }
     private let tasksKey = "rh_tasks_encrypted"
     private(set) var tasks: [RHTask] = []
 
