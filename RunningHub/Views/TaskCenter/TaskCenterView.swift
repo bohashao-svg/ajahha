@@ -6,7 +6,7 @@ struct TaskCenterView: View {
     @EnvironmentObject private var appState: AppState
     @Environment(\.dismiss) private var dismiss
 
-    private let tabs: [TaskStatus] = [.running, .queued, .pending, .completed, .failed, .cancelled]
+    private let tabs: [TaskStatus] = [.running, .queued, .completed, .failed, .cancelled]
 
     var body: some View {
         NavigationView {

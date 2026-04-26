@@ -50,7 +50,10 @@ final class AppState: ObservableObject {
     }
 
     func tasks(for status: TaskStatus) -> [RHTask] {
-        tasks.filter { $0.status == status }
+        if status == .queued {
+            return tasks.filter { $0.status == .queued || $0.status == .pending }
+        }
+        return tasks.filter { $0.status == status }
     }
 
     var pendingCount: Int {
