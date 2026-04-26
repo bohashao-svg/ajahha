@@ -29,15 +29,6 @@ struct TaskCenterView: View {
                         RHIcon(name: .close, size: 20, color: .rhSecondary)
                     }
                 }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    if !appState.tasks.isEmpty {
-                        Button {
-                            appState.clearAll()
-                        } label: {
-                            RHIcon(name: .trash, size: 20, color: .rhError)
-                        }
-                    }
-                }
             }
         }
     }
@@ -90,13 +81,28 @@ struct TaskCenterView: View {
                 ScrollView {
                     LazyVStack(spacing: 12) {
                         ForEach(tasks) { task in
-                            NavigationLink {
-                                TaskDetailView(task: task, vm: vm)
-                                    .environmentObject(appState)
-                            } label: {
-                                TaskCardView(task: task)
+                            HStack(spacing: 8) {
+                                NavigationLink {
+                                    TaskDetailView(task: task, vm: vm)
+                                        .environmentObject(appState)
+                                } label: {
+                                    TaskCardView(task: task)
+                                }
+                                .buttonStyle(.plain)
+
+                                if task.isFinished {
+                                    Button {
+                                        appState.removeTask(id: task.id)
+                                    } label: {
+                                        Image(systemName: "trash")
+                                            .font(.system(size: 15))
+                                            .foregroundColor(.rhError)
+                                            .frame(width: 36, height: 36)
+                                            .background(Color.rhError.opacity(0.1))
+                                            .cornerRadius(10)
+                                    }
+                                }
                             }
-                            .buttonStyle(.plain)
                         }
                     }
                     .padding(16)

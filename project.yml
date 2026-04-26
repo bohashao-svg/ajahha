@@ -40,6 +40,11 @@ targets:
           - UIInterfaceOrientationPortrait
         NSPhotoLibraryAddUsageDescription: "需要访问相册以保存图片"
         NSPhotoLibraryUsageDescription: "需要访问相册以保存图片"
+        CFBundleIcons:
+          CFBundlePrimaryIcon:
+            CFBundleIconFiles:
+              - AppIcon
+            UIPrerenderedIcon: false
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
     settings:
