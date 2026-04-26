@@ -35,5 +35,6 @@ build_ipa:
     expire_in: 30 days
   only:
     - main
+    - master
     - /^release\/.*$/
     - tags
