@@ -123,6 +123,14 @@ final class HomeViewModel: ObservableObject {
         defer { isSubmitting = false }
 
         do {
+            // Serialize workflow JSON as prompt string (required by API)
+            var promptString: String? = nil
+            if let workflow = workflowDetail?.workflow,
+               let data = try? JSONEncoder().encode(workflow),
+               let str = String(data: data, encoding: .utf8) {
+                promptString = str
+            }
+
             // Build node inputs from form fields (only user-filled, non-empty)
             let nodeInputs = formFields
                 .filter { !$0.value.isBlank && $0.fieldName != "password" }
@@ -131,6 +139,7 @@ final class HomeViewModel: ObservableObject {
             let req = RunWorkflowRequest(
                 workflowId: workflowId,
                 mode: isPlusMode ? "plus" : nil,
+                prompt: promptString,
                 nodeInfoList: nodeInputs
             )
 

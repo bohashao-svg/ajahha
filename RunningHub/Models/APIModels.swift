@@ -110,6 +110,7 @@ struct DuckNodeInfo {
 struct RunWorkflowRequest: Codable {
     let workflowId: String
     let mode: String?
+    let prompt: String?       // full workflow JSON string
     let nodeInfoList: [NodeInput]
 }
 
