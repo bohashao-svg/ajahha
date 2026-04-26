@@ -47,8 +47,8 @@ struct PremiumWorkflowView: View {
                 } else {
                     ScrollView {
                         LazyVStack(spacing: 10) {
-                            ForEach(items) { item in
-                                workflowRow(item)
+                            ForEach(items.indices, id: \.self) { index in
+                                workflowRow(index: index)
                             }
                         }
                         .padding(16)
@@ -71,9 +71,12 @@ struct PremiumWorkflowView: View {
         .task { await loadWorkflows() }
     }
 
-    private func workflowRow(_ item: PremiumWorkflowItem) -> some View {
-        Button {
-            onSelect(item.workflowId)
+    private func workflowRow(index: Int) -> some View {
+        let item = items[index]
+        let workflowId = item.workflowId
+
+        return Button {
+            onSelect(workflowId)
             dismiss()
         } label: {
             HStack(spacing: 12) {
@@ -85,11 +88,23 @@ struct PremiumWorkflowView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(item.name.isEmpty ? "工作流 \(item.workflowId)" : item.name)
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.rhPrimary)
-                        .lineLimit(1)
-                    Text(item.workflowId)
+                    if item.name.isEmpty {
+                        // Still loading name
+                        HStack(spacing: 6) {
+                            ProgressView()
+                                .scaleEffect(0.7)
+                                .tint(.rhSecondary)
+                            Text("加载中...")
+                                .font(.system(size: 13))
+                                .foregroundColor(.rhSecondary)
+                        }
+                    } else {
+                        Text(item.name)
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.rhPrimary)
+                            .lineLimit(1)
+                    }
+                    Text(workflowId)
                         .font(.system(size: 11))
                         .foregroundColor(.rhSecondary)
                         .lineLimit(1)
@@ -111,10 +126,27 @@ struct PremiumWorkflowView: View {
         isLoading = true
         errorMessage = nil
         do {
-            items = try await PremiumWorkflowService.shared.fetchPremiumWorkflows()
+            let fetched = try await PremiumWorkflowService.shared.fetchPremiumWorkflows()
+            items = fetched
+            isLoading = false
+
+            // Concurrently fetch names for all items
+            await withTaskGroup(of: (Int, String).self) { group in
+                for (index, item) in fetched.enumerated() {
+                    group.addTask {
+                        let name = (try? await PremiumWorkflowService.shared.fetchWorkflowName(workflowId: item.workflowId)) ?? item.workflowId
+                        return (index, name)
+                    }
+                }
+                for await (index, name) in group {
+                    if index < items.count {
+                        items[index].name = name
+                    }
+                }
+            }
         } catch {
             errorMessage = "加载失败：\(error.localizedDescription)"
+            isLoading = false
         }
-        isLoading = false
     }
 }
