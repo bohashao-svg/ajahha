@@ -76,6 +76,6 @@ final class AppState: ObservableObject {
     }
 
     var pendingCount: Int {
-        tasks.filter { $0.status == .queued || $0.status == .running }.count
+        tasks.filter { $0.status == .pending || $0.status == .running }.count
     }
 }

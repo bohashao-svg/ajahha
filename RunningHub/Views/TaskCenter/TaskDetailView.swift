@@ -26,7 +26,7 @@ struct TaskDetailView: View {
                     infoCard
                     if !liveTask.outputUrls.isEmpty { outputSection }
                     if liveTask.isDuckEncoded { duckSection }
-                    if liveTask.status == .running || liveTask.status == .queued { cancelButton }
+                    if liveTask.status == .running || liveTask.status == .pending { cancelButton }
                 }
                 .padding(16)
             }
