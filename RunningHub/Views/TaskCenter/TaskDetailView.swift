@@ -180,12 +180,12 @@ struct TaskDetailView: View {
                     switch phase {
                     case .success(let img):
                         img.resizable().scaledToFit().cornerRadius(12)
-                            .overlay(duckOverlay, alignment: .bottomTrailing)
+                            .overlay(duckOverlay, alignment: .bottomLeading)
                     case .empty:
                         ProgressView().frame(height: 120)
                     default:
                         Color.rhBackground.frame(height: 120).cornerRadius(12)
-                            .overlay(duckOverlay, alignment: .bottomTrailing)
+                            .overlay(duckOverlay, alignment: .bottomLeading)
                     }
                 }
 
@@ -209,11 +209,7 @@ struct TaskDetailView: View {
                     .cornerRadius(10)
             } else {
                 Button {
-                    if liveTask.duckPassword?.isEmpty == false {
-                        triggerDecode(password: liveTask.duckPassword!)
-                    } else {
-                        showRetrySheet = true
-                    }
+                    showRetrySheet = true
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "lock.open.fill")
@@ -268,7 +264,7 @@ struct TaskDetailView: View {
             Text("输入解码密码")
                 .font(.system(size: 16, weight: .semibold))
                 .padding(.top, 24)
-            SecureField("密码", text: $retryPassword)
+            SecureField("留空则无密码", text: $retryPassword)
                 .padding(12)
                 .background(Color.rhBackground)
                 .cornerRadius(10)
@@ -285,10 +281,9 @@ struct TaskDetailView: View {
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity).frame(height: 46)
-                        .background(retryPassword.isEmpty ? Color.rhSecondary.opacity(0.4) : Color.rhAccent)
+                        .background(Color.rhAccent)
                         .cornerRadius(12)
                 }
-                .disabled(retryPassword.isEmpty)
             }
             .padding(.horizontal)
             Spacer()

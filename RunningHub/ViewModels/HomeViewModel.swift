@@ -51,79 +51,56 @@ final class HomeViewModel: ObservableObject {
         formFields = buildFormFields(from: nodes)
     }
 
-    private func isNegativeNode(_ node: WorkflowNodeRaw) -> Bool {
-        let classLower = node.classType?.lowercased() ?? ""
-        let titleLower = node.meta?.title?.lowercased() ?? ""
-        // Use word-boundary-like checks to avoid false positives (e.g. "positive" contains "pos")
-        let negPatterns = ["negative", "负向", "反向", "neg prompt", "neg_prompt"]
-        return negPatterns.contains(where: { classLower.contains($0) || titleLower.contains($0) })
-    }
-
     private func buildFormFields(from nodes: [WorkflowNodeRaw]) -> [FormField] {
         var fields: [FormField] = []
         let nodeDict = workflowDetail?.parsedNodes ?? [:]
 
-        // Collect all text-type nodes that are not negative
-        let textClassTypes = ["cliptextencode", "cr text", "text multiline", "string", "note"]
-        let textNodes = nodeDict
+        // Show ALL nodes that have any inputs — no filtering by class type
+        // Only exclude duck steganography nodes (they have no user-editable inputs)
+        let inputNodes = nodeDict
             .filter { (_, node) in
                 guard let ct = node.classType?.lowercased() else { return false }
-                return textClassTypes.contains(where: { ct.contains($0) }) && !isNegativeNode(node)
+                return !ct.contains("duck")
             }
-            // Sort by node ID numerically so lower-numbered (earlier) nodes come first
-            .sorted { a, b in
-                let ai = Int(a.key) ?? Int.max
-                let bi = Int(b.key) ?? Int.max
-                return ai < bi
-            }
-
-        // Prefer node whose title explicitly says positive/正向
-        let positivePatterns = ["positive", "正向", "提示词", "prompt"]
-        let chosen = textNodes.first(where: { (_, node) in
-            let title = node.meta?.title?.lowercased() ?? ""
-            return positivePatterns.contains(where: { title.contains($0) })
-        }) ?? textNodes.first  // fallback: lowest-ID non-negative text node
-
-        if let (nodeId, node) = chosen {
-            let inputs = node.inputs?.dictValue ?? [:]
-            let defaultText = inputs["text"]?.stringValue ?? inputs["prompt"]?.stringValue ?? ""
-            let fieldName = (inputs["text"] != nil) ? "text" : "prompt"
-            fields.append(FormField(
-                nodeId: nodeId,
-                fieldName: fieldName,
-                label: "提示词",
-                placeholder: "输入提示词...",
-                value: defaultText,
-                type: .multilineText
-            ))
-        }
-
-        // Image input nodes — sorted by node ID
-        let imageNodes = nodeDict
-            .filter { (_, node) in node.classType?.lowercased().contains("loadimage") == true }
             .sorted { a, b in (Int(a.key) ?? Int.max) < (Int(b.key) ?? Int.max) }
 
-        for (nodeId, node) in imageNodes {
-            fields.append(FormField(
-                nodeId: nodeId,
-                fieldName: "image",
-                label: node.meta?.title ?? "输入图片",
-                placeholder: "图片 URL",
-                value: "",
-                type: .imageInput
-            ))
-        }
+        for (nodeId, node) in inputNodes {
+            let ct = node.classType?.lowercased() ?? ""
+            let title = node.meta?.title ?? node.classType ?? "输入"
+            let inputs = node.inputs?.dictValue ?? [:]
 
-        // Duck password field
-        if let duck = duckNodeInfo {
-            fields.append(FormField(
-                nodeId: duck.nodeId,
-                fieldName: "password",
-                label: "鸭鸭图解码密码",
-                placeholder: "输入解码密码",
-                value: duck.password ?? "",
-                type: .password
-            ))
+            if ct.contains("loadimage") {
+                fields.append(FormField(
+                    nodeId: nodeId,
+                    fieldName: "image",
+                    label: title,
+                    placeholder: "图片 URL",
+                    value: "",
+                    type: .imageInput
+                ))
+            } else if inputs.keys.contains("text") {
+                // Always show text field even if value is a wired reference (array)
+                let defaultText = inputs["text"]?.stringValue ?? ""
+                fields.append(FormField(
+                    nodeId: nodeId,
+                    fieldName: "text",
+                    label: title,
+                    placeholder: "输入提示词...",
+                    value: defaultText,
+                    type: .multilineText
+                ))
+            } else if inputs.keys.contains("prompt") {
+                let defaultText = inputs["prompt"]?.stringValue ?? ""
+                fields.append(FormField(
+                    nodeId: nodeId,
+                    fieldName: "prompt",
+                    label: title,
+                    placeholder: "输入提示词...",
+                    value: defaultText,
+                    type: .multilineText
+                ))
+            }
+            // Nodes with no text/prompt/image inputs are skipped
         }
 
         return fields
