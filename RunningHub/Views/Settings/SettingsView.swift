@@ -145,11 +145,7 @@ struct SettingsView: View {
     // MARK: - Version Footer
     private var versionFooter: some View {
         VStack(spacing: 6) {
-            HStack(spacing: 8) {
-                Rectangle().fill(Color.rhBorder).frame(height: 1)
-                StarDecoration(size: 10, color: .rhGold.opacity(0.5))
-                Rectangle().fill(Color.rhBorder).frame(height: 1)
-            }
+            Divider()
             Text("人民万岁  v1.0.0")
                 .font(.system(size: 12))
                 .foregroundColor(.rhSecondary.opacity(0.7))

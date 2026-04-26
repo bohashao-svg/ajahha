@@ -2,14 +2,14 @@ name: RunningHub
 options:
   bundleIdPrefix: com.runninghub
   deploymentTarget:
-    iOS: "15.0"
+    iOS: "16.0"
   xcodeVersion: "15.0"
   createIntermediateGroups: true
 
 settings:
   base:
     SWIFT_VERSION: 5.9
-    IPHONEOS_DEPLOYMENT_TARGET: 15.0
+    IPHONEOS_DEPLOYMENT_TARGET: 16.0
     TARGETED_DEVICE_FAMILY: 1
     PRODUCT_BUNDLE_IDENTIFIER: com.runninghub.ios
     PRODUCT_NAME: 人民万岁
