@@ -27,18 +27,21 @@ jobs:
             -archivePath "${{ runner.temp }}/RunningHub.xcarchive" \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_ALLOWED=NO \
+            PRODUCT_BUNDLE_IDENTIFIER=com.runninghub.ios
 
-      - name: Export IPA
+      - name: Package IPA manually
         run: |
-          xcodebuild -exportArchive \
-            -archivePath "${{ runner.temp }}/RunningHub.xcarchive" \
-            -exportPath "${{ runner.temp }}/export" \
-            -exportOptionsPlist ExportOptions.plist
+          APP_PATH=$(find "${{ runner.temp }}/RunningHub.xcarchive" -name "*.app" | head -1)
+          mkdir -p "${{ runner.temp }}/Payload"
+          cp -r "$APP_PATH" "${{ runner.temp }}/Payload/"
+          cd "${{ runner.temp }}"
+          zip -r RunningHub.ipa Payload
+          echo "IPA created at ${{ runner.temp }}/RunningHub.ipa"
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
           name: RunningHub-${{ github.sha }}
-          path: ${{ runner.temp }}/export/*.ipa
+          path: ${{ runner.temp }}/RunningHub.ipa
           retention-days: 30
