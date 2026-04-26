@@ -1,1 +1,0 @@
-!function(){try{const e=localStorage.getItem("userInfo"),o=e?JSON.parse(e):null;window.postMessage({type:"FROM_PAGE_USER_INFO",userInfo:o},"*")}catch(e){window.postMessage({type:"FROM_PAGE_USER_INFO",userInfo:null},"*")}}();

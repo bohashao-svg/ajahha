@@ -1,1 +1,0 @@
-const CONFIG={SERVER_URL:"https://duckp.airush.top"};window.DUCK_CONFIG=CONFIG;
