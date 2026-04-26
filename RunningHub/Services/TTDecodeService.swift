@@ -287,22 +287,22 @@ private struct TTBigUInt {
         }
         return rem
     }
-    func << (_ n: Int) -> TTBigUInt {
-        let ws=n/64, bs=n%64
-        var out=[UInt64](repeating:0,count:words.count+ws+1)
-        for i in 0..<words.count {
-            out[i+ws] |= words[i]<<bs
-            if bs>0 { out[i+ws+1] |= words[i]>>(64-bs) }
+    static func <<(lhs: TTBigUInt, rhs: Int) -> TTBigUInt {
+        let ws=rhs/64, bs=rhs%64
+        var out=[UInt64](repeating:0,count:lhs.words.count+ws+1)
+        for i in 0..<lhs.words.count {
+            out[i+ws] |= lhs.words[i]<<bs
+            if bs>0 { out[i+ws+1] |= lhs.words[i]>>(64-bs) }
         }
         var r=TTBigUInt(); r.words=out; r.trim(); return r
     }
-    func >> (_ n: Int) -> TTBigUInt {
-        let ws=n/64, bs=n%64
-        guard ws<words.count else { return TTBigUInt() }
+    static func >>(lhs: TTBigUInt, rhs: Int) -> TTBigUInt {
+        let ws=rhs/64, bs=rhs%64
+        guard ws<lhs.words.count else { return TTBigUInt() }
         var out=[UInt64]()
-        for i in ws..<words.count {
-            var v=words[i]>>bs
-            if bs>0 && i+1<words.count { v|=words[i+1]<<(64-bs) }
+        for i in ws..<lhs.words.count {
+            var v=lhs.words[i]>>bs
+            if bs>0 && i+1<lhs.words.count { v|=lhs.words[i+1]<<(64-bs) }
             out.append(v)
         }
         var r=TTBigUInt(); r.words=out; r.trim(); return r
