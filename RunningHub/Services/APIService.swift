@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 // MARK: - API Service
 final class APIService {
@@ -93,6 +94,47 @@ final class APIService {
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         return try decoder.decode(TaskQueryResponse.self, from: data)
+    }
+
+    /// POST /task/openapi/upload — multipart/form-data 上传图片，返回文件名
+    func uploadImage(_ image: UIImage) async throws -> String {
+        guard !apiKey.isEmpty else { throw APIError.noAPIKey }
+        guard let url = URL(string: baseURL + "/task/openapi/upload") else { throw APIError.invalidURL }
+        guard let imageData = image.jpegData(compressionQuality: 0.9) else { throw APIError.invalidResponse }
+
+        let boundary = "Boundary-\(UUID().uuidString)"
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        req.timeoutInterval = 60
+
+        var body = Data()
+        // apiKey field
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"apiKey\"\r\n\r\n".data(using: .utf8)!)
+        body.append("\(apiKey)\r\n".data(using: .utf8)!)
+        // file field
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"upload.jpg\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
+        body.append(imageData)
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+        req.httpBody = body
+
+        let (data, _) = try await URLSession.shared.data(for: req)
+        #if DEBUG
+        if let str = String(data: data, encoding: .utf8) {
+            print("[API] /task/openapi/upload → \(str.prefix(400))")
+        }
+        #endif
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let decoded = try decoder.decode(APIResponse<UploadImageResponse>.self, from: data)
+        guard decoded.isSuccess, let result = decoded.data else {
+            throw APIError.serverError(decoded.msg ?? "上传失败")
+        }
+        return result.fileName
     }
 
     /// POST /task/openapi/cancel

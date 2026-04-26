@@ -74,8 +74,7 @@ enum WorkflowType {
         if types.contains(where: { t in imageKeywords.contains(where: { t.contains($0) }) }) {
             return .textToImage
         }
-        // 兜底：有节点就默认文生图，避免显示"未知类型"
-        return nodes.isEmpty ? .unknown : .textToImage
+        return .unknown
     }
 
     var displayName: String {
@@ -93,6 +92,11 @@ struct DuckNodeInfo {
     let nodeId: String
     let password: String?
     let version: String?
+}
+
+// MARK: - Upload Image Response
+struct UploadImageResponse: Codable {
+    let fileName: String
 }
 
 // MARK: - Task Submission

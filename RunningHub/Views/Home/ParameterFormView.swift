@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 // MARK: - Parameter Form View
 struct ParameterFormView: View {
@@ -27,50 +28,19 @@ struct ParameterFormView: View {
 private struct FieldRow: View {
     @Binding var field: FormField
     @FocusState private var isFocused: Bool
+    @State private var photoItem: PhotosPickerItem?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
-                fieldIcon
+                RHIcon(name: field.type == .imageInput ? .image : .workflow, size: 13, color: .rhSecondary)
                 Text(field.label)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.rhPrimary)
             }
             fieldInput
         }
         .padding(.vertical, 2)
-    }
-
-    @ViewBuilder
-    private var fieldIcon: some View {
-        ZStack {
-            Circle()
-                .fill(iconBgColor)
-                .frame(width: 22, height: 22)
-            RHIcon(name: iconName, size: 11, color: iconColor)
-        }
-    }
-
-    private var iconName: RHIcon.IconName {
-        switch field.type {
-        case .imageInput: return .image
-        case .password:   return .lock
-        default:          return .workflow
-        }
-    }
-
-    private var iconColor: Color {
-        switch field.type {
-        case .password: return .rhGold
-        default:        return .rhAccent
-        }
-    }
-
-    private var iconBgColor: Color {
-        switch field.type {
-        case .password: return Color.rhGold.opacity(0.12)
-        default:        return Color.rhAccentSoft
-        }
     }
 
     @ViewBuilder
@@ -110,11 +80,64 @@ private struct FieldRow: View {
                 .cornerRadius(12)
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(isFocused ? Color.rhGold.opacity(0.5) : Color.rhBorder, lineWidth: 1)
+                        .stroke(isFocused ? Color.rhAccent.opacity(0.5) : Color.rhBorder, lineWidth: 1)
                 )
                 .focused($isFocused)
 
-        case .imageInput, .text:
+        case .imageInput:
+            PhotosPicker(selection: $photoItem, matching: .images) {
+                HStack(spacing: 10) {
+                    if let img = field.selectedImage {
+                        Image(uiImage: img)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 52, height: 52)
+                            .cornerRadius(10)
+                            .clipped()
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("已选择图片")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.rhPrimary)
+                            Text("点击重新选择")
+                                .font(.system(size: 11))
+                                .foregroundColor(.rhSecondary)
+                        }
+                    } else {
+                        Image(systemName: "photo.on.rectangle.angled")
+                            .font(.system(size: 22))
+                            .foregroundColor(.rhAccent.opacity(0.7))
+                            .frame(width: 52, height: 52)
+                            .background(Color.rhAccentSoft)
+                            .cornerRadius(10)
+                        Text("从相册选择图片")
+                            .font(.system(size: 14))
+                            .foregroundColor(.rhSecondary)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13))
+                        .foregroundColor(.rhBorder)
+                }
+                .padding(10)
+                .background(Color.rhBackground)
+                .cornerRadius(12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.rhBorder, lineWidth: 1)
+                )
+            }
+            .onChange(of: photoItem) { newItem in
+                guard let newItem else { return }
+                Task {
+                    if let data = try? await newItem.loadTransferable(type: Data.self),
+                       let img = UIImage(data: data) {
+                        field.selectedImage = img
+                        field.value = "pending_upload"  // 占位，submit 时替换为 fileName
+                    }
+                }
+            }
+
+        case .text:
             TextField(field.placeholder, text: $field.value)
                 .font(.system(size: 14))
                 .foregroundColor(.rhPrimary)

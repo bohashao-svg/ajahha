@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import UIKit
 
 // MARK: - Home ViewModel
 @MainActor
@@ -123,9 +124,18 @@ final class HomeViewModel: ObservableObject {
         defer { isSubmitting = false }
 
         do {
-            // prompt = the raw workflow JSON string returned by API
-            let nodeInputs = formFields
-                .filter { !$0.value.isBlank && $0.fieldName != "password" }
+            // 图片字段先上传，拿到 fileName 替换 value
+            var resolvedFields = formFields
+            for i in resolvedFields.indices {
+                if resolvedFields[i].type == .imageInput,
+                   let img = resolvedFields[i].selectedImage {
+                    let fileName = try await APIService.shared.uploadImage(img)
+                    resolvedFields[i].value = fileName
+                }
+            }
+
+            let nodeInputs = resolvedFields
+                .filter { !$0.value.isBlank && $0.value != "pending_upload" && $0.fieldName != "password" }
                 .map { NodeInput(nodeId: $0.nodeId, fieldName: $0.fieldName, fieldValue: $0.value) }
 
             let req = RunWorkflowRequest(
@@ -189,6 +199,7 @@ struct FormField: Identifiable {
     let label: String
     let placeholder: String
     var value: String
+    var selectedImage: UIImage?   // 仅 imageInput 使用
     let type: FieldType
 
     enum FieldType {
