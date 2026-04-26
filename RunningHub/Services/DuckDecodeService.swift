@@ -91,8 +91,10 @@ final class DuckDecodeService {
     // MARK: - Detect duck_encode_node in workflow
     func detectDuckNode(in nodes: [WorkflowNodeRaw]) -> DuckNodeInfo? {
         for (index, node) in nodes.enumerated() {
-            guard let classType = node.classType,
-                  classType.lowercased().contains("duck_encode") else { continue }
+            guard let classType = node.classType else { continue }
+            let lower = classType.lowercased()
+            // Matches: DuckHideNode, duck_encode_node, DuckEncode, etc.
+            guard lower.contains("duck") else { continue }
             var password: String?
             if let inputs = node.inputs?.dictValue {
                 password = inputs["password"]?.stringValue

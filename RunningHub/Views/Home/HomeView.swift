@@ -153,7 +153,7 @@ struct HomeView: View {
             }
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(vm.workflowDetail?.name ?? vm.workflowDetail?.workflowId ?? "")
+                Text(vm.currentWorkflowId)
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(.rhPrimary)
                     .lineLimit(1)

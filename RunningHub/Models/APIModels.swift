@@ -16,59 +16,36 @@ struct UserQuota: Codable {
     var hasAvailableSlot: Bool { availableConcurrency > 0 }
 }
 
-// MARK: - Workflow
+// MARK: - Workflow Detail
+// API returns: { "prompt": "<JSON string of ComfyUI nodes>" }
 struct WorkflowDetailResponse: Codable {
-    let workflowId: String
-    let name: String?
-    let workflow: WorkflowGraph?
-}
+    let prompt: String   // raw JSON string, needs second-pass decode
 
-struct WorkflowGraph: Codable {
-    var nodes: [WorkflowNode]?
-    private var _nodeDict: [String: WorkflowNodeRaw]?
-
-    var allNodes: [WorkflowNodeRaw] {
-        return _nodeDict?.values.map { $0 } ?? []
+    // Parsed nodes (ComfyUI dict format: { "nodeId": { class_type, inputs, _meta } })
+    var parsedNodes: [String: WorkflowNodeRaw] {
+        guard let data = prompt.data(using: .utf8),
+              let dict = try? JSONDecoder().decode([String: WorkflowNodeRaw].self, from: data)
+        else { return [:] }
+        return dict
     }
 
-    init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        if let dict = try? container.decode([String: WorkflowNodeRaw].self) {
-            _nodeDict = dict
-            nodes = nil
-        } else {
-            let keyed = try decoder.container(keyedBy: CodingKeys.self)
-            nodes = try keyed.decodeIfPresent([WorkflowNode].self, forKey: .nodes)
-            _nodeDict = nil
-        }
-    }
-
-    func encode(to encoder: Encoder) throws {
-        if let dict = _nodeDict {
-            var container = encoder.singleValueContainer()
-            try container.encode(dict)
-        } else {
-            var container = encoder.container(keyedBy: CodingKeys.self)
-            try container.encodeIfPresent(nodes, forKey: .nodes)
-        }
-    }
-
-    enum CodingKeys: String, CodingKey { case nodes }
-}
-
-struct WorkflowNode: Codable {
-    let id: String?
-    let type: String?
-    let inputs: AnyCodable?
+    var allNodes: [WorkflowNodeRaw] { Array(parsedNodes.values) }
 }
 
 struct WorkflowNodeRaw: Codable {
     let classType: String?
     let inputs: AnyCodable?
+    let meta: WorkflowNodeMeta?
+
     enum CodingKeys: String, CodingKey {
         case classType = "class_type"
         case inputs
+        case meta = "_meta"
     }
+}
+
+struct WorkflowNodeMeta: Codable {
+    let title: String?
 }
 
 // MARK: - Workflow Type Detection
@@ -77,13 +54,13 @@ enum WorkflowType {
 
     static func detect(from nodes: [WorkflowNodeRaw]) -> WorkflowType {
         let types = nodes.compactMap { $0.classType?.lowercased() }
-        if types.contains(where: { $0.contains("video") && $0.contains("image") }) {
+        if types.contains(where: { $0.contains("video") && ($0.contains("image") || $0.contains("i2v")) }) {
             return .imageToVideo
         }
-        if types.contains(where: { $0.contains("video") }) {
+        if types.contains(where: { $0.contains("video") || $0.contains("animate") }) {
             return .textToVideo
         }
-        if types.contains(where: { $0.contains("image") || $0.contains("ksampler") || $0.contains("sampler") }) {
+        if types.contains(where: { $0.contains("ksampler") || $0.contains("sampler") || $0.contains("image") }) {
             return .textToImage
         }
         return .unknown
@@ -91,15 +68,15 @@ enum WorkflowType {
 
     var displayName: String {
         switch self {
-        case .textToImage: return "文生图"
-        case .textToVideo: return "文生视频"
+        case .textToImage:  return "文生图"
+        case .textToVideo:  return "文生视频"
         case .imageToVideo: return "图生视频"
-        case .unknown: return "未知类型"
+        case .unknown:      return "未知类型"
         }
     }
 }
 
-// MARK: - Duck Encode Node Detection
+// MARK: - Duck Node Detection
 struct DuckNodeInfo {
     let nodeId: String
     let password: String?
@@ -110,7 +87,7 @@ struct DuckNodeInfo {
 struct RunWorkflowRequest: Codable {
     let workflowId: String
     let mode: String?
-    let prompt: String?       // full workflow JSON string
+    let prompt: String?       // full workflow JSON string (from WorkflowDetailResponse.prompt)
     let nodeInfoList: [NodeInput]
 }
 
@@ -134,40 +111,39 @@ struct TaskStatusItem: Codable {
 }
 
 struct TaskOutput: Codable {
-    let type: String?   // "image" | "video"
+    let type: String?
     let url: String?
     let fileUrl: String?
-
     var resolvedUrl: String? { url ?? fileUrl }
 }
 
-// MARK: - AnyCodable helper
+// MARK: - AnyCodable
 struct AnyCodable: Codable {
     let value: Any
 
     init(_ value: Any) { self.value = value }
 
     init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        if let v = try? container.decode(Bool.self) { value = v }
-        else if let v = try? container.decode(Int.self) { value = v }
-        else if let v = try? container.decode(Double.self) { value = v }
-        else if let v = try? container.decode(String.self) { value = v }
-        else if let v = try? container.decode([String: AnyCodable].self) { value = v }
-        else if let v = try? container.decode([AnyCodable].self) { value = v }
-        else { value = NSNull() }
+        let c = try decoder.singleValueContainer()
+        if let v = try? c.decode(Bool.self)                  { value = v }
+        else if let v = try? c.decode(Int.self)              { value = v }
+        else if let v = try? c.decode(Double.self)           { value = v }
+        else if let v = try? c.decode(String.self)           { value = v }
+        else if let v = try? c.decode([String: AnyCodable].self) { value = v }
+        else if let v = try? c.decode([AnyCodable].self)     { value = v }
+        else                                                 { value = NSNull() }
     }
 
     func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
+        var c = encoder.singleValueContainer()
         switch value {
-        case let v as Bool: try container.encode(v)
-        case let v as Int: try container.encode(v)
-        case let v as Double: try container.encode(v)
-        case let v as String: try container.encode(v)
-        case let v as [String: AnyCodable]: try container.encode(v)
-        case let v as [AnyCodable]: try container.encode(v)
-        default: try container.encodeNil()
+        case let v as Bool:                  try c.encode(v)
+        case let v as Int:                   try c.encode(v)
+        case let v as Double:                try c.encode(v)
+        case let v as String:                try c.encode(v)
+        case let v as [String: AnyCodable]:  try c.encode(v)
+        case let v as [AnyCodable]:          try c.encode(v)
+        default:                             try c.encodeNil()
         }
     }
 
