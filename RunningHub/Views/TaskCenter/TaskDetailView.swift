@@ -190,17 +190,19 @@ struct TaskDetailView: View {
                         alignment: .bottomTrailing
                     )
             } else if liveTask.status == .completed, let url = liveTask.primaryOutputUrl {
-                AsyncImage(url: URL(string: url)) { phase in
-                    switch phase {
-                    case .success(let img):
-                        img.resizable().scaledToFit().cornerRadius(16)
-                            .overlay(duckOverlay, alignment: .bottomLeading)
-                    case .empty:
-                        ProgressView().frame(height: 120)
-                    default:
-                        Color.rhBackground.frame(height: 120).cornerRadius(16)
-                            .overlay(duckOverlay, alignment: .bottomLeading)
+                ZStack(alignment: .bottomLeading) {
+                    AsyncImage(url: URL(string: url)) { phase in
+                        switch phase {
+                        case .success(let img):
+                            img.resizable().scaledToFit().cornerRadius(16)
+                        case .empty:
+                            ProgressView().frame(height: 120)
+                        default:
+                            Color.rhBackground.frame(height: 120).cornerRadius(16)
+                        }
                     }
+
+                    duckOverlay
                 }
 
                 if let err = decodeError {

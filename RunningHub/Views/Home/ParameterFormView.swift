@@ -33,10 +33,26 @@ private struct FieldRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
-                RHIcon(name: field.type == .imageInput ? .image : .workflow, size: 13, color: .rhSecondary)
+                let iconColor: Color = {
+                    switch field.promptRole {
+                    case .positive: return .rhAccent
+                    case .negative: return .rhWarning
+                    default: return .rhSecondary
+                    }
+                }()
+                RHIcon(name: field.type == .imageInput ? .image : .workflow, size: 13, color: iconColor)
                 Text(field.label)
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.rhPrimary)
+                if let role = field.promptRole {
+                    Text(role == .positive ? "正向" : "负向")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(role == .positive ? .rhAccent : .rhWarning)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background((role == .positive ? Color.rhAccent : Color.rhWarning).opacity(0.1))
+                        .cornerRadius(4)
+                }
             }
             fieldInput
         }

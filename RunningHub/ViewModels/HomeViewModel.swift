@@ -18,6 +18,8 @@ final class HomeViewModel: ObservableObject {
     @Published var currentWorkflowId: String = ""
     @Published var workflowHistory: [WorkflowHistoryItem] = StorageService.shared.workflowHistory
     @Published var showAllHistory: Bool = false
+    @Published var showPromptSelector: Bool = false
+    @Published var availablePromptFields: [FormField] = []
 
     private let appState: AppState
 
@@ -54,15 +56,72 @@ final class HomeViewModel: ObservableObject {
         let nodes = detail.allNodes
         workflowType = WorkflowType.detect(from: nodes)
         duckNodeInfo = DuckDecodeService.shared.detectDuckNode(in: nodes)
-        formFields = buildFormFields(from: nodes)
+
+        let allPromptFields = collectAllPromptFields(from: nodes)
+
+        // If multiple prompt fields detected, show selector
+        if allPromptFields.count > 1 {
+            availablePromptFields = allPromptFields
+            showPromptSelector = true
+            formFields = [] // Wait for user selection
+        } else {
+            formFields = buildFormFields(from: nodes, selectedPrompts: nil)
+        }
     }
 
-    private func buildFormFields(from nodes: [WorkflowNodeRaw]) -> [FormField] {
+    func applyPromptSelection(_ selected: [PromptFieldSelection]) {
+        guard let detail = workflowDetail else { return }
+        formFields = buildFormFields(from: detail.allNodes, selectedPrompts: selected)
+        showPromptSelector = false
+    }
+
+    private func collectAllPromptFields(from nodes: [WorkflowNodeRaw]) -> [FormField] {
         var fields: [FormField] = []
         let nodeDict = workflowDetail?.parsedNodes ?? [:]
 
-        // Show ALL nodes that have any inputs — no filtering by class type
-        // Only exclude duck steganography nodes (they have no user-editable inputs)
+        let inputNodes = nodeDict
+            .filter { (_, node) in
+                guard let ct = node.classType?.lowercased() else { return false }
+                return !ct.contains("duck")
+            }
+            .sorted { a, b in (Int(a.key) ?? Int.max) < (Int(b.key) ?? Int.max) }
+
+        for (nodeId, node) in inputNodes {
+            let title = node.meta?.title ?? node.classType ?? "输入"
+            let inputs = node.inputs?.dictValue ?? [:]
+
+            if inputs.keys.contains("text") {
+                let defaultText = inputs["text"]?.stringValue ?? ""
+                fields.append(FormField(
+                    nodeId: nodeId,
+                    fieldName: "text",
+                    label: title,
+                    placeholder: "输入提示词...",
+                    value: defaultText,
+                    type: .multilineText,
+                    promptRole: nil
+                ))
+            } else if inputs.keys.contains("prompt") {
+                let defaultText = inputs["prompt"]?.stringValue ?? ""
+                fields.append(FormField(
+                    nodeId: nodeId,
+                    fieldName: "prompt",
+                    label: title,
+                    placeholder: "输入提示词...",
+                    value: defaultText,
+                    type: .multilineText,
+                    promptRole: nil
+                ))
+            }
+        }
+
+        return fields
+    }
+
+    private func buildFormFields(from nodes: [WorkflowNodeRaw], selectedPrompts: [PromptFieldSelection]?) -> [FormField] {
+        var fields: [FormField] = []
+        let nodeDict = workflowDetail?.parsedNodes ?? [:]
+
         let inputNodes = nodeDict
             .filter { (_, node) in
                 guard let ct = node.classType?.lowercased() else { return false }
@@ -82,31 +141,39 @@ final class HomeViewModel: ObservableObject {
                     label: title,
                     placeholder: "图片 URL",
                     value: "",
-                    type: .imageInput
+                    type: .imageInput,
+                    promptRole: nil
                 ))
-            } else if inputs.keys.contains("text") {
-                // Always show text field even if value is a wired reference (array)
-                let defaultText = inputs["text"]?.stringValue ?? ""
-                fields.append(FormField(
-                    nodeId: nodeId,
-                    fieldName: "text",
-                    label: title,
-                    placeholder: "输入提示词...",
-                    value: defaultText,
-                    type: .multilineText
-                ))
-            } else if inputs.keys.contains("prompt") {
-                let defaultText = inputs["prompt"]?.stringValue ?? ""
-                fields.append(FormField(
-                    nodeId: nodeId,
-                    fieldName: "prompt",
-                    label: title,
-                    placeholder: "输入提示词...",
-                    value: defaultText,
-                    type: .multilineText
-                ))
+            } else if inputs.keys.contains("text") || inputs.keys.contains("prompt") {
+                let fieldName = inputs.keys.contains("text") ? "text" : "prompt"
+                let defaultText = inputs[fieldName]?.stringValue ?? ""
+
+                // If selectedPrompts provided, only include selected fields
+                if let selections = selectedPrompts {
+                    if let selection = selections.first(where: { $0.nodeId == nodeId && $0.fieldName == fieldName }) {
+                        fields.append(FormField(
+                            nodeId: nodeId,
+                            fieldName: fieldName,
+                            label: selection.role == .positive ? "正向提示词" : "负向提示词",
+                            placeholder: "输入提示词...",
+                            value: defaultText,
+                            type: .multilineText,
+                            promptRole: selection.role
+                        ))
+                    }
+                } else {
+                    // No selection dialog shown, include all
+                    fields.append(FormField(
+                        nodeId: nodeId,
+                        fieldName: fieldName,
+                        label: title,
+                        placeholder: "输入提示词...",
+                        value: defaultText,
+                        type: .multilineText,
+                        promptRole: nil
+                    ))
+                }
             }
-            // Nodes with no text/prompt/image inputs are skipped
         }
 
         return fields
@@ -181,6 +248,11 @@ final class HomeViewModel: ObservableObject {
         Task { await fetchWorkflow() }
     }
 
+    func removeHistory(_ item: WorkflowHistoryItem) {
+        StorageService.shared.removeWorkflowHistory(workflowId: item.workflowId)
+        workflowHistory = StorageService.shared.workflowHistory
+    }
+
     private func resetForm() {
         workflowInput = ""
         workflowDetail = nil
@@ -201,8 +273,24 @@ struct FormField: Identifiable {
     var value: String
     var selectedImage: UIImage?   // 仅 imageInput 使用
     let type: FieldType
+    let promptRole: PromptRole?
 
     enum FieldType {
         case text, multilineText, password, imageInput
     }
+}
+
+// MARK: - Prompt Selection
+struct PromptFieldSelection: Identifiable {
+    let id = UUID()
+    let nodeId: String
+    let fieldName: String
+    let label: String
+    var role: PromptRole
+}
+
+enum PromptRole {
+    case positive
+    case negative
+    case none
 }

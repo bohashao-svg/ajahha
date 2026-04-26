@@ -7,6 +7,7 @@ struct HomeView: View {
     @State private var showTaskCenter = false
     @State private var showSettings = false
     @State private var showAPIKeyAlert = false
+    @State private var showPremium = false
 
     var body: some View {
         NavigationView {
@@ -15,33 +16,47 @@ struct HomeView: View {
 
                 ScrollView {
                     VStack(spacing: 16) {
-                        workflowInputCard
+                        // Top: Premium workflow entry card
+                        premiumEntryCard
+                            .padding(.horizontal, 16)
 
+                        // Center: Workflow input + detail
+                        VStack(spacing: 16) {
+                            workflowInputCard
+
+                            if vm.workflowDetail != nil {
+                                workflowInfoCard
+                                    .transition(.opacity.combined(with: .move(edge: .top)))
+                                ParameterFormView(fields: $vm.formFields)
+                                    .transition(.opacity.combined(with: .move(edge: .top)))
+                                plusToggleCard
+                                    .transition(.opacity)
+                                submitButton
+                                    .transition(.opacity)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .animation(.spring(response: 0.38, dampingFraction: 0.82), value: vm.workflowDetail == nil)
+
+                        Spacer(minLength: 24)
+
+                        // Bottom: History workflows (centered)
                         if !vm.workflowHistory.isEmpty && vm.workflowDetail == nil {
                             workflowHistoryCard
-                                .transition(.move(edge: .top).combined(with: .opacity))
+                                .padding(.horizontal, 16)
+                                .transition(.move(edge: .bottom).combined(with: .opacity))
                         }
-                        if vm.workflowDetail != nil {
-                            workflowInfoCard
-                                .transition(.opacity.combined(with: .move(edge: .top)))
-                            ParameterFormView(fields: $vm.formFields)
-                                .transition(.opacity.combined(with: .move(edge: .top)))
-                            plusToggleCard
-                                .transition(.opacity)
-                            submitButton
-                                .transition(.opacity)
-                        }
-                        Spacer(minLength: 20)
+
+                        // Signature
                         Text("By：iPhone83Plus")
                             .font(.system(size: 11))
                             .foregroundColor(.rhSecondary.opacity(0.5))
                             .frame(maxWidth: .infinity)
-                        Spacer(minLength: 20)
+                            .padding(.bottom, 20)
                     }
-                    .padding(.horizontal, 16)
                     .padding(.top, 12)
-                    .animation(.spring(response: 0.38, dampingFraction: 0.82), value: vm.workflowDetail == nil)
                     .animation(.spring(response: 0.38, dampingFraction: 0.82), value: vm.workflowHistory.isEmpty)
+                    .animation(.spring(response: 0.38, dampingFraction: 0.82), value: vm.workflowDetail == nil)
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
@@ -65,6 +80,17 @@ struct HomeView: View {
             }
             .sheet(isPresented: $showSettings) {
                 SettingsView()
+            }
+            .sheet(isPresented: $showPremium) {
+                PremiumWorkflowView { workflowId in
+                    vm.workflowInput = workflowId
+                    Task { await vm.fetchWorkflow() }
+                }
+            }
+            .sheet(isPresented: $vm.showPromptSelector) {
+                PromptSelectorView(fields: vm.availablePromptFields, onConfirm: { selections in
+                    vm.applyPromptSelection(selections)
+                })
             }
             .alert("请先配置 API 密钥", isPresented: $showAPIKeyAlert) {
                 Button("去配置") { showSettings = true }
@@ -92,6 +118,61 @@ struct HomeView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Premium Entry Card
+    private var premiumEntryCard: some View {
+        Button { showPremium = true } label: {
+            HStack(spacing: 14) {
+                // SVG-style decorative icon area
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.rhAccent.opacity(0.12))
+                        .frame(width: 52, height: 52)
+
+                    // Star pattern
+                    VStack(spacing: 2) {
+                        HStack(spacing: 4) {
+                            Text("✦").font(.system(size: 10)).foregroundColor(.rhGold)
+                            Text("★").font(.system(size: 14)).foregroundColor(.rhAccent)
+                            Text("✦").font(.system(size: 10)).foregroundColor(.rhGold)
+                        }
+                        Text("精品").font(.system(size: 9, weight: .bold)).foregroundColor(.rhAccent)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Text("精品工作流")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(.rhPrimary)
+                        Text("NEW")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
+                            .background(Color.rhAccent)
+                            .cornerRadius(4)
+                    }
+                    Text("精选优质工作流，一键导入使用")
+                        .font(.system(size: 12))
+                        .foregroundColor(.rhSecondary)
+                }
+
+                Spacer()
+
+                RHIcon(name: .chevron, size: 14, color: .rhAccent.opacity(0.6))
+            }
+            .padding(14)
+            .background(Color.rhCard)
+            .cornerRadius(18)
+            .overlay(
+                RoundedRectangle(cornerRadius: 18)
+                    .stroke(Color.rhAccent.opacity(0.15), lineWidth: 1)
+            )
+            .shadow(color: Color(hex: "#C8392B").opacity(0.08), radius: 12, x: 0, y: 4)
+        }
+        .buttonStyle(ScaleButtonStyle())
     }
 
     // MARK: - Workflow Input Card
@@ -274,6 +355,15 @@ struct HomeView: View {
                     .padding(.vertical, 6)
                 }
                 .buttonStyle(.plain)
+                .contextMenu {
+                    Button(role: .destructive) {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            vm.removeHistory(item)
+                        }
+                    } label: {
+                        Label("删除", systemImage: "trash")
+                    }
+                }
 
                 if item.workflowId != displayed.last?.workflowId {
                     Divider()

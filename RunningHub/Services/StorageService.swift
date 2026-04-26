@@ -61,6 +61,12 @@ final class StorageService {
         workflowHistory = history
     }
 
+    func removeWorkflowHistory(workflowId: String) {
+        var history = workflowHistory
+        history.removeAll { $0.workflowId == workflowId }
+        workflowHistory = history
+    }
+
     func clearWorkflowHistory() {
         defaults.removeObject(forKey: historyKey)
     }
