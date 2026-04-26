@@ -22,34 +22,6 @@ struct APIResponse<T: Codable>: Codable {
     var isSuccess: Bool { code == 0 }
 }
 
-// MARK: - User Quota
-struct UserQuota: Codable {
-    let maxConcurrency: Int
-    let usedConcurrency: Int
-    let remainConcurrency: Int
-    let dailyQuota: Int?
-    let usedQuota: Int?
-    var hasAvailableSlot: Bool { remainConcurrency > 0 }
-
-    enum CodingKeys: String, CodingKey {
-        case maxConcurrency    = "concurrencyLimit"
-        case usedConcurrency   = "runningTaskCount"
-        case remainConcurrency = "remainConcurrency"
-        case dailyQuota        = "dailyQuota"
-        case usedQuota         = "usedQuota"
-    }
-
-    init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        // Try both snake_case API names and camelCase fallbacks
-        maxConcurrency    = (try? c.decode(Int.self, forKey: .maxConcurrency))    ?? 0
-        usedConcurrency   = (try? c.decode(Int.self, forKey: .usedConcurrency))   ?? 0
-        remainConcurrency = (try? c.decode(Int.self, forKey: .remainConcurrency)) ?? max(0, maxConcurrency - usedConcurrency)
-        dailyQuota        = try? c.decode(Int.self, forKey: .dailyQuota)
-        usedQuota         = try? c.decode(Int.self, forKey: .usedQuota)
-    }
-}
-
 // MARK: - Workflow Detail
 struct WorkflowDetailResponse: Codable {
     let prompt: String

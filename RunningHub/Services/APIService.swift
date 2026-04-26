@@ -57,11 +57,6 @@ final class APIService {
 
     // MARK: - Public APIs
 
-    /// POST /api/openapi/accountStatus
-    func fetchQuota() async throws -> UserQuota {
-        return try await post(path: "/api/openapi/accountStatus", body: [:])
-    }
-
     /// POST /api/openapi/getJsonApiFormat
     func fetchWorkflowDetail(workflowId: String) async throws -> WorkflowDetailResponse {
         return try await post(

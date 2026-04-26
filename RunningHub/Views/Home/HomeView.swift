@@ -60,7 +60,6 @@ struct HomeView: View {
             }
             .onAppear {
                 if !StorageService.shared.hasAPIKey { showAPIKeyAlert = true }
-                appState.refreshQuota()
             }
         }
     }
@@ -128,35 +127,11 @@ struct HomeView: View {
 
     private var quotaStatusView: some View {
         HStack(spacing: 6) {
-            if let err = appState.quotaError {
-                Circle().fill(Color.rhError).frame(width: 7, height: 7)
-                Text("配额获取失败: \(err)")
-                    .font(.system(size: 12))
-                    .foregroundColor(.rhError)
-                    .lineLimit(2)
-                Spacer()
-                Button {
-                    appState.refreshQuota()
-                } label: {
-                    Text("重试")
-                        .font(.system(size: 12))
-                        .foregroundColor(.rhAccent)
-                }
-            } else {
-                Circle()
-                    .fill(appState.canSubmit ? Color.rhSuccess : Color.rhError)
-                    .frame(width: 7, height: 7)
-                if let q = appState.quota {
-                    Text("并发 \(q.usedConcurrency)/\(q.maxConcurrency)  ·  剩余 \(q.remainConcurrency) 个")
-                        .font(.system(size: 12))
-                        .foregroundColor(.rhSecondary)
-                } else {
-                    Text("正在检查并发配额...")
-                        .font(.system(size: 12))
-                        .foregroundColor(.rhSecondary)
-                }
-                Spacer()
-            }
+            Circle().fill(Color.rhSuccess).frame(width: 7, height: 7)
+            Text("就绪")
+                .font(.system(size: 12))
+                .foregroundColor(.rhSecondary)
+            Spacer()
         }
     }
 

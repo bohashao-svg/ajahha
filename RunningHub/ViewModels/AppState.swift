@@ -11,42 +11,15 @@ final class AppState: ObservableObject {
     }
 
     @Published var tasks: [RHTask] = []
-    @Published var quota: UserQuota?
-    @Published var isQuotaLoading = false
 
     var activeTasks: [RHTask] { tasks.filter { !$0.isFinished } }
-    var activeCount: Int { activeTasks.count }
-
-    @Published var quotaError: String?
-
-    // MARK: - Quota
-    func refreshQuota() {
-        guard !isQuotaLoading else { return }
-        isQuotaLoading = true
-        quotaError = nil
-        Task { @MainActor in
-            defer { isQuotaLoading = false }
-            do {
-                quota = try await APIService.shared.fetchQuota()
-            } catch {
-                quotaError = error.localizedDescription
-            }
-        }
-    }
-
-    var canSubmit: Bool {
-        // If quota failed to load, allow submission anyway
-        if quotaError != nil { return true }
-        guard let q = quota else { return false }
-        return q.hasAvailableSlot
-    }
+    var canSubmit: Bool { true }
 
     // MARK: - Task Management
     func addTask(_ task: RHTask) {
         tasks.insert(task, at: 0)
         StorageService.shared.upsertTask(task)
         TaskPollingService.shared.startPolling(task: task)
-        refreshQuota()
     }
 
     func updateTask(_ task: RHTask) {
@@ -54,7 +27,6 @@ final class AppState: ObservableObject {
             tasks[idx] = task
         }
         StorageService.shared.upsertTask(task)
-        if task.isFinished { refreshQuota() }
     }
 
     func removeTask(id: String) {
@@ -77,7 +49,6 @@ final class AppState: ObservableObject {
         TaskPollingService.shared.resumePolling(for: tasks)
     }
 
-    // MARK: - Task counts by status
     func tasks(for status: TaskStatus) -> [RHTask] {
         tasks.filter { $0.status == status }
     }
