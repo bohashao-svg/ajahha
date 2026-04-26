@@ -16,15 +16,76 @@ jobs:
       - name: Install xcodegen
         run: brew install xcodegen
 
+      - name: Generate app icon
+        run: |
+          python3 - <<'EOF'
+          import struct, zlib, math
+
+          W = 1024
+          img = []
+          cx, cy = W//2, W//2
+
+          def star_points(cx, cy, r_out, r_in, n=5):
+              pts = []
+              for i in range(n*2):
+                  angle = math.pi/2 + i * math.pi / n
+                  r = r_out if i % 2 == 0 else r_in
+                  pts.append((cx + r*math.cos(angle), cy - r*math.sin(angle)))
+              return pts
+
+          def point_in_polygon(x, y, poly):
+              n = len(poly)
+              inside = False
+              px, py = poly[-1]
+              for qx, qy in poly:
+                  if ((py > y) != (qy > y)) and (x < (qx-px)*(y-py)/(qy-py)+px):
+                      inside = not inside
+                  px, py = qx, qy
+              return inside
+
+          star = star_points(cx, cy, 380, 160)
+
+          for y in range(W):
+              row = []
+              for x in range(W):
+                  # rounded rect background: red
+                  rx, ry = abs(x-cx), abs(y-cy)
+                  radius = 180
+                  in_bg = (rx < W//2-radius or ry < W//2-radius or
+                           (rx-W//2+radius)**2 + (ry-W//2+radius)**2 < radius**2)
+                  if in_bg:
+                      if point_in_polygon(x, y, star):
+                          row += [255, 220, 0, 255]   # gold star
+                      else:
+                          row += [200, 0, 0, 255]     # red bg
+                  else:
+                      row += [0, 0, 0, 0]             # transparent
+              img.append(bytes(row))
+
+          def png_chunk(tag, data):
+              c = zlib.crc32(tag+data) & 0xffffffff
+              return struct.pack('>I',len(data)) + tag + data + struct.pack('>I',c)
+
+          raw = b''.join(b'\x00'+r for r in img)
+          compressed = zlib.compress(raw, 9)
+
+          with open('RunningHub/Assets.xcassets/AppIcon.appiconset/icon_1024.png','wb') as f:
+              f.write(b'\x89PNG\r\n\x1a\n')
+              f.write(png_chunk(b'IHDR', struct.pack('>IIBBBBB', W, W, 8, 6, 0, 0, 0)))
+              f.write(png_chunk(b'IDAT', compressed))
+              f.write(png_chunk(b'IEND', b''))
+          print("Icon generated")
+          EOF
+
       - name: Generate Xcode project
         run: xcodegen generate
 
       - name: Build archive (no signing)
         run: |
           xcodebuild clean archive \
-            -scheme "RunningHub" \
+            -scheme "人民万岁" \
             -configuration Release \
-            -archivePath "${{ runner.temp }}/RunningHub.xcarchive" \
+            -archivePath "${{ runner.temp }}/rmws.xcarchive" \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
@@ -32,16 +93,15 @@ jobs:
 
       - name: Package IPA manually
         run: |
-          APP_PATH=$(find "${{ runner.temp }}/RunningHub.xcarchive" -name "*.app" | head -1)
+          APP_PATH=$(find "${{ runner.temp }}/rmws.xcarchive" -name "*.app" | head -1)
           mkdir -p "${{ runner.temp }}/Payload"
           cp -r "$APP_PATH" "${{ runner.temp }}/Payload/"
           cd "${{ runner.temp }}"
-          zip -r RunningHub.ipa Payload
-          echo "IPA created at ${{ runner.temp }}/RunningHub.ipa"
+          zip -r rmws.ipa Payload
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
-          name: RunningHub-${{ github.sha }}
-          path: ${{ runner.temp }}/RunningHub.ipa
+          name: 人民万岁-${{ github.sha }}
+          path: ${{ runner.temp }}/rmws.ipa
           retention-days: 30

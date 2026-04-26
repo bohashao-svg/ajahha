@@ -25,7 +25,12 @@ struct HomeView: View {
                             plusToggleCard
                             submitButton
                         }
-                        Spacer(minLength: 40)
+                        Spacer(minLength: 20)
+                        Text("By：iPhone83Plus")
+                            .font(.system(size: 11))
+                            .foregroundColor(.rhSecondary.opacity(0.5))
+                            .frame(maxWidth: .infinity)
+                        Spacer(minLength: 20)
                     }
                     .padding(.horizontal, 16)
                     .padding(.top, 12)
@@ -39,7 +44,7 @@ struct HomeView: View {
                     }
                 }
                 ToolbarItem(placement: .principal) {
-                    Text("RunningHub")
+                    Text("人民万岁")
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundColor(.rhPrimary)
                 }
