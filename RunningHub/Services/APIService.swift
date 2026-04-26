@@ -17,7 +17,6 @@ final class APIService {
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         req.timeoutInterval = 30
 
         var fullBody = body
@@ -69,7 +68,9 @@ final class APIService {
     func runWorkflow(_ runReq: RunWorkflowRequest) async throws -> RunWorkflowResponse {
         var body: [String: Any] = [
             "workflowId": runReq.workflowId,
-            "prompt": runReq.prompt ?? ""
+            "nodeInfoList": runReq.nodeInfoList.map {
+                ["nodeId": $0.nodeId, "fieldName": $0.fieldName, "fieldValue": $0.fieldValue]
+            }
         ]
         if let mode = runReq.mode { body["mode"] = mode }
         return try await post(path: "/api/openapi/createTask", body: body)
