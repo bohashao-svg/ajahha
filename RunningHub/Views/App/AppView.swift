@@ -32,6 +32,9 @@ struct AppView: View {
                         .font(.system(size: 17, weight: .semibold))
                 }
             }
+            .onChange(of: vm.didSubmitSuccessfully) { success in
+                if success { dismiss() }
+            }
         }
     }
 
@@ -109,7 +112,7 @@ struct AppView: View {
     // MARK: - Submit Button
     private var submitButton: some View {
         Button {
-            Task { await vm.submit { dismiss() } }
+            Task { await vm.submit() }
         } label: {
             HStack(spacing: 8) {
                 if vm.isSubmitting {

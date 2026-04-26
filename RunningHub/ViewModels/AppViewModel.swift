@@ -13,7 +13,7 @@ final class AppViewModel: ObservableObject {
     @Published var isLoading: Bool = false
     @Published var isSubmitting: Bool = false
     @Published var errorMessage: String?
-    @Published var selectedImages: [String: UIImage] = [:]  // nodeId+fieldName → UIImage
+    @Published var didSubmitSuccessfully: Bool = false
 
     private let appState: AppState
 
@@ -42,7 +42,7 @@ final class AppViewModel: ObservableObject {
 
     // MARK: - Submit Task
     // 与 HomeViewModel.submit() 逻辑一致：上传图片 → 提交 → 创建 RHTask → AppState.addTask → 关闭
-    func submit(onSuccess: @escaping () -> Void) async {
+    func submit() async {
         guard !nodes.isEmpty else {
             errorMessage = "请先获取节点信息"
             return
@@ -82,9 +82,9 @@ final class AppViewModel: ObservableObject {
             )
             appState.addTask(task)
 
-            // 重置表单，关闭界面
+            // 重置表单，通知 View 关闭
             reset()
-            onSuccess()
+            didSubmitSuccessfully = true
 
         } catch {
             errorMessage = error.localizedDescription
@@ -98,6 +98,7 @@ final class AppViewModel: ObservableObject {
         nodes = []
         errorMessage = nil
         selectedImages = [:]
+        didSubmitSuccessfully = false
     }
 }
 

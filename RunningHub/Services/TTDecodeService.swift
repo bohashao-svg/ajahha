@@ -81,9 +81,14 @@ final class TTDecodeService {
     // MARK: - Detect TT node in workflow
     func detectTTNode(in nodes: [WorkflowNodeRaw]) -> Bool {
         nodes.contains { node in
-            guard let ct = node.classType?.lowercased() else { return false }
-            return ct.contains("tttool") || ct.contains("tt_tool") || ct.contains("tt tool")
-                || ct.contains("ttnode") || ct.contains("tt_node")
+            let ct    = node.classType?.lowercased() ?? ""
+            let title = node.meta?.title?.lowercased() ?? ""
+            let combined = ct + " " + title
+            return combined.contains("tt img enc")
+                || combined.contains("ttimgenc")
+                || combined.contains("tt_img_enc")
+                || combined.contains("tttool")
+                || combined.contains("tt_tool")
         }
     }
 }
