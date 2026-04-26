@@ -18,8 +18,8 @@ final class TaskPollingService {
         guard pollingTasks[task.id] == nil else { return }
 
         let taskId = task.id
-        let pollingTask = Task { [weak self] in
-            await self?.pollLoop(taskId: taskId, originalTask: task)
+        let pollingTask = Task<Void, Never> { [weak self] in
+            await self?.pollLoop(taskId: taskId, originalTask: task) ?? ()
         }
         pollingTasks[taskId] = pollingTask
     }

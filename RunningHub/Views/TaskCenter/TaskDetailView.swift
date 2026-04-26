@@ -224,7 +224,7 @@ struct TaskDetailView: View {
                 }
             }
         }
-        .presentationDetents([.height(240)])
+        .frame(height: 240)
     }
 }
 
@@ -288,9 +288,8 @@ private struct OutputItemView: View {
 
     private func saveButton(for image: Image) -> some View {
         Button {
-            // Download and save via URLSession
-            if let urlStr = url, let url = URL(string: urlStr) {
-                URLSession.shared.dataTask(with: url) { data, _, _ in
+            if let urlObj = URL(string: url) {
+                URLSession.shared.dataTask(with: urlObj) { data, _, _ in
                     if let data = data, let img = UIImage(data: data) {
                         UIImageWriteToSavedPhotosAlbum(img, nil, nil, nil)
                     }
