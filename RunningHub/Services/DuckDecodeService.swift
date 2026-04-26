@@ -1,6 +1,7 @@
 import Foundation
 import UIKit
 import CryptoKit
+import AVFoundation
 
 // MARK: - Duck Decode Service
 // Ported from SS_tools duck_encode_node v1.2 (content.js)
@@ -36,16 +37,53 @@ final class DuckDecodeService {
 
     // MARK: - Public API
 
+    var videoExtensions: Set<String> { ["mp4", "mov", "webm", "avi", "mkv"] }
+
+    func isVideoUrl(_ urlString: String) -> Bool {
+        let ext = urlString.split(separator: ".").last?.lowercased() ?? ""
+        return videoExtensions.contains(String(ext))
+    }
+
     func decode(imageUrl: String, password: String) async throws -> Data {
         guard let url = URL(string: imageUrl) else { throw DecodeError.downloadFailed }
-        let (data, _) = try await URLSession.shared.data(from: url)
-        return try decodeImageData(data, password: password)
+
+        if isVideoUrl(imageUrl) {
+            // Extract first frame from video, then decode LSB from that frame
+            let frameImage = try await extractFirstFrame(from: url)
+            guard let cgImage = frameImage.cgImage else { throw DecodeError.invalidImage }
+            return try decodeFromCGImage(cgImage, password: password)
+        } else {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            return try decodeImageData(data, password: password)
+        }
+    }
+
+    private func extractFirstFrame(from url: URL) async throws -> UIImage {
+        return try await withCheckedThrowingContinuation { continuation in
+            let asset = AVURLAsset(url: url)
+            let generator = AVAssetImageGenerator(asset: asset)
+            generator.appliesPreferredTrackTransform = true
+            generator.requestedTimeToleranceBefore = .zero
+            generator.requestedTimeToleranceAfter = .zero
+
+            let time = CMTime(seconds: 0, preferredTimescale: 600)
+            generator.generateCGImagesAsynchronously(forTimes: [NSValue(time: time)]) { _, cgImage, _, result, error in
+                if let cgImage = cgImage, result == .succeeded {
+                    continuation.resume(returning: UIImage(cgImage: cgImage))
+                } else {
+                    continuation.resume(throwing: DecodeError.downloadFailed)
+                }
+            }
+        }
     }
 
     func decodeImageData(_ imageData: Data, password: String) throws -> Data {
         guard let uiImage = UIImage(data: imageData),
               let cgImage = uiImage.cgImage else { throw DecodeError.invalidImage }
+        return try decodeFromCGImage(cgImage, password: password)
+    }
 
+    func decodeFromCGImage(_ cgImage: CGImage, password: String) throws -> Data {
         let width  = cgImage.width
         let height = cgImage.height
         let bytesPerPixel = 4

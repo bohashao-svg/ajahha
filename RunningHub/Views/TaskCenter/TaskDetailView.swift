@@ -190,15 +190,43 @@ struct TaskDetailView: View {
                         alignment: .bottomTrailing
                     )
             } else if liveTask.status == .completed, let url = liveTask.primaryOutputUrl {
+                let isVideo = DuckDecodeService.shared.isVideoUrl(url)
+
                 ZStack(alignment: .bottomLeading) {
-                    AsyncImage(url: URL(string: url)) { phase in
-                        switch phase {
-                        case .success(let img):
-                            img.resizable().scaledToFit().cornerRadius(16)
-                        case .empty:
-                            ProgressView().frame(height: 120)
-                        default:
-                            Color.rhBackground.frame(height: 120).cornerRadius(16)
+                    if isVideo {
+                        // Video duck: show placeholder with video icon
+                        HStack(spacing: 12) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(Color.rhAccentSoft)
+                                    .frame(width: 44, height: 44)
+                                RHIcon(name: .video, size: 20, color: .rhAccent)
+                            }
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("视频鸭鸭图")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(.rhPrimary)
+                                Text("点击解码提取隐藏内容")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.rhSecondary)
+                            }
+                            Spacer()
+                        }
+                        .frame(height: 80)
+                        .padding(12)
+                        .background(Color.rhBackground)
+                        .cornerRadius(16)
+                        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.rhBorder, lineWidth: 1))
+                    } else {
+                        AsyncImage(url: URL(string: url)) { phase in
+                            switch phase {
+                            case .success(let img):
+                                img.resizable().scaledToFit().cornerRadius(16)
+                            case .empty:
+                                ProgressView().frame(height: 120)
+                            default:
+                                Color.rhBackground.frame(height: 120).cornerRadius(16)
+                            }
                         }
                     }
 
