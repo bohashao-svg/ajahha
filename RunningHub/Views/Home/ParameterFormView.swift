@@ -95,7 +95,6 @@ private struct FieldRow: View {
                     .font(.system(size: 14))
                     .foregroundColor(.rhPrimary)
                     .frame(minHeight: 80, maxHeight: 160)
-                    .scrollContentBackground(.hidden)
                     .focused($isFocused)
             }
             .padding(10)

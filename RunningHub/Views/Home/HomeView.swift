@@ -177,12 +177,10 @@ struct HomeView: View {
                 } label: {
                     ZStack {
                         RoundedRectangle(cornerRadius: 14)
-                            .fill(
-                                vm.isLoading || vm.workflowInput.isBlank
-                                    ? Color.rhBorder
-                                    : LinearGradient(colors: [Color(hex: "#C8392B"), Color(hex: "#A93226")],
-                                                     startPoint: .topLeading, endPoint: .bottomTrailing)
-                            )
+                            .fill(vm.isLoading || vm.workflowInput.isBlank
+                                  ? AnyShapeStyle(Color.rhBorder)
+                                  : AnyShapeStyle(LinearGradient(colors: [Color(hex: "#C8392B"), Color(hex: "#A93226")],
+                                                                 startPoint: .topLeading, endPoint: .bottomTrailing)))
                             .frame(width: 44, height: 44)
                         if vm.isLoading {
                             ProgressView().tint(.white).scaleEffect(0.8)

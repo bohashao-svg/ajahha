@@ -87,9 +87,9 @@ struct SettingsView: View {
                         .padding(.vertical, 11)
                         .background(
                             vm.apiKeyInput.isBlank
-                                ? Color.rhBorder
-                                : LinearGradient(colors: [Color(hex: "#C8392B"), Color(hex: "#A93226")],
-                                                 startPoint: .leading, endPoint: .trailing)
+                                ? AnyShapeStyle(Color.rhBorder)
+                                : AnyShapeStyle(LinearGradient(colors: [Color(hex: "#C8392B"), Color(hex: "#A93226")],
+                                                               startPoint: .leading, endPoint: .trailing))
                         )
                         .cornerRadius(12)
                 }
