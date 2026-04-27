@@ -233,8 +233,29 @@ final class APIService {
 
     /// POST /openapi/v2/task/list — 获取用户任务列表（个人中心）
     func fetchUserTasks(page: Int, size: Int = 20) async throws -> UserTaskListPage {
-        let body = UserTaskListRequest(apiKey: apiKey, current: page, size: size)
-        return try await postEncodable(path: "/openapi/v2/task/list", body: body)
+        guard !apiKey.isEmpty else { throw APIError.noAPIKey }
+        guard let url = URL(string: baseURL + "/openapi/v2/task/list") else { throw APIError.invalidURL }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        req.timeoutInterval = 30
+        req.httpBody = try JSONEncoder().encode(UserTaskListRequest(apiKey: apiKey, current: page, size: size))
+        let (data, _) = try await URLSession.shared.data(for: req)
+        #if DEBUG
+        if let str = String(data: data, encoding: .utf8) {
+            print("[API] /openapi/v2/task/list → \(str.prefix(2000))")
+        }
+        #endif
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        // 先尝试解析外层 APIResponse
+        if let wrapper = try? decoder.decode(APIResponse<UserTaskListPage>.self, from: data),
+           wrapper.isSuccess, let page = wrapper.data {
+            return page
+        }
+        // 再尝试直接解析（flat response）
+        return try decoder.decode(UserTaskListPage.self, from: data)
     }
 
     /// POST /openapi/v2/resource/list — 获取公共模型列表（LoRA / CHECKPOINT / UNET / GGUF）

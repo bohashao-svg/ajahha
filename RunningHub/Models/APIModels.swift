@@ -258,33 +258,46 @@ struct UserTaskListRequest: Encodable {
 
 struct UserTaskListPage: Codable {
     let records: [UserTaskRecord]
-    let total: Int
+    let total: Int?
     let pages: Int?
     let current: Int?
     let size: Int?
 }
 
 struct UserTaskRecord: Codable, Identifiable {
-    let taskId: String
+    let taskId: String?
     let taskStatus: String?
     let workflowId: String?
     let workflowName: String?
     let createdAt: String?
     let outputList: [UserTaskOutput]?
 
-    var id: String { taskId }
-
-    var isCompleted: Bool {
-        (taskStatus ?? "").uppercased() == "SUCCESS"
+    // 兼容 API 可能直接返回 "id" 字段
+    private enum CodingKeys: String, CodingKey {
+        case taskId, taskStatus, workflowId, workflowName, createdAt, outputList
+        case taskIdAlt = "id"
     }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        taskId       = try c.decodeIfPresent(String.self, forKey: .taskId)
+                    ?? c.decodeIfPresent(String.self, forKey: .taskIdAlt)
+        taskStatus   = try c.decodeIfPresent(String.self, forKey: .taskStatus)
+        workflowId   = try c.decodeIfPresent(String.self, forKey: .workflowId)
+        workflowName = try c.decodeIfPresent(String.self, forKey: .workflowName)
+        createdAt    = try c.decodeIfPresent(String.self, forKey: .createdAt)
+        outputList   = try c.decodeIfPresent([UserTaskOutput].self, forKey: .outputList)
+    }
+
+    var id: String { taskId ?? UUID().uuidString }
 
     var outputUrls: [String] {
         outputList?.compactMap { $0.fileUrl }.filter { !$0.isEmpty } ?? []
     }
 
     var firstImageUrl: String? {
-        outputList?.first(where: { url in
-            let ext = (url.fileUrl ?? "").split(separator: ".").last?.lowercased() ?? ""
+        outputList?.first(where: { item in
+            let ext = (item.fileUrl ?? "").split(separator: ".").last?.lowercased() ?? ""
             return !["mp4", "mov", "webm"].contains(ext)
         })?.fileUrl
     }

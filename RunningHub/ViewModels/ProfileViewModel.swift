@@ -47,10 +47,11 @@ final class ProfileViewModel: ObservableObject {
     private func fetchPage(_ page: Int) async {
         do {
             let result = try await APIService.shared.fetchUserTasks(page: page, size: pageSize)
-            let items = result.records.map { record in
-                ProfileWorkItem(
-                    id: record.taskId,
-                    taskId: record.taskId,
+            let items = result.records.compactMap { record -> ProfileWorkItem? in
+                guard let tid = record.taskId, !tid.isEmpty else { return nil }
+                return ProfileWorkItem(
+                    id: tid,
+                    taskId: tid,
                     workflowId: record.workflowId,
                     workflowName: record.workflowName,
                     createdAt: record.createdAt,
@@ -64,10 +65,10 @@ final class ProfileViewModel: ObservableObject {
                 works.append(contentsOf: items)
             }
             currentPage = page
-            // pages 字段可能为 nil（API 不返回时），用 total/size 兜底
+            let total = result.total ?? items.count
             let totalPages = (result.pages ?? 0) > 0
                 ? result.pages!
-                : Int(ceil(Double(result.total) / Double(pageSize)))
+                : Int(ceil(Double(total) / Double(pageSize)))
             hasNext = page < totalPages && !items.isEmpty
         } catch {
             errorMessage = error.localizedDescription
