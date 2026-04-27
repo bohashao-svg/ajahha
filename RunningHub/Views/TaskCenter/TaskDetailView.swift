@@ -187,53 +187,53 @@ struct TaskDetailView: View {
     private var decodeResultBlock: some View {
         let duckData = liveTask.decodedImageData
         let ttData   = liveTask.ttDecodedData
-        guard let data = duckData ?? ttData else { return }
-
-        Divider()
-        HStack(spacing: 6) {
-            Image(systemName: duckData != nil ? "tortoise.fill" : "wand.and.stars")
-                .font(.system(size: 13))
-                .foregroundColor(duckData != nil ? .rhWarning : .rhAccent)
-            Text(duckData != nil ? "鸭鸭图解码结果" : "TT Tool 解码结果")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(.rhPrimary)
-            Spacer()
-        }
-        if let uiImage = UIImage(data: data) {
-            Image(uiImage: uiImage)
-                .resizable().scaledToFit().cornerRadius(14)
-                .overlay(
-                    Button { saveImage(uiImage) } label: {
+        if let data = duckData ?? ttData {
+            Divider()
+            HStack(spacing: 6) {
+                Image(systemName: duckData != nil ? "tortoise.fill" : "wand.and.stars")
+                    .font(.system(size: 13))
+                    .foregroundColor(duckData != nil ? .rhWarning : .rhAccent)
+                Text(duckData != nil ? "鸭鸭图解码结果" : "TT Tool 解码结果")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.rhPrimary)
+                Spacer()
+            }
+            if let uiImage = UIImage(data: data) {
+                Image(uiImage: uiImage)
+                    .resizable().scaledToFit().cornerRadius(14)
+                    .overlay(
+                        Button { saveImage(uiImage) } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "square.and.arrow.down").font(.system(size: 12, weight: .semibold))
+                                Text("保存").font(.system(size: 12, weight: .semibold))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 10).padding(.vertical, 7)
+                            .background(Color.black.opacity(0.55))
+                            .cornerRadius(10)
+                        }.padding(10),
+                        alignment: .bottomTrailing
+                    )
+            } else {
+                HStack(spacing: 10) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8).fill(Color.rhAccentSoft).frame(width: 38, height: 38)
+                        RHIcon(name: .video, size: 18, color: .rhAccent)
+                    }
+                    Text("解码成功（视频）").font(.system(size: 13, weight: .medium)).foregroundColor(.rhPrimary)
+                    Spacer()
+                    Button { saveVideo(data) } label: {
                         HStack(spacing: 4) {
-                            Image(systemName: "square.and.arrow.down").font(.system(size: 12, weight: .semibold))
+                            Image(systemName: "square.and.arrow.down").font(.system(size: 12))
                             Text("保存").font(.system(size: 12, weight: .semibold))
                         }
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 10).padding(.vertical, 7)
-                        .background(Color.black.opacity(0.55))
-                        .cornerRadius(10)
-                    }.padding(10),
-                    alignment: .bottomTrailing
-                )
-        } else {
-            HStack(spacing: 10) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8).fill(Color.rhAccentSoft).frame(width: 38, height: 38)
-                    RHIcon(name: .video, size: 18, color: .rhAccent)
-                }
-                Text("解码成功（视频）").font(.system(size: 13, weight: .medium)).foregroundColor(.rhPrimary)
-                Spacer()
-                Button { saveVideo(data) } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "square.and.arrow.down").font(.system(size: 12))
-                        Text("保存").font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.white).padding(.horizontal, 10).padding(.vertical, 7)
+                        .background(Color.rhAccent).cornerRadius(10)
                     }
-                    .foregroundColor(.white).padding(.horizontal, 10).padding(.vertical, 7)
-                    .background(Color.rhAccent).cornerRadius(10)
                 }
+                .padding(10).background(Color.rhBackground).cornerRadius(12)
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.rhBorder, lineWidth: 1))
             }
-            .padding(10).background(Color.rhBackground).cornerRadius(12)
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.rhBorder, lineWidth: 1))
         }
     }
 

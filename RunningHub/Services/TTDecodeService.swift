@@ -324,8 +324,8 @@ private struct TTBigUInt {
     }
 }
 
-}
 // MARK: - V2 (RGB direct write, color image) decoder
+extension TTDecodeService {
 
     // Magic bytes
     private static let MAGIC_TTV2:    [UInt8] = [84,84,118,50]
