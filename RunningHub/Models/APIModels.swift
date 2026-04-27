@@ -2,15 +2,27 @@ import Foundation
 
 // MARK: - Workflow History Item
 struct WorkflowHistoryItem: Codable, Identifiable {
+    enum ItemType: String, Codable { case workflow, aiApp }
     var id: String { workflowId }
     let workflowId: String
     let workflowType: String
     let usedAt: Date
+    let itemType: ItemType
 
-    init(workflowId: String, workflowType: String) {
+    init(workflowId: String, workflowType: String, itemType: ItemType = .workflow) {
         self.workflowId = workflowId
         self.workflowType = workflowType
         self.usedAt = Date()
+        self.itemType = itemType
+    }
+
+    // 兼容旧缓存（没有 itemType 字段）
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        workflowId   = try c.decode(String.self, forKey: .workflowId)
+        workflowType = try c.decode(String.self, forKey: .workflowType)
+        usedAt       = try c.decode(Date.self,   forKey: .usedAt)
+        itemType     = try c.decodeIfPresent(ItemType.self, forKey: .itemType) ?? .workflow
     }
 }
 
@@ -176,6 +188,109 @@ struct AppRunData: Codable {
 }
 
 struct AppOutputItem: Codable {
+    let fileUrl: String?
+    let fileType: String?
+}
+
+// MARK: - Public Resource (LoRA / CHECKPOINT / UNET / GGUF)
+struct PublicResourceListRequest: Encodable {
+    let resourceType: String
+    let resourceName: String
+    let current: Int
+    let size: Int
+}
+
+struct PublicResourcePage: Codable {
+    let records: [PublicResource]
+    let total: Int
+    let pages: Int
+    let hasNext: Bool
+}
+
+struct PublicResource: Codable, Identifiable {
+    let id: String
+    let resourceName: String
+    let resourceType: String
+    let nodeModelName: String?
+    let posterUrl: String?
+    let thumbnailUrl: String?
+    let owner: ResourceOwner?
+    let tags: [ResourceTag]?
+    let versions: [ResourceVersion]?
+
+    var firstTriggerWords: String? {
+        versions?.first(where: { !($0.triggerWords ?? "").isEmpty })?.triggerWords
+    }
+}
+
+struct ResourceOwner: Codable {
+    let name: String?
+    let avatar: String?
+}
+
+struct ResourceTag: Codable, Identifiable {
+    let id: Int
+    let name: String
+}
+
+struct ResourceVersion: Codable, Identifiable {
+    let id: String
+    let version: String?
+    let versionResourceName: String?
+    let baseModel: String?
+    let triggerWords: String?
+    let posterInfos: [ResourcePosterInfo]?
+}
+
+struct ResourcePosterInfo: Codable {
+    let posterUrl: String?
+    let thumbnailUrl: String?
+    let imageWidth: Int?
+    let imageHeight: Int?
+}
+
+// MARK: - User Task List (个人中心)
+struct UserTaskListRequest: Encodable {
+    let apiKey: String
+    let current: Int
+    let size: Int
+}
+
+struct UserTaskListPage: Codable {
+    let records: [UserTaskRecord]
+    let total: Int
+    let pages: Int?
+    let current: Int?
+    let size: Int?
+}
+
+struct UserTaskRecord: Codable, Identifiable {
+    let taskId: String
+    let taskStatus: String?
+    let workflowId: String?
+    let workflowName: String?
+    let createdAt: String?
+    let outputList: [UserTaskOutput]?
+
+    var id: String { taskId }
+
+    var isCompleted: Bool {
+        (taskStatus ?? "").uppercased() == "SUCCESS"
+    }
+
+    var outputUrls: [String] {
+        outputList?.compactMap { $0.fileUrl }.filter { !$0.isEmpty } ?? []
+    }
+
+    var firstImageUrl: String? {
+        outputList?.first(where: { url in
+            let ext = (url.fileUrl ?? "").split(separator: ".").last?.lowercased() ?? ""
+            return !["mp4", "mov", "webm"].contains(ext)
+        })?.fileUrl
+    }
+}
+
+struct UserTaskOutput: Codable {
     let fileUrl: String?
     let fileType: String?
 }

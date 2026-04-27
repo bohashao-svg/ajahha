@@ -2,8 +2,6 @@ import Foundation
 import UIKit
 
 // MARK: - App (WebApp) ViewModel
-// 提交逻辑与 HomeViewModel 完全一致：
-// 提交成功 → 创建 RHTask → 加入 AppState → TaskPollingService 轮询 → 关闭界面
 @MainActor
 final class AppViewModel: ObservableObject {
 
@@ -20,6 +18,23 @@ final class AppViewModel: ObservableObject {
 
     init(appState: AppState = .shared) {
         self.appState = appState
+        NotificationCenter.default.addObserver(
+            forName: .loraDidSelect, object: nil, queue: .main
+        ) { [weak self] note in
+            guard let self,
+                  (note.userInfo?["source"] as? String) == "app",
+                  let tw = note.userInfo?["triggerWords"] as? String,
+                  !tw.isEmpty else { return }
+            // 把触发词插到第一个 STRING 字段前面
+            for i in self.nodes.indices {
+                let ft = self.nodes[i].fieldType.uppercased()
+                if ft == "STRING" || ft == "TEXT" {
+                    let current = self.nodes[i].fieldValue
+                    self.nodes[i].fieldValue = current.isEmpty ? tw : "\(tw), \(current)"
+                    break
+                }
+            }
+        }
     }
 
     // MARK: - Fetch Nodes
@@ -42,7 +57,6 @@ final class AppViewModel: ObservableObject {
     }
 
     // MARK: - Submit Task
-    // 与 HomeViewModel.submit() 逻辑一致：上传图片 → 提交 → 创建 RHTask → AppState.addTask → 关闭
     func submit() async {
         guard !nodes.isEmpty else {
             errorMessage = "请先获取节点信息"
@@ -53,7 +67,6 @@ final class AppViewModel: ObservableObject {
         defer { isSubmitting = false }
 
         do {
-            // 图片节点先上传，拿到 fileName 替换 fieldValue
             var resolvedNodes = nodes
             for i in resolvedNodes.indices {
                 let key = resolvedNodes[i].nodeId + resolvedNodes[i].fieldName
@@ -70,7 +83,6 @@ final class AppViewModel: ObservableObject {
                 nodeInfoList: resolvedNodes
             )
 
-            // 创建任务，加入 AppState，由 TaskPollingService 统一轮询
             let task = RHTask(
                 id: result.taskId,
                 workflowId: currentWebappId,
@@ -83,7 +95,14 @@ final class AppViewModel: ObservableObject {
             )
             appState.addTask(task)
 
-            // 重置表单，通知 View 关闭
+            // 写入历史记录
+            let historyItem = WorkflowHistoryItem(
+                workflowId: currentWebappId,
+                workflowType: "AI应用",
+                itemType: .aiApp
+            )
+            StorageService.shared.addWorkflowHistory(historyItem)
+
             reset()
             didSubmitSuccessfully = true
 
@@ -99,7 +118,7 @@ final class AppViewModel: ObservableObject {
         nodes = []
         errorMessage = nil
         selectedImages = [:]
-        didSubmitSuccessfully = false
+        // 不重置 didSubmitSuccessfully，由 View 的 onChange 消费后自行处理
     }
 }
 
@@ -107,7 +126,6 @@ final class AppViewModel: ObservableObject {
 extension String {
     func extractWebappId() -> String {
         let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
-        // Handle full URL: https://www.runninghub.cn/ai-detail/1234567890
         if let url = URL(string: trimmed),
            let host = url.host, host.contains("runninghub"),
            let last = url.pathComponents.last, !last.isEmpty, last != "/" {

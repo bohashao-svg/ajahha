@@ -47,6 +47,11 @@ struct TaskCardView: View {
                     if task.isDuckEncoded {
                         RHIcon(name: .duck, size: 12, color: .rhGold)
                     }
+                    if task.isTTEncoded {
+                        Image(systemName: "wand.and.stars")
+                            .font(.system(size: 11))
+                            .foregroundColor(.rhAccent)
+                    }
 
                     Spacer()
 

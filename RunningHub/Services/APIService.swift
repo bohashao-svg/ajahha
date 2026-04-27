@@ -230,6 +230,23 @@ final class APIService {
             body: Body(apiKey: apiKey, taskId: taskId)
         )
     }
+
+    /// POST /openapi/v2/task/list — 获取用户任务列表（个人中心）
+    func fetchUserTasks(page: Int, size: Int = 20) async throws -> UserTaskListPage {
+        let body = UserTaskListRequest(apiKey: apiKey, current: page, size: size)
+        return try await postEncodable(path: "/openapi/v2/task/list", body: body)
+    }
+
+    /// POST /openapi/v2/resource/list — 获取公共模型列表（LoRA / CHECKPOINT / UNET / GGUF）
+    func fetchPublicResources(type: String, keyword: String, page: Int, size: Int = 20) async throws -> PublicResourcePage {
+        let body = PublicResourceListRequest(
+            resourceType: type,
+            resourceName: keyword,
+            current: page,
+            size: size
+        )
+        return try await postEncodable(path: "/openapi/v2/resource/list", body: body)
+    }
 }
 
 // MARK: - Errors

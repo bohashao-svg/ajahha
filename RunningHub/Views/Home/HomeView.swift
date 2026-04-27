@@ -9,6 +9,7 @@ struct HomeView: View {
     @State private var showAPIKeyAlert = false
     @State private var showPremium = false
     @State private var showAIApp = false
+    @State private var showProfile = false
 
     var body: some View {
         NavigationView {
@@ -77,7 +78,15 @@ struct HomeView: View {
                         .foregroundColor(.rhPrimary)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    taskCenterButton
+                    HStack(spacing: 4) {
+                        Button { showProfile = true } label: {
+                            Image(systemName: "person.crop.circle")
+                                .font(.system(size: 22))
+                                .foregroundColor(.rhSecondary)
+                                .padding(4)
+                        }
+                        taskCenterButton
+                    }
                 }
             }
             .sheet(isPresented: $showTaskCenter) {
@@ -93,7 +102,10 @@ struct HomeView: View {
                 }
             }
             .sheet(isPresented: $showAIApp) {
-                AppView()
+                NavigationView { AppView(initialAppId: vm.pendingAIAppId) }
+            }
+            .sheet(isPresented: $showProfile) {
+                ProfileView()
             }
             .sheet(isPresented: $vm.showPromptSelector) {
                 PromptSelectorView(fields: vm.availablePromptFields, onConfirm: { selections in
@@ -364,7 +376,7 @@ struct HomeView: View {
     private var workflowHistoryCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("历史工作流")
+                Text("历史记录")
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.rhSecondary)
                 Spacer()
@@ -386,9 +398,20 @@ struct HomeView: View {
                 : Array(vm.workflowHistory.prefix(3))
 
             ForEach(displayed) { item in
-                Button { vm.selectHistory(item) } label: {
+                Button {
+                    if item.itemType == .aiApp {
+                        vm.pendingAIAppId = item.workflowId
+                        showAIApp = true
+                    } else {
+                        vm.selectHistory(item)
+                    }
+                } label: {
                     HStack(spacing: 10) {
-                        RHIcon(name: .workflow, size: 14, color: .rhAccent)
+                        RHIcon(
+                            name: item.itemType == .aiApp ? .workflow : .workflow,
+                            size: 14,
+                            color: item.itemType == .aiApp ? .rhAccent : .rhAccent
+                        )
                         VStack(alignment: .leading, spacing: 2) {
                             Text(item.workflowId)
                                 .font(.system(size: 13, weight: .medium))
@@ -399,6 +422,18 @@ struct HomeView: View {
                                 .foregroundColor(.rhSecondary)
                         }
                         Spacer()
+                        // 类型标签
+                        Text(item.itemType == .aiApp ? "应用" : historyTypeLabel(item.workflowType))
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(item.itemType == .aiApp ? .rhAccent : .rhSecondary)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(
+                                item.itemType == .aiApp
+                                    ? Color.rhAccent.opacity(0.1)
+                                    : Color.rhBorder.opacity(0.4)
+                            )
+                            .cornerRadius(5)
                         RHIcon(name: .chevron, size: 12, color: .rhBorder)
                     }
                     .padding(.vertical, 6)
@@ -420,6 +455,15 @@ struct HomeView: View {
             }
         }
         .rhCard()
+    }
+
+    private func historyTypeLabel(_ workflowType: String) -> String {
+        switch workflowType {
+        case "文生图": return "文生图"
+        case "文生视频": return "文生视频"
+        case "图生视频": return "图生视频"
+        default: return "工作流"
+        }
     }
 
     private var canSubmitNow: Bool {

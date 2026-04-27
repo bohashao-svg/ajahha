@@ -20,11 +20,27 @@ final class HomeViewModel: ObservableObject {
     @Published var showAllHistory: Bool = false
     @Published var showPromptSelector: Bool = false
     @Published var availablePromptFields: [FormField] = []
+    @Published var pendingAIAppId: String = ""
 
     private let appState: AppState
 
     init(appState: AppState = .shared) {
         self.appState = appState
+        NotificationCenter.default.addObserver(
+            forName: .loraDidSelect, object: nil, queue: .main
+        ) { [weak self] note in
+            guard let self,
+                  let tw = note.userInfo?["triggerWords"] as? String,
+                  !tw.isEmpty else { return }
+            // 把触发词插到第一个 multilineText 字段前面
+            for i in self.formFields.indices {
+                if self.formFields[i].type == .multilineText {
+                    let current = self.formFields[i].value
+                    self.formFields[i].value = current.isEmpty ? tw : "\(tw), \(current)"
+                    break
+                }
+            }
+        }
     }
 
     // MARK: - Fetch Workflow
@@ -57,6 +73,14 @@ final class HomeViewModel: ObservableObject {
                 workflowDetail = detail
                 analyzeWorkflow(detail)
             }
+
+            // 写入历史（fetchWorkflow 成功后即写，不等提交）
+            let historyItem = WorkflowHistoryItem(
+                workflowId: currentWorkflowId,
+                workflowType: workflowType.displayName
+            )
+            StorageService.shared.addWorkflowHistory(historyItem)
+            workflowHistory = StorageService.shared.workflowHistory
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -152,6 +176,18 @@ final class HomeViewModel: ObservableObject {
                     placeholder: "图片 URL",
                     value: "",
                     type: .imageInput,
+                    promptRole: nil
+                ))
+            } else if ct.contains("lora") {
+                // LoRA 节点：lora_name 字段
+                let loraName = inputs["lora_name"]?.stringValue ?? inputs["lora"]?.stringValue ?? ""
+                fields.append(FormField(
+                    nodeId: nodeId,
+                    fieldName: "lora_name",
+                    label: title,
+                    placeholder: "选择 LoRA 模型...",
+                    value: loraName,
+                    type: .loraInput,
                     promptRole: nil
                 ))
             } else if inputs.keys.contains("text") || inputs.keys.contains("prompt") {
@@ -287,7 +323,7 @@ struct FormField: Identifiable {
     let promptRole: PromptRole?
 
     enum FieldType {
-        case text, multilineText, password, imageInput
+        case text, multilineText, password, imageInput, loraInput
     }
 }
 

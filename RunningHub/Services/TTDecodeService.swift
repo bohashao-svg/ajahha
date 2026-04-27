@@ -3,9 +3,8 @@ import UIKit
 import CryptoKit
 
 // MARK: - TT Tool Decode Service
-// Ported from tt tool解码.js
-// Supports: V1 (LSB steganography, gray image) + V2 (RGB direct write, color image)
-// Encryption: none / RSA / RSANetV3 / TTPWv2 / ChaCha20
+// Supports: V2 (RGB direct write, color image)
+// Encryption: none / RSA (local/net) / ChaCha20
 final class TTDecodeService {
 
     static let shared = TTDecodeService()
@@ -41,7 +40,6 @@ final class TTDecodeService {
         let format: String
     }
 
-    /// Download image and decode. Returns first decoded file.
     func decode(imageUrl: String, password: String) async throws -> TTFile {
         guard let url = URL(string: imageUrl) else { throw DecodeError.downloadFailed }
         let (data, _) = try await URLSession.shared.data(from: url)
@@ -67,13 +65,8 @@ final class TTDecodeService {
         }
         ctx.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
 
-        // Try V2 first (color image, RGB direct write)
         if let v2 = tryV2(pixels: pixels, width: width, height: height, password: password) {
             return v2
-        }
-        // Then V1 (gray image, LSB)
-        if let v1 = tryV1(pixels: pixels, width: width, height: height, password: password) {
-            return v1
         }
         throw DecodeError.unsupportedFormat
     }
@@ -96,9 +89,14 @@ final class TTDecodeService {
 // MARK: - Crypto (ChaCha20 + TinyRSA + key derivation)
 extension TTDecodeService {
 
-    // Hardcoded RSA keypair from JS source
-    private var rsaN: String { "8780D06EF9DA6B96CD69A842B62C2DA8EFF89B9BC33F6A7935C7839DCE1A0C722BB1300397805EC1F5143A3AF2F9201AE567219C70A3F749BDD0625D466BC777F5558C9777C65D26A8B202371C1BBB9E630B2D79629DC66863161E769B3D46E7428A92EE518D0DFBDB9BBCF8ABFE6D5CD296363C964E9C775B200B720DFE31B1" }
-    private var rsaD: String { "5FD5A415091308CAE446D8E12DD4BB0A6386720FCD1C79E2763DC0818875F5DD7DB7589D01B6A1CE0DD69B847BB9E49201335A9B39334E3F5247227A93C6C090B007ADB7A1BD1B3A97C59943A738A041133B97F81DEDEF883E8D19C44B0158DFEAF5F0C3CEEA906CDC0D68D180196EB92153507D9E7AFCF310D59BA907AAC34D" }
+    // TTRSAv2 local RSA keypair
+    private var rsaLocalN: String { "8780D06EF9DA6B96CD69A842B62C2DA8EFF89B9BC33F6A7935C7839DCE1A0C722BB1300397805EC1F5143A3AF2F9201AE567219C70A3F749BDD0625D466BC777F5558C9777C65D26A8B202371C1BBB9E630B2D79629DC66863161E769B3D46E7428A92EE518D0DFBDB9BBCF8ABFE6D5CD296363C964E9C775B200B720DFE31B1" }
+    private var rsaLocalD: String { "5FD5A415091308CAE446D8E12DD4BB0A6386720FCD1C79E2763DC0818875F5DD7DB7589D01B6A1CE0DD69B847BB9E49201335A9B39334E3F5247227A93C6C090B007ADB7A1BD1B3A97C59943A738A041133B97F81DEDEF883E8D19C44B0158DFEAF5F0C3CEEA906CDC0D68D180196EB92153507D9E7AFCF310D59BA907AAC34D" }
+
+    // TTNETv2 RSA Net keypair (server key)
+    private var rsaNetN: String { "B691A71AD927A3B0108F2C9456A7F27216D892D34E787BA2E3EFD51CCAFED38151693043EB23C40472BCF8897330CF0EC739DCC301201255C5E4C7AC48DEE08EEE459FFC08655374FB2E37358892120F513582B47CCF259CD960220C215BA6857AC03982CFCEA13863EA60F163B1FAAC87E8FD33D279D5B779D0B9A1F3FEFA6F" }
+    private var rsaNetD: String { "8500973C77F6E8C8DB4772B29E6EBBB161F365038BA73A6AF0A3481E31C47351427DDF2B9BA1F2AB4AEB6024C2464C91F791AFC2608F7CCBFFDF2B97D77E87185E756FB411B17AA2F87A88D89C58FDBF26501262162A9A3E83199701349CE17095208B0BFB29C44EA919709F7670DAAC85F316431AA366C0EE20CB2A516F6801" }
+
     var defaultPassword: String { "xiaosi666" }
 
     private func sha256Hex(_ input: String) -> String {
@@ -115,8 +113,8 @@ extension TTDecodeService {
     }
 
     // ChaCha20 key derivation: 1000 SHA-256 rounds then XOR mix
-    func deriveChaCha20Key(_ password: String) -> [UInt8] {
-        var mat = password + "_rsa_chacha20_key_2025"
+    func deriveChaCha20Key(_ password: String, suffix: String) -> [UInt8] {
+        var mat = password + suffix
         for i in 0..<1000 { mat = sha256Hex(mat + String(i)) }
         let kb = hexToBytes(mat)
         var key = [UInt8](repeating: 0, count: 32)
@@ -126,12 +124,15 @@ extension TTDecodeService {
         return key
     }
 
-    func decryptRSA(_ data: [UInt8], password: String) -> [UInt8]? {
+    // RSA hybrid decrypt: matches Python rsa_hybrid_decrypt
+    // keySuffix / pwSuffix differ by format (SM2 vs RSA)
+    func decryptRSAHybrid(_ data: [UInt8], password: String, nHex: String, dHex: String,
+                          pwSuffix: String, keySuffix: String) -> [UInt8]? {
         let pw = password.isEmpty ? defaultPassword : password
-        let chaKey = deriveChaCha20Key(pw)
+        let chaKey = deriveChaCha20Key(pw, suffix: keySuffix)
         guard data.count >= 32 else { return nil }
         let storedCheck = Array(data[0..<16])
-        let expected    = Array(hexToBytes(sha256Hex(pw + "_rsa_password_check_2025")).prefix(16))
+        let expected    = Array(hexToBytes(sha256Hex(pw + pwSuffix)).prefix(16))
         guard storedCheck == expected else { return nil }
         var off = 16
         guard off + 4 <= data.count else { return nil }
@@ -141,21 +142,20 @@ extension TTDecodeService {
         let doubleEncKey = Array(data[off..<(off + keyLen)]); off += keyLen
         let nonce        = Array(data[off..<(off + 12)]);     off += 12
         let cipherData   = Array(data[off...])
-        let combinedKey  = chacha20(doubleEncKey, key: chaKey, nonce: Array(nonce.prefix(8)), counter: 0)
-        let rsaLen = (TTBigUInt(rsaN)!.bitWidth + 7) / 8
+        // Decrypt key block with ChaCha20 (full 12-byte nonce)
+        let combinedKey  = chacha20(doubleEncKey, key: chaKey, nonce: nonce, counter: 0)
+        guard let nBig = TTBigUInt(nHex) else { return nil }
+        let rsaLen = (nBig.bitWidth + 7) / 8
         let rsaHex = combinedKey.prefix(rsaLen).map { String(format: "%02x", $0) }.joined()
-        guard let decKey = rsaDecryptHex(rsaHex), decKey.count == 32 else { return nil }
-        return chacha20(cipherData, key: decKey, nonce: Array(nonce.prefix(8)), counter: 0)
+        guard let decKey = rsaDecryptHex(rsaHex, dHex: dHex, nHex: nHex), decKey.count == 32 else { return nil }
+        // Decrypt payload with ChaCha20 (full 12-byte nonce)
+        return chacha20(cipherData, key: decKey, nonce: nonce, counter: 0)
     }
 
-    func decryptRSANetV3(_ data: [UInt8], password: String) -> [UInt8]? {
-        decryptRSA(data, password: password)
-    }
-
-    private func rsaDecryptHex(_ cipherHex: String) -> [UInt8]? {
+    private func rsaDecryptHex(_ cipherHex: String, dHex: String, nHex: String) -> [UInt8]? {
         guard let c = TTBigUInt(cipherHex),
-              let d = TTBigUInt(rsaD),
-              let n = TTBigUInt(rsaN) else { return nil }
+              let d = TTBigUInt(dHex),
+              let n = TTBigUInt(nHex) else { return nil }
         let plain = c.power(d, modulus: n)
         var bytes = plain.serialize()
         let keyLen = (n.bitWidth + 7) / 8
@@ -186,10 +186,12 @@ extension TTDecodeService {
             let b = i*4
             s[4+i] = UInt32(key[b]) | UInt32(key[b+1])<<8 | UInt32(key[b+2])<<16 | UInt32(key[b+3])<<24
         }
-        s[12] = counter; s[13] = 0
-        let n8 = nonce + [UInt8](repeating: 0, count: max(0, 8 - nonce.count))
-        s[14] = UInt32(n8[0])|UInt32(n8[1])<<8|UInt32(n8[2])<<16|UInt32(n8[3])<<24
-        s[15] = UInt32(n8[4])|UInt32(n8[5])<<8|UInt32(n8[6])<<16|UInt32(n8[7])<<24
+        s[12] = counter
+        // 12-byte nonce: word 13 = nonce[0..3], word 14 = nonce[4..7], word 15 = nonce[8..11]
+        let n12 = nonce + [UInt8](repeating: 0, count: max(0, 12 - nonce.count))
+        s[13] = UInt32(n12[0])|UInt32(n12[1])<<8|UInt32(n12[2])<<16|UInt32(n12[3])<<24
+        s[14] = UInt32(n12[4])|UInt32(n12[5])<<8|UInt32(n12[6])<<16|UInt32(n12[7])<<24
+        s[15] = UInt32(n12[8])|UInt32(n12[9])<<8|UInt32(n12[10])<<16|UInt32(n12[11])<<24
         var w = s
         func qr(_ a: Int,_ b: Int,_ c: Int,_ d: Int) {
             w[a] &+= w[b]; w[d] ^= w[a]; w[d] = w[d]<<16 | w[d]>>16
@@ -322,162 +324,8 @@ private struct TTBigUInt {
     }
 }
 
-// MARK: - V1 (LSB, gray image) decoder
-extension TTDecodeService {
-
-    func tryV1(pixels: [UInt8], width: Int, height: Int, password: String) -> TTFile? {
-        let topSkip    = Int(Double(height) * 0.2)
-        let bottomSkip = Int(Double(height) * 0.2)
-        let availH = height - topSkip - bottomSkip
-        guard availH > 0 else { return nil }
-
-        // Read 32-bit length from LSBs
-        var lengthBits = [Int](repeating: 0, count: 32)
-        var bitCount = 0
-        outer: for row in topSkip..<(height - bottomSkip) {
-            for col in 0..<width {
-                for ch in 0..<3 {
-                    if bitCount >= 32 { break outer }
-                    let idx = (row * width + col) * 4 + ch
-                    lengthBits[bitCount] = Int(pixels[idx] & 1)
-                    bitCount += 1
-                }
-            }
-        }
-        var dataLength = 0
-        for i in 0..<32 { if lengthBits[i] != 0 { dataLength |= (1 << (31 - i)) } }
-        guard dataLength > 0, dataLength < 50_000_000 else { return nil }
-
-        // Read first data byte (byte 0 of payload = hasPassword flag)
-        var firstByteBits = [Int](repeating: 0, count: 8)
-        var fbCount = 0
-        outer2: for row in topSkip..<(height - bottomSkip) {
-            for col in 0..<width {
-                for ch in 0..<3 {
-                    let bitPos = (row - topSkip) * width * 3 + col * 3 + ch
-                    if bitPos >= 32 && fbCount < 8 {
-                        let idx = (row * width + col) * 4 + ch
-                        firstByteBits[fbCount] = Int(pixels[idx] & 1)
-                        fbCount += 1
-                        if fbCount == 8 { break outer2 }
-                    }
-                }
-            }
-        }
-        var firstByte = 0
-        for i in 0..<8 { if firstByteBits[i] != 0 { firstByte |= (1 << (7 - i)) } }
-        let hasPassword = (firstByte == 1)
-
-        // Extract full binary payload
-        let totalBitsNeeded = 32 + 8 * dataLength
-        var binaryData = [UInt8](repeating: 0, count: (totalBitsNeeded + 7) / 8)
-        var byteIdx = 0, bitInByte = 0, curByte = 0
-        outer3: for row in topSkip..<(height - bottomSkip) {
-            for col in 0..<width {
-                for ch in 0..<3 {
-                    let idx = (row * width + col) * 4 + ch
-                    let bit = Int(pixels[idx] & 1)
-                    curByte |= bit << (7 - bitInByte)
-                    bitInByte += 1
-                    if bitInByte == 8 {
-                        binaryData[byteIdx] = UInt8(curByte)
-                        byteIdx += 1; curByte = 0; bitInByte = 0
-                        if 8 * byteIdx >= totalBitsNeeded { break outer3 }
-                    }
-                }
-            }
-        }
-        if bitInByte > 0, byteIdx < binaryData.count { binaryData[byteIdx] = UInt8(curByte) }
-
-        guard binaryData.count >= 4 + dataLength else { return nil }
-        let fileHeader = Array(binaryData[4..<(4 + dataLength)])
-
-        if hasPassword {
-            return parseV1WithPassword(fileHeader, password: password)
-        } else {
-            return parseV1NoPassword(fileHeader)
-        }
-    }
-
-    private func parseV1NoPassword(_ header: [UInt8]) -> TTFile? {
-        guard header.count >= 5 else { return nil }
-        let extLen = Int(header[0])
-        guard header.count >= 1 + extLen + 4 else { return nil }
-        let ext = String(bytes: header[1..<(1 + extLen)], encoding: .utf8) ?? "bin"
-        let fileData = Array(header[(1 + extLen + 4)...])
-        return TTFile(data: Data(fileData), ext: ext, format: "V1-LSB")
-    }
-
-    private func parseV1WithPassword(_ header: [UInt8], password: String) -> TTFile? {
-        guard header.count >= 50 else { return nil }
-        guard header[0] == 1 else { return parseV1NoPassword(header) }
-        guard !password.isEmpty else { return nil }
-
-        let storedHash = Array(header[1..<33])
-        let salt       = Array(header[33..<49])
-        let saltHex    = salt.map { String(format: "%02x", $0) }.joined()
-        let pwWithSalt = password + saltHex
-        let computed   = simpleHashV1(pwWithSalt)
-        guard computed == storedHash else { return nil }
-
-        let off = 49
-        let extLen = Int(header[off])
-        guard header.count >= off + 1 + extLen + 4 else { return nil }
-        let ext = String(bytes: header[(off+1)..<(off+1+extLen)], encoding: .utf8) ?? "bin"
-        let encData = Array(header[(off + 1 + extLen + 4)...])
-        let decData = decryptV1(encData, password: password, salt: salt)
-        return TTFile(data: Data(decData), ext: ext, format: "V1-LSB-Encrypted")
-    }
-
-    // V1 password hash: simpleHash(password + saltHex) — JS djb2 variant, padded to 32 bytes
-    private func simpleHashV1(_ input: String) -> [UInt8] {
-        var hash: Int32 = 0
-        for ch in input.unicodeScalars {
-            hash = hash &* 31 &- hash &+ Int32(bitPattern: ch.value)
-        }
-        var result = String(abs(Int(hash)), radix: 16)
-        while result.count < 64 { result += result }
-        result = String(result.prefix(64))
-        var bytes = [UInt8](repeating: 0, count: 32)
-        for i in 0..<32 {
-            let s = result.index(result.startIndex, offsetBy: i * 2)
-            let e = result.index(s, offsetBy: 2)
-            bytes[i] = UInt8(result[s..<e], radix: 16) ?? 0
-        }
-        return bytes
-    }
-
-    private func decryptV1(_ data: [UInt8], password: String, salt: [UInt8]) -> [UInt8] {
-        let saltHex = salt.map { String(format: "%02x", $0) }.joined()
-        let base = password + saltHex
-        var out = [UInt8](repeating: 0, count: data.count)
-        let hashesNeeded = (data.count + 31) / 32
-        for i in 0..<hashesNeeded {
-            let combined = base + String(i)
-            let hashHex = simpleHashHex(combined)
-            let start = i * 32
-            let end = min(start + 32, data.count)
-            for j in start..<end {
-                let hi = hashHex.index(hashHex.startIndex, offsetBy: (j - start) * 2)
-                let lo = hashHex.index(hi, offsetBy: 2)
-                let keyByte = UInt8(hashHex[hi..<lo], radix: 16) ?? 0
-                out[j] = data[j] ^ keyByte
-            }
-        }
-        return out
-    }
-
-    private func simpleHashHex(_ input: String) -> String {
-        var hash: Int32 = 0
-        for ch in input.unicodeScalars {
-            hash = hash &* 31 &- hash &+ Int32(bitPattern: ch.value)
-        }
-        var result = String(abs(Int(hash)), radix: 16)
-        while result.count < 64 { result += result }
-        return String(result.prefix(64))
-    }
 }
-extension TTDecodeService {
+// MARK: - V2 (RGB direct write, color image) decoder
 
     // Magic bytes
     private static let MAGIC_TTV2:    [UInt8] = [84,84,118,50]
@@ -583,36 +431,50 @@ extension TTDecodeService {
             }
         }
 
-        // Encrypted variants (TTSM2v2, TTRSAv2, TTNETv2, TTNETv3, TTPWv2)
-        let encMagics: [([UInt8], String)] = [
-            (Self.MAGIC_TTSM2V2, "V2-TTSM2v2"),
-            (Self.MAGIC_TTRSAV2, "V2-TTRSAv2"),
-            (Self.MAGIC_TTNETV2, "V2-TTNETv2"),
-            (Self.MAGIC_TTNETV3, "V2-TTNETv3"),
-            (Self.MAGIC_TTPWV2,  "V2-TTPWv2"),
+        // TTNETv3: cloud RSA, not supported
+        if matchMagic(rgb, at: rowOffset, magic: Self.MAGIC_TTNETV3) {
+            return nil  // TTNETv3 requires cloud RSA key — unsupported
+        }
+
+        // Encrypted variants: each routed to correct key + suffix
+        struct EncVariant {
+            let magic: [UInt8]; let fmt: String; let hdrLen: Int; let lenOff: Int; let crcOff: Int
+            let nHex: String; let dHex: String; let pwSuffix: String; let keySuffix: String
+            let sm2: Bool
+        }
+        let pw = password.isEmpty ? defaultPassword : password
+        let variants: [EncVariant] = [
+            // TTRSAv2: local RSA key, RSA suffixes
+            EncVariant(magic: Self.MAGIC_TTRSAV2, fmt: "V2-TTRSAv2", hdrLen: 13, lenOff: 7, crcOff: 11,
+                       nHex: rsaLocalN, dHex: rsaLocalD,
+                       pwSuffix: "_rsa_password_check_2025", keySuffix: "_rsa_chacha20_key_2025", sm2: false),
+            // TTNETv2: RSA Net key, RSA suffixes
+            EncVariant(magic: Self.MAGIC_TTNETV2, fmt: "V2-TTNETv2", hdrLen: 13, lenOff: 7, crcOff: 11,
+                       nHex: rsaNetN, dHex: rsaNetD,
+                       pwSuffix: "_rsa_password_check_2025", keySuffix: "_rsa_chacha20_key_2025", sm2: false),
+            // TTSM2v2: SM2 — not supported in Swift (no gmssl equivalent)
+            EncVariant(magic: Self.MAGIC_TTSM2V2, fmt: "V2-TTSM2v2", hdrLen: 13, lenOff: 7, crcOff: 11,
+                       nHex: "", dHex: "",
+                       pwSuffix: "_sm2_password_check_2025", keySuffix: "_sm2_chacha20_key_2025", sm2: true),
+            // TTPWv2: SM2 — not supported in Swift
+            EncVariant(magic: Self.MAGIC_TTPWV2, fmt: "V2-TTPWv2", hdrLen: 12, lenOff: 6, crcOff: 10,
+                       nHex: "", dHex: "",
+                       pwSuffix: "_sm2_password_check_2025", keySuffix: "_sm2_chacha20_key_2025", sm2: true),
         ]
-        for (magic, fmt) in encMagics {
-            guard matchMagic(rgb, at: rowOffset, magic: magic) else { continue }
-            let isPW = magic == Self.MAGIC_TTPWV2
-            let hdrLen = isPW ? 12 : 13
-            let lenOff = isPW ? 6 : 7
-            let crcOff = isPW ? 10 : 11
-            guard rowOffset + crcOff + 2 <= rgb.count else { continue }
-            let hdrLenData = Int(UInt32(rgb[rowOffset+lenOff]) << 24 | UInt32(rgb[rowOffset+lenOff+1]) << 16
-                               | UInt32(rgb[rowOffset+lenOff+2]) << 8  | UInt32(rgb[rowOffset+lenOff+3]))
-            let crc = UInt16(rgb[rowOffset+crcOff]) << 8 | UInt16(rgb[rowOffset+crcOff+1])
-            guard let r = parseV2Inner(rgb, offset: rowOffset, headerLen: hdrLen, crc: crc,
-                                       totalNeeded: hdrLen + hdrLenData, format: fmt) else { continue }
+        for v in variants {
+            guard matchMagic(rgb, at: rowOffset, magic: v.magic) else { continue }
+            guard rowOffset + v.crcOff + 2 <= rgb.count else { continue }
+            let hdrLenData = Int(UInt32(rgb[rowOffset+v.lenOff]) << 24 | UInt32(rgb[rowOffset+v.lenOff+1]) << 16
+                               | UInt32(rgb[rowOffset+v.lenOff+2]) << 8  | UInt32(rgb[rowOffset+v.lenOff+3]))
+            let crc = UInt16(rgb[rowOffset+v.crcOff]) << 8 | UInt16(rgb[rowOffset+v.crcOff+1])
+            guard let r = parseV2Inner(rgb, offset: rowOffset, headerLen: v.hdrLen, crc: crc,
+                                       totalNeeded: v.hdrLen + hdrLenData, format: v.fmt) else { continue }
             if r.isExpired { return nil }
             guard let enc = r.encryptedData else { continue }
-            let decrypted: [UInt8]?
-            if fmt == "V2-TTNETv3" {
-                decrypted = decryptRSANetV3(enc, password: password.isEmpty ? defaultPassword : password)
-            } else {
-                decrypted = decryptRSA(enc, password: password.isEmpty ? defaultPassword : password)
-            }
-            if let d = decrypted {
-                return TTFile(data: Data(d), ext: r.ext, format: fmt + "-Decrypted")
+            if v.sm2 { return nil }  // SM2 not supported
+            if let d = decryptRSAHybrid(enc, password: pw, nHex: v.nHex, dHex: v.dHex,
+                                        pwSuffix: v.pwSuffix, keySuffix: v.keySuffix) {
+                return TTFile(data: Data(d), ext: r.ext, format: v.fmt + "-Decrypted")
             }
         }
         return nil
