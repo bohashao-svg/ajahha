@@ -3,12 +3,12 @@ import SwiftUI
 // MARK: - Home View
 struct HomeView: View {
     @StateObject private var vm = HomeViewModel()
+    @StateObject private var appVm = AppViewModel()
     @EnvironmentObject private var appState: AppState
     @State private var showTaskCenter = false
     @State private var showSettings = false
     @State private var showAPIKeyAlert = false
     @State private var showPremium = false
-    @State private var showAIApp = false
 
     var body: some View {
         NavigationView {
@@ -21,9 +21,19 @@ struct HomeView: View {
                         premiumEntryCard
                             .padding(.horizontal, 16)
 
-                        // AI App entry card
-                        aiAppEntryCard
-                            .padding(.horizontal, 16)
+                        // AI App inline section
+                        VStack(spacing: 16) {
+                            aiAppInputCard
+                            if !appVm.nodes.isEmpty {
+                                aiAppNodeCard
+                                    .transition(.opacity.combined(with: .move(edge: .top)))
+                                aiAppSubmitButton
+                                    .transition(.opacity)
+                                    .padding(.horizontal, 16)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .animation(.spring(response: 0.38, dampingFraction: 0.82), value: appVm.nodes.isEmpty)
 
                         // Center: Workflow input + detail
                         VStack(spacing: 16) {
@@ -92,9 +102,6 @@ struct HomeView: View {
                     Task { await vm.fetchWorkflow() }
                 }
             }
-            .sheet(isPresented: $showAIApp) {
-                NavigationView { AppView(initialAppId: vm.pendingAIAppId) }
-            }
             .sheet(isPresented: $vm.showPromptSelector) {
                 PromptSelectorView(fields: vm.availablePromptFields, onConfirm: { selections in
                     vm.applyPromptSelection(selections)
@@ -130,44 +137,107 @@ struct HomeView: View {
         }
     }
 
-    // MARK: - AI App Entry Card
-    private var aiAppEntryCard: some View {
-        Button { showAIApp = true } label: {
-            HStack(spacing: 14) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.rhAccent.opacity(0.12))
-                        .frame(width: 52, height: 52)
-                    VStack(spacing: 2) {
-                        Text("AI").font(.system(size: 14, weight: .bold)).foregroundColor(.rhAccent)
-                        Text("应用").font(.system(size: 9, weight: .bold)).foregroundColor(.rhAccent)
+    // MARK: - AI App Input Card
+    private var aiAppInputCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("AI 应用")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(.rhSecondary)
+
+            HStack(spacing: 10) {
+                TextField("输入 AI 应用 ID 或链接", text: $appVm.webappInput)
+                    .font(.system(size: 15))
+                    .foregroundColor(.rhPrimary)
+                    .autocapitalization(.none)
+                    .disableAutocorrection(true)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .background(Color.rhBackground)
+                    .cornerRadius(10)
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.rhBorder, lineWidth: 1))
+                    .onSubmit { Task { await appVm.fetchNodes() } }
+
+                Button {
+                    Task { await appVm.fetchNodes() }
+                } label: {
+                    if appVm.isLoading {
+                        ProgressView().frame(width: 40, height: 40)
+                    } else {
+                        RHIcon(name: .refresh, size: 18, color: .white)
+                            .frame(width: 40, height: 40)
+                            .background(Color.rhAccent)
+                            .cornerRadius(10)
                     }
                 }
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("AI 应用")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.rhPrimary)
-                    Text("使用 RunningHub WebApp 快速生成")
-                        .font(.system(size: 12))
-                        .foregroundColor(.rhSecondary)
-                }
-
-                Spacer()
-
-                RHIcon(name: .chevron, size: 14, color: .rhAccent.opacity(0.6))
+                .disabled(appVm.isLoading || appVm.webappInput.isBlank)
+                .buttonStyle(ScaleButtonStyle())
             }
-            .padding(14)
-            .background(Color.rhCard)
-            .cornerRadius(18)
-            .overlay(
-                RoundedRectangle(cornerRadius: 18)
-                    .stroke(Color.rhAccent.opacity(0.15), lineWidth: 1)
-            )
-            .shadow(color: Color(hex: "#C8392B").opacity(0.08), radius: 12, x: 0, y: 4)
+
+            if let err = appVm.errorMessage {
+                Text(err)
+                    .font(.system(size: 12))
+                    .foregroundColor(.rhError)
+                    .transition(.opacity)
+            }
+
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(appVm.nodes.isEmpty ? Color.rhSecondary.opacity(0.4) : Color.rhSuccess)
+                    .frame(width: 7, height: 7)
+                Text(appVm.nodes.isEmpty ? "输入应用 ID 后点击刷新" : "已加载 \(appVm.nodes.count) 个参数节点")
+                    .font(.system(size: 12))
+                    .foregroundColor(.rhSecondary)
+                Spacer()
+            }
         }
+        .rhCard()
+    }
+
+    // MARK: - AI App Node Card
+    private var aiAppNodeCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 6) {
+                RoundedRectangle(cornerRadius: 2).fill(Color.rhAccent).frame(width: 3, height: 14)
+                Text("节点参数")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.rhPrimary)
+            }
+            ForEach(appVm.nodes.indices, id: \.self) { i in
+                AppNodeRow(node: $appVm.nodes[i], selectedImages: $appVm.selectedImages)
+                if i < appVm.nodes.count - 1 {
+                    Divider().padding(.vertical, 4)
+                }
+            }
+        }
+        .rhCard()
+    }
+
+    // MARK: - AI App Submit Button
+    private var aiAppSubmitButton: some View {
+        Button {
+            Task { await appVm.submit() }
+        } label: {
+            HStack(spacing: 8) {
+                if appVm.isSubmitting {
+                    ProgressView().tint(.white)
+                } else {
+                    RHIcon(name: .plus, size: 16, color: .white)
+                }
+                Text(appVm.isSubmitting ? "提交中..." : "提交任务")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.white)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 50)
+            .background(appVm.isSubmitting ? Color.rhSecondary.opacity(0.35) : Color.rhAccent)
+            .cornerRadius(14)
+        }
+        .disabled(appVm.isSubmitting)
         .buttonStyle(ScaleButtonStyle())
     }
+
+    // MARK: - AI App Entry Card (已废弃，保留空实现避免编译错误)
+    private var aiAppEntryCard: some View { EmptyView() }
 
     // MARK: - Premium Entry Card
     private var premiumEntryCard: some View {
@@ -388,8 +458,8 @@ struct HomeView: View {
             ForEach(displayed) { item in
                 Button {
                     if item.itemType == .aiApp {
-                        vm.pendingAIAppId = item.workflowId
-                        showAIApp = true
+                        appVm.webappInput = item.workflowId
+                        Task { await appVm.fetchNodes() }
                     } else {
                         vm.selectHistory(item)
                     }

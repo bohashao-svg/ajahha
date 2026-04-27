@@ -105,6 +105,8 @@ final class AppViewModel: ObservableObject {
 
             reset()
             didSubmitSuccessfully = true
+            // 内嵌模式：提交成功后直接重置（无需 dismiss）
+            didSubmitSuccessfully = false
 
         } catch {
             errorMessage = error.localizedDescription

@@ -155,7 +155,7 @@ struct AppView: View {
 }
 
 // MARK: - App Node Row
-private struct AppNodeRow: View {
+struct AppNodeRow: View {
     @Binding var node: AppNodeInfo
     @Binding var selectedImages: [String: UIImage]
     @State private var photoItem: PhotosPickerItem?
