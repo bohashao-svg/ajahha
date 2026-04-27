@@ -176,10 +176,17 @@ struct AppWebappData: Codable {
     let nodeInfoList: [AppNodeInfo]
 }
 
-struct AppRunRequest: Codable {
+// 提交时只传三个字段，避免多余字段被服务端拒绝
+struct AppNodeInput: Encodable {
+    let nodeId: String
+    let fieldName: String
+    let fieldValue: String
+}
+
+struct AppRunRequest: Encodable {
     let webappId: String
     let apiKey: String
-    let nodeInfoList: [AppNodeInfo]
+    let nodeInfoList: [AppNodeInput]
 }
 
 struct AppRunData: Codable {
@@ -195,7 +202,7 @@ struct AppOutputItem: Codable {
 // MARK: - Public Resource (LoRA / CHECKPOINT / UNET / GGUF)
 struct PublicResourceListRequest: Encodable {
     let resourceType: String
-    let resourceName: String
+    let resourceName: String?
     let current: Int
     let size: Int
 }
@@ -211,7 +218,7 @@ struct PublicResourcePage: Codable {
 }
 
 struct PublicResource: Codable, Identifiable {
-    let id: String
+    let id: String?
     let resourceName: String
     let resourceType: String?
     let nodeModelName: String?
@@ -220,6 +227,9 @@ struct PublicResource: Codable, Identifiable {
     let owner: ResourceOwner?
     let tags: [ResourceTag]?
     let versions: [ResourceVersion]?
+
+    // Identifiable 兜底
+    var stableId: String { id ?? resourceName }
 
     var firstTriggerWords: String? {
         versions?.first(where: { !($0.triggerWords ?? "").isEmpty })?.triggerWords
@@ -238,13 +248,15 @@ struct ResourceTag: Codable, Identifiable {
 }
 
 struct ResourceVersion: Codable, Identifiable {
-    let id: String
+    let id: String?
     let version: String?
     let versionResourceName: String?
     let baseModel: String?
     let baseModelSubtype: String?
     let triggerWords: String?
     let posterInfos: [ResourcePosterInfo]?
+
+    var stableId: String { id ?? (versionResourceName ?? version ?? UUID().uuidString) }
 }
 
 struct ResourcePosterInfo: Codable {

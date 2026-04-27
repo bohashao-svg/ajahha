@@ -184,7 +184,8 @@ final class APIService {
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         req.timeoutInterval = 60
-        let body = AppRunRequest(webappId: webappId, apiKey: apiKey, nodeInfoList: nodeInfoList)
+        let inputs = nodeInfoList.map { AppNodeInput(nodeId: $0.nodeId, fieldName: $0.fieldName, fieldValue: $0.fieldValue) }
+        let body = AppRunRequest(webappId: webappId, apiKey: apiKey, nodeInfoList: inputs)
         req.httpBody = try JSONEncoder().encode(body)
         let (data, _) = try await URLSession.shared.data(for: req)
         #if DEBUG
@@ -241,7 +242,7 @@ final class APIService {
         req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         req.timeoutInterval = 30
         req.httpBody = try JSONEncoder().encode(PublicResourceListRequest(
-            resourceType: type, resourceName: keyword, current: page, size: size
+            resourceType: type, resourceName: keyword.isEmpty ? nil : keyword, current: page, size: size
         ))
         let (data, _) = try await URLSession.shared.data(for: req)
         #if DEBUG

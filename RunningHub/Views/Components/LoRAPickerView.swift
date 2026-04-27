@@ -118,12 +118,12 @@ struct LoRAPickerView: View {
                 GridItem(.flexible(), spacing: 10),
                 GridItem(.flexible(), spacing: 10)
             ], spacing: 10) {
-                ForEach(resources) { res in
+                ForEach(resources, id: \.stableId) { res in
                     ResourceCard(resource: res)
                         .onTapGesture { handleSelect(res) }
                         .onAppear {
                             // 无限加载：最后一个出现时加载下一页
-                            if res.id == resources.last?.id && hasNext && !isLoading {
+                            if res.stableId == resources.last?.stableId && hasNext && !isLoading {
                                 Task { await loadPage(currentPage + 1) }
                             }
                         }
