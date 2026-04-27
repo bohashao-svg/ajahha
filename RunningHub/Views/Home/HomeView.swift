@@ -9,7 +9,6 @@ struct HomeView: View {
     @State private var showAPIKeyAlert = false
     @State private var showPremium = false
     @State private var showAIApp = false
-    @State private var showProfile = false
 
     var body: some View {
         NavigationView {
@@ -78,15 +77,7 @@ struct HomeView: View {
                         .foregroundColor(.rhPrimary)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    HStack(spacing: 4) {
-                        Button { showProfile = true } label: {
-                            Image(systemName: "person.crop.circle")
-                                .font(.system(size: 22))
-                                .foregroundColor(.rhSecondary)
-                                .padding(4)
-                        }
-                        taskCenterButton
-                    }
+                    taskCenterButton
                 }
             }
             .sheet(isPresented: $showTaskCenter) {
@@ -103,9 +94,6 @@ struct HomeView: View {
             }
             .sheet(isPresented: $showAIApp) {
                 NavigationView { AppView(initialAppId: vm.pendingAIAppId) }
-            }
-            .sheet(isPresented: $showProfile) {
-                ProfileView()
             }
             .sheet(isPresented: $vm.showPromptSelector) {
                 PromptSelectorView(fields: vm.availablePromptFields, onConfirm: { selections in

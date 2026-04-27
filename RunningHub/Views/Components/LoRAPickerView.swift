@@ -153,7 +153,7 @@ struct LoRAPickerView: View {
                 if page == 1 { resources = result.records }
                 else { resources.append(contentsOf: result.records) }
                 currentPage = page
-                hasNext = result.hasNext
+                hasNext = result.hasNext ?? false
                 isLoading = false
             }
         } catch {

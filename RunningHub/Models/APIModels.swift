@@ -202,15 +202,18 @@ struct PublicResourceListRequest: Encodable {
 
 struct PublicResourcePage: Codable {
     let records: [PublicResource]
-    let total: Int
-    let pages: Int
-    let hasNext: Bool
+    let total: Int?
+    let pages: Int?
+    let size: Int?
+    let current: Int?
+    let hasNext: Bool?
+    let hasPrevious: Bool?
 }
 
 struct PublicResource: Codable, Identifiable {
     let id: String
     let resourceName: String
-    let resourceType: String
+    let resourceType: String?
     let nodeModelName: String?
     let posterUrl: String?
     let thumbnailUrl: String?
@@ -228,9 +231,10 @@ struct ResourceOwner: Codable {
     let avatar: String?
 }
 
+// tag.id 在 spec 里是 int64，用 Int 兼容
 struct ResourceTag: Codable, Identifiable {
     let id: Int
-    let name: String
+    let name: String?
 }
 
 struct ResourceVersion: Codable, Identifiable {
@@ -238,6 +242,7 @@ struct ResourceVersion: Codable, Identifiable {
     let version: String?
     let versionResourceName: String?
     let baseModel: String?
+    let baseModelSubtype: String?
     let triggerWords: String?
     let posterInfos: [ResourcePosterInfo]?
 }
@@ -247,65 +252,6 @@ struct ResourcePosterInfo: Codable {
     let thumbnailUrl: String?
     let imageWidth: Int?
     let imageHeight: Int?
-}
-
-// MARK: - User Task List (个人中心)
-struct UserTaskListRequest: Encodable {
-    let apiKey: String
-    let current: Int
-    let size: Int
-}
-
-struct UserTaskListPage: Codable {
-    let records: [UserTaskRecord]
-    let total: Int?
-    let pages: Int?
-    let current: Int?
-    let size: Int?
-}
-
-struct UserTaskRecord: Codable, Identifiable {
-    let taskId: String?
-    let taskStatus: String?
-    let workflowId: String?
-    let workflowName: String?
-    let createdAt: String?
-    let outputList: [UserTaskOutput]?
-
-    // 兼容 API 可能直接返回 "id" 字段
-    private enum CodingKeys: String, CodingKey {
-        case taskId, taskStatus, workflowId, workflowName, createdAt, outputList
-        case taskIdAlt = "id"
-    }
-
-    init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        taskId       = try c.decodeIfPresent(String.self, forKey: .taskId)
-                    ?? c.decodeIfPresent(String.self, forKey: .taskIdAlt)
-        taskStatus   = try c.decodeIfPresent(String.self, forKey: .taskStatus)
-        workflowId   = try c.decodeIfPresent(String.self, forKey: .workflowId)
-        workflowName = try c.decodeIfPresent(String.self, forKey: .workflowName)
-        createdAt    = try c.decodeIfPresent(String.self, forKey: .createdAt)
-        outputList   = try c.decodeIfPresent([UserTaskOutput].self, forKey: .outputList)
-    }
-
-    var id: String { taskId ?? UUID().uuidString }
-
-    var outputUrls: [String] {
-        outputList?.compactMap { $0.fileUrl }.filter { !$0.isEmpty } ?? []
-    }
-
-    var firstImageUrl: String? {
-        outputList?.first(where: { item in
-            let ext = (item.fileUrl ?? "").split(separator: ".").last?.lowercased() ?? ""
-            return !["mp4", "mov", "webm"].contains(ext)
-        })?.fileUrl
-    }
-}
-
-struct UserTaskOutput: Codable {
-    let fileUrl: String?
-    let fileType: String?
 }
 
 // MARK: - AnyCodable
