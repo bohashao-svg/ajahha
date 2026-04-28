@@ -159,6 +159,34 @@ struct TaskQueryResult: Codable {
     let fileType: String?
 }
 
+// MARK: - Task Outputs Poll (POST /task/openapi/outputs)
+// data field is polymorphic:
+//   - dict  → task still running/queued: { taskStatus, netWssUrl, ... }
+//   - array → task completed: [{ fileUrl, fileType }, ...]
+struct TaskOutputsPollResult {
+    let status: TaskStatus
+    let outputUrls: [String]
+    let errorMessage: String?
+}
+
+struct TaskOutputsStatusDict: Codable {
+    let taskStatus: String?
+    let netWssUrl: String?
+    let errorMessage: String?
+}
+
+struct TaskOutputsRawResponse: Codable {
+    let code: Int
+    let msg: String?
+    // data is decoded manually due to polymorphic type
+    var isSuccess: Bool { code == 0 }
+}
+
+struct TaskOutputsFileItem: Codable {
+    let fileUrl: String?
+    let fileType: String?
+}
+
 // MARK: - AI App (WebApp) Models
 
 struct AppNodeInfo: Codable, Identifiable {

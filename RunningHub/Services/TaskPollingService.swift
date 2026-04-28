@@ -45,13 +45,12 @@ final class TaskPollingService {
                 try await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
                 guard !Task.isCancelled else { break }
 
-                let response = try await APIService.shared.queryTask(taskId: taskId)
+                let result = try await APIService.shared.pollTaskOutputs(taskId: taskId)
 
-                localTask.status = response.resolvedStatus
-                localTask.errorMsg = response.errorMessage
+                localTask.status = result.status
+                localTask.errorMsg = result.errorMessage
                 localTask.updatedAt = Date()
-                let urls = response.outputUrls
-                if !urls.isEmpty { localTask.outputUrls = urls }
+                if !result.outputUrls.isEmpty { localTask.outputUrls = result.outputUrls }
 
                 let snapshot = localTask
                 await MainActor.run { self.onTaskUpdated?(snapshot) }
