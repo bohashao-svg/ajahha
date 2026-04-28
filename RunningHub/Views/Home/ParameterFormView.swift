@@ -61,7 +61,7 @@ private struct FieldRow: View {
         .sheet(isPresented: $showLoraPicker) {
             LoRAPickerView { resource in
                 let tw = resource.firstTriggerWords ?? ""
-                let modelName = resource.nodeModelName ?? resource.resourceName
+                let modelName = resource.nodeModelName ?? resource.resourceName ?? ""
                 field.value = modelName
                 // 找到同一 nodeId 的 text/prompt 字段，把触发词插到最前面
                 if !tw.isEmpty {
