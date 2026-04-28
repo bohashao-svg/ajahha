@@ -185,7 +185,6 @@ struct AppNodeInput: Encodable {
 
 struct AppRunRequest: Encodable {
     let webappId: String
-    let apiKey: String
     let nodeInfoList: [AppNodeInput]
 }
 

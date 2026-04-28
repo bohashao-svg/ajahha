@@ -181,10 +181,10 @@ final class APIService {
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        // 不传 Authorization Header，服务端通过 body 里的 apiKey 鉴权
+        req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         req.timeoutInterval = 60
         let inputs = nodeInfoList.map { AppNodeInput(nodeId: $0.nodeId, fieldName: $0.fieldName, fieldValue: $0.fieldValue) }
-        let body = AppRunRequest(webappId: webappId, apiKey: apiKey, nodeInfoList: inputs)
+        let body = AppRunRequest(webappId: webappId, nodeInfoList: inputs)
         req.httpBody = try JSONEncoder().encode(body)
         let (data, _) = try await URLSession.shared.data(for: req)
         #if DEBUG
