@@ -200,7 +200,7 @@ struct AppNodeRow: View {
         }
         .sheet(isPresented: $showLoraPicker) {
             LoRAPickerView { resource in
-                let modelName = resource.nodeModelName ?? resource.resourceName
+                let modelName = resource.nodeModelName ?? resource.resourceName ?? ""
                 node.fieldValue = modelName
                 // 触发词：通知 AppViewModel 插入到第一个 STRING 字段前面
                 if let tw = resource.firstTriggerWords, !tw.isEmpty {

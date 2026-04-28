@@ -200,7 +200,7 @@ private struct ResourceCard: View {
 
             // 名称 + 触发词标记
             VStack(alignment: .leading, spacing: 3) {
-                Text(resource.resourceName)
+                Text(resource.resourceName ?? "")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.rhPrimary)
                     .lineLimit(2)

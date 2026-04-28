@@ -25,13 +25,15 @@ final class AppViewModel: ObservableObject {
                   (note.userInfo?["source"] as? String) == "app",
                   let tw = note.userInfo?["triggerWords"] as? String,
                   !tw.isEmpty else { return }
-            // 把触发词插到第一个 STRING 字段前面
-            for i in self.nodes.indices {
-                let ft = self.nodes[i].fieldType.uppercased()
-                if ft == "STRING" || ft == "TEXT" {
-                    let current = self.nodes[i].fieldValue
-                    self.nodes[i].fieldValue = current.isEmpty ? tw : "\(tw), \(current)"
-                    break
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                for i in self.nodes.indices {
+                    let ft = self.nodes[i].fieldType.uppercased()
+                    if ft == "STRING" || ft == "TEXT" {
+                        let current = self.nodes[i].fieldValue
+                        self.nodes[i].fieldValue = current.isEmpty ? tw : "\(tw), \(current)"
+                        break
+                    }
                 }
             }
         }

@@ -32,12 +32,14 @@ final class HomeViewModel: ObservableObject {
             guard let self,
                   let tw = note.userInfo?["triggerWords"] as? String,
                   !tw.isEmpty else { return }
-            // 把触发词插到第一个 multilineText 字段前面
-            for i in self.formFields.indices {
-                if self.formFields[i].type == .multilineText {
-                    let current = self.formFields[i].value
-                    self.formFields[i].value = current.isEmpty ? tw : "\(tw), \(current)"
-                    break
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                for i in self.formFields.indices {
+                    if self.formFields[i].type == .multilineText {
+                        let current = self.formFields[i].value
+                        self.formFields[i].value = current.isEmpty ? tw : "\(tw), \(current)"
+                        break
+                    }
                 }
             }
         }
