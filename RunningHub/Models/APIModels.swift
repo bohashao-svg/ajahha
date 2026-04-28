@@ -209,17 +209,17 @@ struct PublicResourceListRequest: Encodable {
 
 struct PublicResourcePage: Codable {
     let records: [PublicResource]
-    let total: Int?
-    let pages: Int?
-    let size: Int?
-    let current: Int?
+    let total: AnyCodable?
+    let pages: AnyCodable?
+    let size: AnyCodable?
+    let current: AnyCodable?
     let hasNext: Bool?
     let hasPrevious: Bool?
 }
 
 struct PublicResource: Codable, Identifiable {
     let id: String?
-    let resourceName: String
+    let resourceName: String?
     let resourceType: String?
     let nodeModelName: String?
     let posterUrl: String?
@@ -229,7 +229,7 @@ struct PublicResource: Codable, Identifiable {
     let versions: [ResourceVersion]?
 
     // Identifiable 兜底
-    var stableId: String { id ?? resourceName }
+    var stableId: String { id ?? resourceName ?? UUID().uuidString }
 
     var firstTriggerWords: String? {
         versions?.first(where: { !($0.triggerWords ?? "").isEmpty })?.triggerWords
@@ -241,9 +241,9 @@ struct ResourceOwner: Codable {
     let avatar: String?
 }
 
-// tag.id 在 spec 里是 int64，用 Int 兼容
-struct ResourceTag: Codable, Identifiable {
-    let id: Int
+// tag.id 在 spec 里是 int64，用 Int? 兼容缺失情况
+struct ResourceTag: Codable {
+    let id: Int?
     let name: String?
 }
 

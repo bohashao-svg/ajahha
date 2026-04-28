@@ -182,7 +182,7 @@ final class APIService {
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        // 不传 Authorization Header，服务端通过 body 里的 apiKey 鉴权
         req.timeoutInterval = 60
         let inputs = nodeInfoList.map { AppNodeInput(nodeId: $0.nodeId, fieldName: $0.fieldName, fieldValue: $0.fieldValue) }
         let body = AppRunRequest(webappId: webappId, apiKey: apiKey, nodeInfoList: inputs)
