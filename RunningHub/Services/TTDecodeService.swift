@@ -162,7 +162,11 @@ extension TTDecodeService {
         let plain = c.power(d, modulus: n)
         var bytes = plain.serialize()
         let keyLen = (n.bitWidth + 7) / 8
-        while bytes.count < keyLen { bytes.insert(0, at: 0) }
+        // Match Python tiny_rsa_decrypt: prepend a single 0x00 only when result is shorter
+        // than keyLen AND the first byte is not already 0x00 (restores PKCS1 [0x00, 0x02, ...] header)
+        if bytes.count < keyLen && (bytes.isEmpty || bytes[0] != 0) {
+            bytes.insert(0, at: 0)
+        }
         guard bytes.count >= 4, bytes[0] == 0, bytes[1] == 2 else { return bytes }
         var i = 2; while i < bytes.count && bytes[i] != 0 { i += 1 }
         guard i < bytes.count else { return bytes }
