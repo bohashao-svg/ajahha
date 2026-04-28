@@ -17,11 +17,11 @@ struct PremiumWorkflowView: View {
                 Color.rhBackground.ignoresSafeArea()
 
                 if isLoading {
-                    VStack(spacing: 16) {
-                        ProgressView().scaleEffect(1.2).tint(.rhAccent)
-                        Text("加载精品工作流...")
-                            .font(.system(size: 14))
-                            .foregroundColor(.rhSecondary)
+                    ScrollView {
+                        LazyVStack(spacing: 10) {
+                            ForEach(0..<6, id: \.self) { _ in WorkflowRowSkeleton() }
+                        }
+                        .padding(16)
                     }
                 } else if let err = errorMessage {
                     VStack(spacing: 16) {

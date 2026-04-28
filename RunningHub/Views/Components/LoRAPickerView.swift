@@ -118,21 +118,24 @@ struct LoRAPickerView: View {
                 GridItem(.flexible(), spacing: 10),
                 GridItem(.flexible(), spacing: 10)
             ], spacing: 10) {
-                ForEach(resources, id: \.stableId) { res in
-                    ResourceCard(resource: res)
-                        .onTapGesture { handleSelect(res) }
-                        .onAppear {
-                            // 无限加载：最后一个出现时加载下一页
-                            if res.stableId == resources.last?.stableId && hasNext && !isLoading {
-                                Task { await loadPage(currentPage + 1) }
+                if isLoading && currentPage == 1 {
+                    ForEach(0..<9, id: \.self) { _ in ResourceCardSkeleton() }
+                } else {
+                    ForEach(resources, id: \.stableId) { res in
+                        ResourceCard(resource: res)
+                            .onTapGesture { handleSelect(res) }
+                            .onAppear {
+                                if res.stableId == resources.last?.stableId && hasNext && !isLoading {
+                                    Task { await loadPage(currentPage + 1) }
+                                }
                             }
-                        }
-                }
-                if isLoading && currentPage > 1 {
-                    ProgressView()
-                        .frame(maxWidth: .infinity)
-                        .gridCellColumns(3)
-                        .padding(.vertical, 16)
+                    }
+                    if isLoading && currentPage > 1 {
+                        ProgressView()
+                            .frame(maxWidth: .infinity)
+                            .gridCellColumns(3)
+                            .padding(.vertical, 16)
+                    }
                 }
             }
             .padding(.horizontal, 16)

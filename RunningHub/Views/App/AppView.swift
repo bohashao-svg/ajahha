@@ -15,7 +15,11 @@ struct AppView: View {
             ScrollView {
                 VStack(spacing: 16) {
                     inputCard
-                    if !vm.nodes.isEmpty {
+                    if vm.isLoading {
+                        NodeFormCardSkeleton()
+                            .padding(.horizontal, 16)
+                            .transition(.opacity)
+                    } else if !vm.nodes.isEmpty {
                         nodeFormCard
                             .transition(.opacity.combined(with: .move(edge: .top)))
                         submitButton

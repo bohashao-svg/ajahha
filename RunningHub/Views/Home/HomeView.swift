@@ -25,7 +25,10 @@ struct HomeView: View {
                         // AI App inline section
                         VStack(spacing: 16) {
                             aiAppInputCard
-                            if !appVm.nodes.isEmpty {
+                            if appVm.isLoading {
+                                NodeFormCardSkeleton()
+                                    .transition(.opacity)
+                            } else if !appVm.nodes.isEmpty {
                                 aiAppNodeCard
                                     .transition(.opacity.combined(with: .move(edge: .top)))
                                 aiAppSubmitButton
@@ -40,7 +43,10 @@ struct HomeView: View {
                         VStack(spacing: 16) {
                             workflowInputCard
 
-                            if vm.workflowDetail != nil {
+                            if vm.isLoading {
+                                NodeFormCardSkeleton()
+                                    .transition(.opacity)
+                            } else if vm.workflowDetail != nil {
                                 workflowInfoCard
                                     .transition(.opacity.combined(with: .move(edge: .top)))
                                 ParameterFormView(fields: $vm.formFields)
