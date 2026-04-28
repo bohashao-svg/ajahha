@@ -1,7 +1,7 @@
 import Foundation
 
 // MARK: - Task Polling Service
-// Uses POST /openapi/v2/query to poll task status and results
+// Uses POST /task/openapi/outputs to poll task status and results
 final class TaskPollingService {
 
     static let shared = TaskPollingService()
@@ -35,6 +35,7 @@ final class TaskPollingService {
     }
 
     // MARK: - Poll Loop
+    // Uses POST /task/openapi/outputs — code 0=success, 804=running, 813=queued, 805=failed
     private func pollLoop(taskId: String, originalTask: RHTask) async {
         var localTask = originalTask
 
@@ -44,20 +45,29 @@ final class TaskPollingService {
                 try await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
                 guard !Task.isCancelled else { break }
 
-                let response = try await APIService.shared.queryTask(taskId: taskId)
+                let response = try await APIService.shared.queryAppOutputs(taskId: taskId)
 
-                localTask.status = response.taskStatus
-                localTask.errorMsg = response.errorMessage
-                localTask.updatedAt = Date()
-                if !response.outputUrls.isEmpty {
-                    localTask.outputUrls = response.outputUrls
+                switch response.code {
+                case 0:
+                    // Success — data contains output items
+                    localTask.status = .completed
+                    let urls = response.data?.compactMap { $0.fileUrl } ?? []
+                    if !urls.isEmpty { localTask.outputUrls = urls }
+                case 804:
+                    localTask.status = .running
+                case 813:
+                    localTask.status = .queued
+                case 805:
+                    localTask.status = .failed
+                    localTask.errorMsg = response.msg
+                default:
+                    // Unknown code — keep current status, retry
+                    break
                 }
+                localTask.updatedAt = Date()
 
-                // Capture value for MainActor
                 let snapshot = localTask
                 await MainActor.run { self.onTaskUpdated?(snapshot) }
-
-                // No auto-decode — user triggers decode manually
 
             } catch {
                 try? await Task.sleep(nanoseconds: 5_000_000_000)
