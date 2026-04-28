@@ -81,6 +81,7 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 14) {
             sketchHeader(title: "账号状态", icon: .lock, color: .rhAccent)
             if vm.isLoggedIn {
+                // 登录状态行
                 HStack(spacing: 8) {
                     Circle().fill(Color.rhSuccess).frame(width: 8, height: 8)
                         .overlay(Circle().stroke(Color.rhSuccess.opacity(0.3), lineWidth: 3))
@@ -99,8 +100,60 @@ struct SettingsView: View {
             } else {
                 Text("未登录").font(.system(size: 13)).foregroundColor(.rhSecondary)
             }
+
+            // 余额区域
+            if vm.isLoadingAccount {
+                HStack { Spacer(); ProgressView().tint(.rhAccent); Spacer() }.padding(.vertical, 4)
+            } else if let status = vm.accountStatus {
+                HStack(spacing: 10) {
+                    // RH 币
+                    VStack(spacing: 4) {
+                        Text(status.remainCoins ?? "--")
+                            .font(.system(size: 18, weight: .bold)).foregroundColor(.rhAccent)
+                        Text("RH 币")
+                            .font(.system(size: 11)).foregroundColor(.rhSecondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(Color.rhAccentSoft)
+                    .clipShape(SketchRoundedRect(radius: 10))
+                    .overlay(SketchRoundedRect(radius: 10).stroke(Color.rhAccent.opacity(0.2), lineWidth: 1.2))
+
+                    // 钱包余额
+                    VStack(spacing: 4) {
+                        let money = status.remainMoney ?? "--"
+                        let unit = status.currency ?? ""
+                        Text("\(money) \(unit)".trimmingCharacters(in: .whitespaces))
+                            .font(.system(size: 18, weight: .bold)).foregroundColor(.rhGold)
+                        Text("钱包余额")
+                            .font(.system(size: 11)).foregroundColor(.rhSecondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(Color.rhGoldLight)
+                    .clipShape(SketchRoundedRect(radius: 10))
+                    .overlay(SketchRoundedRect(radius: 10).stroke(Color.rhGold.opacity(0.25), lineWidth: 1.2))
+                }
+            }
+
+            // 刷新按钮
+            Button { Task { await vm.loadAccountStatus() } } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 12))
+                    Text("刷新余额")
+                        .font(.system(size: 13, weight: .medium))
+                }
+                .foregroundColor(.rhAccent)
+                .frame(maxWidth: .infinity).frame(height: 34)
+                .background(Color.rhBackground)
+                .clipShape(SketchRoundedRect(radius: 10))
+                .overlay(SketchRoundedRect(radius: 10).stroke(Color.rhAccent.opacity(0.3), lineWidth: 1.2))
+            }
+            .disabled(vm.isLoadingAccount)
         }
         .sketchCard()
+        .task { await vm.loadAccountStatus() }
     }
 
     // MARK: - Preferences

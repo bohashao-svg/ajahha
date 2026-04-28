@@ -73,7 +73,7 @@ struct PremiumWorkflowView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Text("精品工作流")
+                    Text("精品工作流 / AI 应用")
                         .font(.system(size: 17, weight: .semibold))
                 }
                 ToolbarItem(placement: .navigationBarLeading) {

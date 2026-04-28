@@ -52,6 +52,8 @@ final class SettingsViewModel: ObservableObject {
     @Published var isPlusDefault: Bool = StorageService.shared.isPlusDefault
     @Published var showSavedAlert: Bool = false
     @Published var showLogoutConfirm: Bool = false
+    @Published var accountStatus: AccountStatusData?
+    @Published var isLoadingAccount: Bool = false
 
     var isLoggedIn: Bool { StorageService.shared.isLoggedIn }
 
@@ -76,5 +78,11 @@ final class SettingsViewModel: ObservableObject {
 
     func clearHistory() {
         AppState.shared.clearAll()
+    }
+
+    func loadAccountStatus() async {
+        isLoadingAccount = true
+        accountStatus = try? await APIService.shared.fetchAccountStatus()
+        isLoadingAccount = false
     }
 }

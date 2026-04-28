@@ -105,8 +105,7 @@ struct HomeView: View {
             .sheet(isPresented: $showPremium) {
                 PremiumWorkflowView { workflowId in
                     unifiedInput = workflowId
-                    vm.workflowInput = workflowId
-                    Task { await vm.fetchWorkflow() }
+                    fetchUnified()
                 }
             }
             .sheet(isPresented: $vm.showPromptSelector) {
@@ -181,7 +180,7 @@ struct HomeView: View {
                 }
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {
-                        Text("精品工作流")
+                        Text("精品工作流 / AI 应用")
                             .font(.system(size: 15, weight: .semibold)).foregroundColor(.rhPrimary)
                         Text("NEW")
                             .font(.system(size: 9, weight: .bold)).foregroundColor(.white)

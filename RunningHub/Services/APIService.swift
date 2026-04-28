@@ -154,7 +154,30 @@ final class APIService {
         )
     }
 
-    /// POST /openapi/v2/query — poll task status and results
+    /// POST /uc/openapi/accountStatus — 获取账户余额信息
+    func fetchAccountStatus() async throws -> AccountStatusData {
+        guard !apiKey.isEmpty else { throw APIError.noAPIKey }
+        guard let url = URL(string: baseURL + "/uc/openapi/accountStatus") else { throw APIError.invalidURL }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        req.timeoutInterval = 30
+        struct Body: Encodable { let apikey: String }
+        req.httpBody = try JSONEncoder().encode(Body(apikey: apiKey))
+        let (data, _) = try await URLSession.shared.data(for: req)
+        #if DEBUG
+        if let str = String(data: data, encoding: .utf8) {
+            print("[API] /uc/openapi/accountStatus → \(str.prefix(400))")
+        }
+        #endif
+        let decoder = JSONDecoder()
+        let wrapper = try decoder.decode(APIResponse<AccountStatusData>.self, from: data)
+        guard wrapper.isSuccess, let result = wrapper.data else {
+            throw APIError.serverError(wrapper.msg ?? "获取账户信息失败")
+        }
+        return result
+    }
     /// Response is wrapped in APIResponse<TaskQueryResponse>
     func queryTask(taskId: String) async throws -> TaskQueryResponse {
         guard !apiKey.isEmpty else { throw APIError.noAPIKey }

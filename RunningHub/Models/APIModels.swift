@@ -268,6 +268,15 @@ struct AppOutputItem: Codable {
     let fileType: String?
 }
 
+// MARK: - Account Status
+struct AccountStatusData: Codable {
+    let remainCoins: String?
+    let currentTaskCounts: String?
+    let remainMoney: String?
+    let currency: String?
+    let apiType: String?
+}
+
 // MARK: - Public Resource (LoRA / CHECKPOINT / UNET / GGUF)
 struct PublicResourceListRequest: Encodable {
     let resourceType: String

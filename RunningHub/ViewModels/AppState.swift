@@ -2,6 +2,7 @@ import Foundation
 import Combine
 
 // MARK: - App State (shared across views)
+@MainActor
 final class AppState: ObservableObject {
 
     static let shared = AppState()
@@ -44,7 +45,9 @@ final class AppState: ObservableObject {
     // MARK: - Polling Setup
     private func setupPolling() {
         TaskPollingService.shared.onTaskUpdated = { [weak self] updated in
-            self?.updateTask(updated)
+            Task { @MainActor [weak self] in
+                self?.updateTask(updated)
+            }
         }
         TaskPollingService.shared.resumePolling(for: tasks)
     }
