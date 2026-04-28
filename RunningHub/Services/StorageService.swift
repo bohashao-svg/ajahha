@@ -31,6 +31,20 @@ final class StorageService {
 
     var hasAPIKey: Bool { !(apiKey?.isEmpty ?? true) }
 
+    // MARK: - JWT Token (from /uc/pwdLogin, used to get accessKey)
+    private let jwtTokenKeychainKey = "com.runninghub.jwttoken"
+
+    var jwtToken: String? {
+        get { KeychainHelper.load(forKey: jwtTokenKeychainKey) }
+        set {
+            if let v = newValue, !v.isEmpty {
+                KeychainHelper.save(v, forKey: jwtTokenKeychainKey)
+            } else {
+                KeychainHelper.delete(forKey: jwtTokenKeychainKey)
+            }
+        }
+    }
+
     // MARK: - Access Key (Keychain + UserDefaults)
     private let accessKeyKeychainKey = "com.runninghub.accesskey"
     private let accessKeyExpireKey = "rh_accesskey_expire"
@@ -144,6 +158,7 @@ final class StorageService {
     func clearAll() {
         clearAllTasks()
         apiKey = nil
+        jwtToken = nil
         accessKey = nil
         accessKeyExpire = 0
     }

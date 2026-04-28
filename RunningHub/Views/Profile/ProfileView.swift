@@ -73,7 +73,7 @@ struct OutputCard: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            AsyncImage(url: URL(string: item.outputUrl ?? "")) { phase in
+            AsyncImage(url: URL(string: item.filePreviewUrl ?? "")) { phase in
                 switch phase {
                 case .success(let img):
                     img.resizable().scaledToFill()
@@ -100,11 +100,11 @@ struct OutputCard: View {
 
                 HStack(spacing: 4) {
                     Circle()
-                        .fill(statusColor(item.status))
+                        .fill(statusColor(item.taskStatus))
                         .frame(width: 6, height: 6)
-                    Text(statusText(item.status))
+                    Text(statusText(item.taskStatus))
                         .font(.system(size: 11))
-                        .foregroundColor(statusColor(item.status))
+                        .foregroundColor(statusColor(item.taskStatus))
                 }
             }
             Spacer()

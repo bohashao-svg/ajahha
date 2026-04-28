@@ -1,8 +1,13 @@
 import Foundation
 import SwiftUI
+import CryptoKit
 
 // MARK: - String
 extension String {
+    var md5: String {
+        let digest = Insecure.MD5.hash(data: Data(utf8))
+        return digest.map { String(format: "%02x", $0) }.joined()
+    }
     // Extract workflow ID from a URL or plain ID string
     func extractWorkflowId() -> String? {
         // If it looks like a URL, try to extract the id param or last path component

@@ -185,13 +185,21 @@ struct AppNodeInput: Encodable {
 
 struct AppRunRequest: Encodable {
     let webappId: String
+    let apiKey: String
     let nodeInfoList: [AppNodeInput]
 }
 
 // MARK: - Login
+// Step 1: /uc/pwdLogin → JWT access_token
+struct PwdLoginResponse: Codable {
+    let accessToken: String   // access_token (convertFromSnakeCase)
+    let expireIn: String      // expire_in (毫秒，相对值)
+}
+
+// Step 2: /api/instance/access/auth → accessKey
 struct LoginResponse: Codable {
     let accessKey: String
-    let expireIn: String
+    let expireIn: String      // expire_in (绝对时间戳毫秒)
 }
 
 // MARK: - Output History
@@ -199,15 +207,18 @@ struct OutputHistoryPage: Codable {
     let total: AnyCodable?
     let pages: AnyCodable?
     let records: [OutputHistoryItem]
+    let hasNext: Bool?
 }
 
 struct OutputHistoryItem: Codable, Identifiable {
     let id: String?
     let taskName: String?
-    let status: String?
-    let outputUrl: String?
+    let taskStatus: String?       // SUCCESS / FAILED / ...
+    let filePreviewUrl: String?   // 缩略图
+    let fileUrl: String?          // 原图
     let createTime: String?
-    let type: String?
+    let taskType: String?
+    let outputType: String?       // png / zip / ...
 }
 
 struct AppRunData: Codable {

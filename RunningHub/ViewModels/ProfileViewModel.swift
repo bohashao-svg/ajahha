@@ -22,12 +22,7 @@ final class ProfileViewModel: ObservableObject {
                 outputs.append(contentsOf: result.records)
             }
             currentPage = page
-
-            if let total = result.total?.intValue, let pages = result.pages?.intValue {
-                hasNext = page < pages
-            } else {
-                hasNext = !result.records.isEmpty
-            }
+            hasNext = result.hasNext ?? (!result.records.isEmpty)
         } catch {
             errorMessage = error.localizedDescription
         }
