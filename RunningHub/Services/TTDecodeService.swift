@@ -57,9 +57,12 @@ final class TTDecodeService {
         let height = cgImage.height
         let bpr    = width * 4
         var pixels = [UInt8](repeating: 0, count: height * bpr)
+        // Use the image's own color space to avoid Core Graphics converting pixel values
+        // (DeviceRGB on P3 devices would shift sRGB values, breaking magic byte detection)
+        let colorSpace = cgImage.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
         guard let ctx = CGContext(data: &pixels, width: width, height: height,
                                   bitsPerComponent: 8, bytesPerRow: bpr,
-                                  space: CGColorSpaceCreateDeviceRGB(),
+                                  space: colorSpace,
                                   bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else {
             throw DecodeError.invalidImage
         }

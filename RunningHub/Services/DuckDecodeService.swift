@@ -66,12 +66,13 @@ final class DuckDecodeService {
         let totalBytes    = height * bytesPerRow
 
         var pixelData = [UInt8](repeating: 0, count: totalBytes)
+        let colorSpace = cgImage.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
         guard let ctx = CGContext(
             data: &pixelData,
             width: width, height: height,
             bitsPerComponent: 8,
             bytesPerRow: bytesPerRow,
-            space: CGColorSpaceCreateDeviceRGB(),
+            space: colorSpace,
             bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
         ) else { throw DecodeError.invalidImage }
         ctx.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
