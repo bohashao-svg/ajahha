@@ -221,13 +221,11 @@ final class DuckDecodeService {
             result = try decryptData(payload, password: password, salt: saltBytes)
         }
 
-        // Handle .binpng format: video bytes stored as RGB pixels in a PNG
-        // The carrier image is decoded normally; the payload ext tells us it's binpng
+        // Handle .binpng format: payload is raw binary (e.g. mp4), ext encodes the real type
         var finalData = Data(result)
         var finalExt = ext.hasPrefix(".") ? String(ext.dropFirst()) : ext
         if ext.lowercased().hasSuffix(".binpng") {
-            finalData = try convertBinPngToBytes(finalData)
-            // Strip ".binpng" suffix to get the real extension (e.g. "mp4")
+            // Strip ".binpng" suffix — payload is already the raw file bytes, no conversion needed
             let stripped = String(ext.dropLast(".binpng".count))
             let clean = stripped.hasPrefix(".") ? String(stripped.dropFirst()) : stripped
             finalExt = clean.isEmpty ? "mp4" : clean
