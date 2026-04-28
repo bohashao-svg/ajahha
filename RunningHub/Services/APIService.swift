@@ -224,8 +224,8 @@ final class APIService {
 
     /// GET /api/webapp/apiCallDemo — fetch node list for a WebApp
     func fetchAppNodes(webappId: String) async throws -> [AppNodeInfo] {
-        guard !apiKey.isEmpty else { throw APIError.noAPIKey }
-        let urlStr = baseURL + "/api/webapp/apiCallDemo?apiKey=\(apiKey)&webappId=\(webappId)"
+        guard !authToken.isEmpty else { throw APIError.noAPIKey }
+        let urlStr = baseURL + "/api/webapp/apiCallDemo?apiKey=\(authToken)&webappId=\(webappId)"
         guard let url = URL(string: urlStr) else { throw APIError.invalidURL }
         var req = URLRequest(url: url)
         req.httpMethod = "GET"

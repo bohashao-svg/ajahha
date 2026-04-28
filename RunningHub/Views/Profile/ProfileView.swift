@@ -407,8 +407,9 @@ struct ProfileView: View {
             let fileExt: String
             switch tool {
             case .duck:
-                fileData = try await DuckDecodeService.shared.decode(imageUrl: urlStr, password: decodePassword)
-                fileExt = "png"
+                let duckFile = try await DuckDecodeService.shared.decode(imageUrl: urlStr, password: decodePassword)
+                fileData = duckFile.data
+                fileExt = duckFile.ext
             case .tt:
                 let ttFile = try await TTDecodeService.shared.decode(imageUrl: urlStr, password: decodePassword)
                 fileData = ttFile.data

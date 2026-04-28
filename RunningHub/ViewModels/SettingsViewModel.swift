@@ -31,9 +31,9 @@ final class TaskCenterViewModel: ObservableObject {
         guard let url = task.primaryOutputUrl else { return }
         Task {
             do {
-                let data = try await DuckDecodeService.shared.decode(imageUrl: url, password: password)
+                let duckFile = try await DuckDecodeService.shared.decode(imageUrl: url, password: password)
                 var updated = task
-                updated.decodedImageData = data
+                updated.decodedImageData = duckFile.data
                 appState.updateTask(updated)
             } catch {}
         }

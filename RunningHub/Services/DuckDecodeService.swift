@@ -36,10 +36,15 @@ final class DuckDecodeService {
 
     // MARK: - Public API
 
+    struct DuckFile {
+        let data: Data
+        let ext: String  // e.g. "png", "mp4", "jpg"
+    }
+
     /// Decode a duck-encoded image URL.
     /// The carrier is always an image (PNG/JPG). The decoded payload may be
     /// another image or a video (when ext == ".binpng", it is converted to .mp4 bytes).
-    func decode(imageUrl: String, password: String) async throws -> Data {
+    func decode(imageUrl: String, password: String) async throws -> DuckFile {
         guard let url = URL(string: imageUrl) else { throw DecodeError.downloadFailed }
         let (data, _) = try await URLSession.shared.data(from: url)
         return try decodeImageData(data, password: password)
@@ -50,13 +55,13 @@ final class DuckDecodeService {
         return ["mp4", "mov", "webm", "avi", "mkv"].contains(String(ext))
     }
 
-    func decodeImageData(_ imageData: Data, password: String) throws -> Data {
+    func decodeImageData(_ imageData: Data, password: String) throws -> DuckFile {
         guard let uiImage = UIImage(data: imageData),
               let cgImage = uiImage.cgImage else { throw DecodeError.invalidImage }
         return try decodeFromCGImage(cgImage, password: password)
     }
 
-    func decodeFromCGImage(_ cgImage: CGImage, password: String) throws -> Data {
+    func decodeFromCGImage(_ cgImage: CGImage, password: String) throws -> DuckFile {
         let width  = cgImage.width
         let height = cgImage.height
         let bytesPerPixel = 4
@@ -98,8 +103,6 @@ final class DuckDecodeService {
         }
         throw DecodeError.decodeFailed("所有解码级别均失败")
     }
-
-    // MARK: - Detect duck_encode_node in workflow
     func detectDuckNode(in nodes: [WorkflowNodeRaw]) -> DuckNodeInfo? {
         for (index, node) in nodes.enumerated() {
             guard let classType = node.classType else { continue }
@@ -139,7 +142,7 @@ final class DuckDecodeService {
     }
 
     /// Try to extract hidden data using k LSBs per channel
-    private func tryExtract(rgbBytes: [UInt8], k: Int, password: String) throws -> Data {
+    private func tryExtract(rgbBytes: [UInt8], k: Int, password: String) throws -> DuckFile {
         var stream = LsbStream(rgbBytes: rgbBytes, k: k)
 
         // Read header length (4 bytes big-endian)
@@ -216,16 +219,17 @@ final class DuckDecodeService {
         // Handle .binpng format: video bytes stored as RGB pixels in a PNG
         // The carrier image is decoded normally; the payload ext tells us it's binpng
         var finalData = Data(result)
-        var finalExt = ext
+        var finalExt = ext.hasPrefix(".") ? String(ext.dropFirst()) : ext
         if ext.lowercased().hasSuffix(".binpng") {
             finalData = try convertBinPngToBytes(finalData)
-            // Strip ".binpng" suffix to get the real extension (e.g. ".mp4")
+            // Strip ".binpng" suffix to get the real extension (e.g. "mp4")
             let stripped = String(ext.dropLast(".binpng".count))
-            finalExt = stripped.isEmpty || stripped == "." ? ".mp4" : stripped
+            let clean = stripped.hasPrefix(".") ? String(stripped.dropFirst()) : stripped
+            finalExt = clean.isEmpty ? "mp4" : clean
         }
+        if finalExt.isEmpty { finalExt = "png" }
 
-        _ = finalExt  // available for caller if needed
-        return finalData
+        return DuckFile(data: finalData, ext: finalExt)
     }
 
     /// XOR stream cipher: key stream = SHA-256(password + hex(salt) + "0"), SHA-256(...+"1"), ...

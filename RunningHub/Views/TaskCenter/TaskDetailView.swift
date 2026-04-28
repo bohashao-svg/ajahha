@@ -245,8 +245,8 @@ struct TaskDetailView: View {
             do {
                 switch tool {
                 case .duck:
-                    let data = try await DuckDecodeService.shared.decode(imageUrl: url, password: password)
-                    var updated = liveTask; updated.decodedImageData = data
+                    let duckFile = try await DuckDecodeService.shared.decode(imageUrl: url, password: password)
+                    var updated = liveTask; updated.decodedImageData = duckFile.data
                     await MainActor.run { appState.updateTask(updated) }
                 case .ttV2:
                     let file = try await TTDecodeService.shared.decode(imageUrl: url, password: password)
