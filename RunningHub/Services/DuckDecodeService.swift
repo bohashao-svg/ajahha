@@ -10,9 +10,6 @@ final class DuckDecodeService {
     static let shared = DuckDecodeService()
     private init() {}
 
-    // Watermark skip ratios (matches JS: WATERMARK_SKIP_W_RATIO=0.4, WATERMARK_SKIP_H_RATIO=0.08)
-    private let skipWRatio: Double = 0.4
-    private let skipHRatio: Double = 0.08
     // LSB bit depths to try in order (matches JS: COMPRESS_LEVELS=[2,6,8])
     private let compressLevels: [Int] = [2, 6, 8]
 
@@ -79,14 +76,8 @@ final class DuckDecodeService {
         ) else { throw DecodeError.invalidImage }
         ctx.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
 
-        // Skip watermark region (top-left corner)
-        let skipW = Int(Double(width)  * skipWRatio)
-        let skipH = Int(Double(height) * skipHRatio)
-
-        // Extract valid RGB bytes (skip watermark area)
-        let rgbBytes = extractValidRGB(pixels: pixelData,
-                                       width: width, height: height,
-                                       skipW: skipW, skipH: skipH)
+        // Extract all RGB bytes in row order (no watermark skip — data starts at pixel 0)
+        let rgbBytes = extractAllRGB(pixels: pixelData, width: width, height: height)
 
         // Try each compress level
         for k in compressLevels {
@@ -137,6 +128,20 @@ final class DuckDecodeService {
                 rgb[idx + 2] = pixels[base + 2]
                 idx += 3
             }
+        }
+        return rgb
+    }
+
+    private func extractAllRGB(pixels: [UInt8], width: Int, height: Int) -> [UInt8] {
+        let total = width * height
+        var rgb = [UInt8](repeating: 0, count: total * 3)
+        var idx = 0
+        for i in 0..<total {
+            let base = i * 4
+            rgb[idx]     = pixels[base]
+            rgb[idx + 1] = pixels[base + 1]
+            rgb[idx + 2] = pixels[base + 2]
+            idx += 3
         }
         return rgb
     }
