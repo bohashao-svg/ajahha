@@ -11,7 +11,7 @@ final class StorageService {
     private let storagePassphrase = "rh_local_storage_v1"
     private lazy var storageKey: SymmetricKey = CryptoUtils.deriveKey(from: storagePassphrase)
 
-    // MARK: - API Key (Keychain)
+    // MARK: - API Key (Keychain, legacy fallback)
     private let apiKeyKeychainKey = "com.runninghub.apikey"
 
     var apiKey: String? {
@@ -26,6 +26,34 @@ final class StorageService {
     }
 
     var hasAPIKey: Bool { !(apiKey?.isEmpty ?? true) }
+
+    // MARK: - Access Key (Keychain + UserDefaults)
+    private let accessKeyKeychainKey = "com.runninghub.accesskey"
+    private let accessKeyExpireKey = "rh_accesskey_expire"
+
+    var accessKey: String? {
+        get { KeychainHelper.load(forKey: accessKeyKeychainKey) }
+        set {
+            if let v = newValue, !v.isEmpty {
+                KeychainHelper.save(v, forKey: accessKeyKeychainKey)
+            } else {
+                KeychainHelper.delete(forKey: accessKeyKeychainKey)
+            }
+        }
+    }
+
+    var accessKeyExpire: Double {
+        get { defaults.double(forKey: accessKeyExpireKey) }
+        set { defaults.set(newValue, forKey: accessKeyExpireKey) }
+    }
+
+    // 提前5分钟视为过期
+    var isAccessKeyValid: Bool {
+        guard let key = accessKey, !key.isEmpty else { return false }
+        return Date().timeIntervalSince1970 * 1000 < accessKeyExpire - 300_000
+    }
+
+    var isLoggedIn: Bool { isAccessKeyValid }
 
     // MARK: - Settings (UserDefaults)
     private let defaults = UserDefaults.standard
@@ -111,5 +139,7 @@ final class StorageService {
     func clearAll() {
         clearAllTasks()
         apiKey = nil
+        accessKey = nil
+        accessKeyExpire = 0
     }
 }

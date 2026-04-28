@@ -8,6 +8,15 @@ final class APIService {
     private init() {}
 
     private let baseURL = "https://www.runninghub.cn"
+
+    var authToken: String {
+        // 优先用 accessKey，fallback 到旧 apiKey
+        if let accessKey = StorageService.shared.accessKey, !accessKey.isEmpty {
+            return accessKey
+        }
+        return (StorageService.shared.apiKey ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     var apiKey: String {
         (StorageService.shared.apiKey ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
     }
@@ -40,6 +49,37 @@ final class APIService {
     }
 
     // MARK: - Public APIs
+
+    /// POST /api/instance/access/auth — 登录获取 accessKey
+    func login(username: String, password: String) async throws -> LoginResponse {
+        guard let url = URL(string: baseURL + "/api/instance/access/auth") else { throw APIError.invalidURL }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.timeoutInterval = 30
+
+        struct Body: Encodable { let username: String; let password: String }
+        req.httpBody = try JSONEncoder().encode(Body(username: username, password: password))
+
+        let (data, _) = try await URLSession.shared.data(for: req)
+        #if DEBUG
+        if let str = String(data: data, encoding: .utf8) {
+            print("[API] /api/instance/access/auth → \(str.prefix(400))")
+        }
+        #endif
+
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let response = try decoder.decode(LoginResponse.self, from: data)
+
+        // 存储 accessKey 和过期时间
+        StorageService.shared.accessKey = response.accessKey
+        if let expireMs = Double(response.expireIn) {
+            StorageService.shared.accessKeyExpire = expireMs
+        }
+
+        return response
+    }
 
     /// POST /api/openapi/getJsonApiFormat
     func fetchWorkflowDetail(workflowId: String) async throws -> WorkflowDetailResponse {
@@ -181,10 +221,10 @@ final class APIService {
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        req.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
         req.timeoutInterval = 60
         let inputs = nodeInfoList.map { AppNodeInput(nodeId: $0.nodeId, fieldName: $0.fieldName, fieldValue: $0.fieldValue) }
-        let body = AppRunRequest(webappId: webappId, apiKey: apiKey, nodeInfoList: inputs)
+        let body = AppRunRequest(webappId: webappId, nodeInfoList: inputs)
         req.httpBody = try JSONEncoder().encode(body)
         let (data, _) = try await URLSession.shared.data(for: req)
         #if DEBUG
@@ -233,12 +273,12 @@ final class APIService {
 
     /// POST /openapi/v2/resource/list — 获取公共模型列表（LoRA / CHECKPOINT / UNET / GGUF）
     func fetchPublicResources(type: String, keyword: String, page: Int, size: Int = 20) async throws -> PublicResourcePage {
-        guard !apiKey.isEmpty else { throw APIError.noAPIKey }
+        guard !authToken.isEmpty else { throw APIError.noAPIKey }
         guard let url = URL(string: baseURL + "/openapi/v2/resource/list") else { throw APIError.invalidURL }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        req.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
         req.timeoutInterval = 30
         req.httpBody = try JSONEncoder().encode(PublicResourceListRequest(
             resourceType: type, resourceName: keyword.isEmpty ? nil : keyword, current: page, size: size
@@ -254,6 +294,34 @@ final class APIService {
         let wrapper = try decoder.decode(APIResponse<PublicResourcePage>.self, from: data)
         guard wrapper.isSuccess, let result = wrapper.data else {
             throw APIError.serverError(wrapper.msg ?? "获取模型列表失败")
+        }
+        return result
+    }
+
+    /// POST /api/output/history — 获取个人作品历史
+    func fetchOutputHistory(page: Int, size: Int = 20) async throws -> OutputHistoryPage {
+        guard !authToken.isEmpty else { throw APIError.noAPIKey }
+        guard let url = URL(string: baseURL + "/api/output/history") else { throw APIError.invalidURL }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
+        req.timeoutInterval = 30
+
+        struct Body: Encodable { let current: Int; let size: Int }
+        req.httpBody = try JSONEncoder().encode(Body(current: page, size: size))
+
+        let (data, _) = try await URLSession.shared.data(for: req)
+        #if DEBUG
+        if let str = String(data: data, encoding: .utf8) {
+            print("[API] /api/output/history → \(str.prefix(800))")
+        }
+        #endif
+
+        let decoder = JSONDecoder()
+        let wrapper = try decoder.decode(APIResponse<OutputHistoryPage>.self, from: data)
+        guard wrapper.isSuccess, let result = wrapper.data else {
+            throw APIError.serverError(wrapper.msg ?? "获取作品历史失败")
         }
         return result
     }

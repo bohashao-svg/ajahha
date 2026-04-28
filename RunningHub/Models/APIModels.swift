@@ -185,8 +185,29 @@ struct AppNodeInput: Encodable {
 
 struct AppRunRequest: Encodable {
     let webappId: String
-    let apiKey: String
     let nodeInfoList: [AppNodeInput]
+}
+
+// MARK: - Login
+struct LoginResponse: Codable {
+    let accessKey: String
+    let expireIn: String
+}
+
+// MARK: - Output History
+struct OutputHistoryPage: Codable {
+    let total: AnyCodable?
+    let pages: AnyCodable?
+    let records: [OutputHistoryItem]
+}
+
+struct OutputHistoryItem: Codable, Identifiable {
+    let id: String?
+    let taskName: String?
+    let status: String?
+    let outputUrl: String?
+    let createTime: String?
+    let type: String?
 }
 
 struct AppRunData: Codable {

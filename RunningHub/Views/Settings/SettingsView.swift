@@ -33,8 +33,9 @@ struct SettingsView: View {
                     }
                 }
             }
-            .alert("API 密钥已保存", isPresented: $vm.showSavedAlert) {
-                Button("好的", role: .cancel) {}
+            .confirmationDialog("确认退出登录？", isPresented: $vm.showLogoutConfirm, titleVisibility: .visible) {
+                Button("退出", role: .destructive) { vm.logout() }
+                Button("取消", role: .cancel) {}
             }
             .confirmationDialog("确认清除所有任务记录？", isPresented: $showClearConfirm, titleVisibility: .visible) {
                 Button("清除", role: .destructive) { vm.clearHistory() }
@@ -43,47 +44,57 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - API Key Section
+    // MARK: - Login Section
     private var apiKeySection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            sectionHeader(icon: .key, title: "API 密钥", accentColor: .rhGold)
+            sectionHeader(icon: .key, title: "账号登录", accentColor: .rhGold)
 
-            HStack(spacing: 6) {
-                RHIcon(name: .lock, size: 13, color: .rhSecondary)
-                Text("当前：\(vm.maskedApiKey)")
-                    .font(.system(size: 13))
-                    .foregroundColor(.rhSecondary)
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .background(Color.rhBackground)
-            .cornerRadius(10)
+            if vm.isLoggedIn {
+                HStack(spacing: 6) {
+                    RHIcon(name: .lock, size: 13, color: .rhSuccess)
+                    Text("已登录：\(vm.maskedAccessKey)")
+                        .font(.system(size: 13))
+                        .foregroundColor(.rhSecondary)
+                    Spacer()
+                    Button { vm.showLogoutConfirm = true } label: {
+                        Text("退出登录")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.rhError)
+                    }
+                }
+                .padding(.horizontal, 10).padding(.vertical, 8)
+                .background(Color.rhBackground).cornerRadius(10)
+            } else {
+                TextField("用户名", text: $vm.usernameInput)
+                    .font(.system(size: 14)).padding(11)
+                    .background(Color.rhBackground).cornerRadius(12)
+                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.rhBorder, lineWidth: 1))
+                    .autocapitalization(.none).disableAutocorrection(true)
 
-            HStack(spacing: 10) {
-                SecureField("输入新的 API 密钥", text: $vm.apiKeyInput)
-                    .font(.system(size: 14))
-                    .padding(11)
-                    .background(Color.rhBackground)
-                    .cornerRadius(12)
+                SecureField("密码", text: $vm.passwordInput)
+                    .font(.system(size: 14)).padding(11)
+                    .background(Color.rhBackground).cornerRadius(12)
                     .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.rhBorder, lineWidth: 1))
 
-                Button {
-                    vm.saveAPIKey()
-                } label: {
-                    Text("保存")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 18)
-                        .padding(.vertical, 11)
-                        .background(
-                            vm.apiKeyInput.isBlank
-                                ? AnyShapeStyle(Color.rhBorder)
-                                : AnyShapeStyle(LinearGradient(colors: [Color(hex: "#C8392B"), Color(hex: "#A93226")],
-                                                               startPoint: .leading, endPoint: .trailing))
-                        )
-                        .cornerRadius(12)
+                if let err = vm.loginError {
+                    Text(err).font(.system(size: 12)).foregroundColor(.rhError)
                 }
-                .disabled(vm.apiKeyInput.isBlank)
+
+                Button { Task { await vm.login() } } label: {
+                    Group {
+                        if vm.isLoggingIn {
+                            ProgressView().tint(.white)
+                        } else {
+                            Text("登录")
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundColor(.white)
+                        }
+                    }
+                    .frame(maxWidth: .infinity).frame(height: 44)
+                    .background(vm.usernameInput.isBlank || vm.passwordInput.isBlank ? Color.rhBorder : Color.rhAccent)
+                    .cornerRadius(12)
+                }
+                .disabled(vm.isLoggingIn || vm.usernameInput.isBlank || vm.passwordInput.isBlank)
             }
         }
         .rhCard()

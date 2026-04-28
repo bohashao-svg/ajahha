@@ -48,22 +48,50 @@ final class TaskCenterViewModel: ObservableObject {
 @MainActor
 final class SettingsViewModel: ObservableObject {
 
-    @Published var apiKeyInput: String = ""
+    @Published var usernameInput: String = ""
+    @Published var passwordInput: String = ""
     @Published var isPlusDefault: Bool = StorageService.shared.isPlusDefault
-    @Published var showSavedAlert = false
+    @Published var isLoggingIn: Bool = false
+    @Published var loginError: String?
+    @Published var showLogoutConfirm: Bool = false
 
-    var maskedApiKey: String {
-        let key = StorageService.shared.apiKey ?? ""
-        guard key.count > 8 else { return key.isEmpty ? "未配置" : "****" }
+    var isLoggedIn: Bool { StorageService.shared.isLoggedIn }
+
+    var maskedAccessKey: String {
+        guard let key = StorageService.shared.accessKey, key.count > 8 else {
+            return "未登录"
+        }
         return String(key.prefix(4)) + "****" + String(key.suffix(4))
     }
 
-    func saveAPIKey() {
-        let trimmed = apiKeyInput.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        StorageService.shared.apiKey = trimmed
-        apiKeyInput = ""
-        showSavedAlert = true
+    func login() async {
+        let username = usernameInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        let password = passwordInput.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !username.isEmpty, !password.isEmpty else {
+            loginError = "请输入用户名和密码"
+            return
+        }
+
+        isLoggingIn = true
+        loginError = nil
+        defer { isLoggingIn = false }
+
+        do {
+            _ = try await APIService.shared.login(username: username, password: password)
+            usernameInput = ""
+            passwordInput = ""
+        } catch {
+            loginError = error.localizedDescription
+        }
+    }
+
+    func logout() {
+        StorageService.shared.accessKey = nil
+        StorageService.shared.accessKeyExpire = 0
+        usernameInput = ""
+        passwordInput = ""
+        loginError = nil
     }
 
     func savePlusDefault() {

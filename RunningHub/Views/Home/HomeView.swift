@@ -7,6 +7,7 @@ struct HomeView: View {
     @EnvironmentObject private var appState: AppState
     @State private var showTaskCenter = false
     @State private var showSettings = false
+    @State private var showProfile = false
     @State private var showAPIKeyAlert = false
     @State private var showPremium = false
 
@@ -77,8 +78,15 @@ struct HomeView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button { showSettings = true } label: {
-                        RHIcon(name: .settings, size: 22, color: .rhSecondary)
+                    HStack(spacing: 12) {
+                        Button { showSettings = true } label: {
+                            RHIcon(name: .settings, size: 22, color: .rhSecondary)
+                        }
+                        Button { showProfile = true } label: {
+                            Image(systemName: "person.circle")
+                                .font(.system(size: 22))
+                                .foregroundColor(.rhSecondary)
+                        }
                     }
                 }
                 ToolbarItem(placement: .principal) {
@@ -95,6 +103,9 @@ struct HomeView: View {
             }
             .sheet(isPresented: $showSettings) {
                 SettingsView()
+            }
+            .sheet(isPresented: $showProfile) {
+                ProfileView()
             }
             .sheet(isPresented: $showPremium) {
                 PremiumWorkflowView { workflowId in
