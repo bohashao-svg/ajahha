@@ -1,4 +1,5 @@
 import SwiftUI
+import SafariServices
 
 // MARK: - Home View
 struct HomeView: View {
@@ -10,6 +11,10 @@ struct HomeView: View {
     @State private var showProfile = false
     @State private var showAPIKeyAlert = false
     @State private var showPremium = false
+    @State private var showGrok = false
+
+    // 统一输入框
+    @State private var unifiedInput: String = ""
 
     var body: some View {
         NavigationView {
@@ -20,35 +25,37 @@ struct HomeView: View {
                     VStack(spacing: 16) {
                         premiumEntryCard.padding(.horizontal, 16)
 
-                        VStack(spacing: 16) {
-                            aiAppInputCard
-                            if appVm.isLoading {
-                                NodeFormCardSkeleton().transition(.opacity)
-                            } else if !appVm.nodes.isEmpty {
+                        // 统一输入卡片
+                        unifiedInputCard.padding(.horizontal, 16)
+
+                        // AI 应用结果区
+                        if appVm.isLoading {
+                            NodeFormCardSkeleton().padding(.horizontal, 16).transition(.opacity)
+                        } else if !appVm.nodes.isEmpty {
+                            VStack(spacing: 16) {
                                 aiAppNodeCard.transition(.opacity.combined(with: .move(edge: .top)))
                                 aiAppSubmitButton.transition(.opacity).padding(.horizontal, 16)
                             }
                         }
-                        .padding(.horizontal, 16)
-                        .animation(.spring(response: 0.38, dampingFraction: 0.82), value: appVm.nodes.isEmpty)
 
-                        VStack(spacing: 16) {
-                            workflowInputCard
-                            if vm.isLoading {
-                                NodeFormCardSkeleton().transition(.opacity)
-                            } else if vm.workflowDetail != nil {
-                                workflowInfoCard.transition(.opacity.combined(with: .move(edge: .top)))
-                                ParameterFormView(fields: $vm.formFields).transition(.opacity.combined(with: .move(edge: .top)))
-                                plusToggleCard.transition(.opacity)
-                                submitButton.transition(.opacity)
+                        // 工作流结果区
+                        if vm.isLoading {
+                            NodeFormCardSkeleton().padding(.horizontal, 16).transition(.opacity)
+                        } else if vm.workflowDetail != nil {
+                            VStack(spacing: 16) {
+                                workflowInfoCard.padding(.horizontal, 16).transition(.opacity.combined(with: .move(edge: .top)))
+                                ParameterFormView(fields: $vm.formFields).padding(.horizontal, 16).transition(.opacity.combined(with: .move(edge: .top)))
+                                plusToggleCard.padding(.horizontal, 16).transition(.opacity)
+                                submitButton.padding(.horizontal, 16).transition(.opacity)
                             }
                         }
-                        .padding(.horizontal, 16)
-                        .animation(.spring(response: 0.38, dampingFraction: 0.82), value: vm.workflowDetail == nil)
+
+                        // 卸甲 AI 按钮
+                        grokButton.padding(.horizontal, 16)
 
                         Spacer(minLength: 24)
 
-                        if !vm.workflowHistory.isEmpty && vm.workflowDetail == nil {
+                        if !vm.workflowHistory.isEmpty && vm.workflowDetail == nil && appVm.nodes.isEmpty {
                             workflowHistoryCard.padding(.horizontal, 16)
                                 .transition(.move(edge: .bottom).combined(with: .opacity))
                         }
@@ -60,8 +67,9 @@ struct HomeView: View {
                             .padding(.bottom, 20)
                     }
                     .padding(.top, 12)
-                    .animation(.spring(response: 0.38, dampingFraction: 0.82), value: vm.workflowHistory.isEmpty)
+                    .animation(.spring(response: 0.38, dampingFraction: 0.82), value: appVm.nodes.isEmpty)
                     .animation(.spring(response: 0.38, dampingFraction: 0.82), value: vm.workflowDetail == nil)
+                    .animation(.spring(response: 0.38, dampingFraction: 0.82), value: vm.workflowHistory.isEmpty)
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
@@ -96,12 +104,17 @@ struct HomeView: View {
             .sheet(isPresented: $showProfile) { ProfileView() }
             .sheet(isPresented: $showPremium) {
                 PremiumWorkflowView { workflowId in
+                    unifiedInput = workflowId
                     vm.workflowInput = workflowId
                     Task { await vm.fetchWorkflow() }
                 }
             }
             .sheet(isPresented: $vm.showPromptSelector) {
                 PromptSelectorView(fields: vm.availablePromptFields, onConfirm: { vm.applyPromptSelection($0) })
+            }
+            .sheet(isPresented: $showGrok) {
+                SafariView(url: URL(string: "https://grok.dairoot.cn/")!)
+                    .ignoresSafeArea()
             }
             .alert("请先配置 API 密钥", isPresented: $showAPIKeyAlert) {
                 Button("去配置") { showSettings = true }
@@ -191,21 +204,22 @@ struct HomeView: View {
         .buttonStyle(ScaleButtonStyle())
     }
 
-    // MARK: - AI App Input Card
-    private var aiAppInputCard: some View {
+    // MARK: - Unified Input Card
+    private var unifiedInputCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sketchSectionLabel("AI 应用", star: true)
+            sketchSectionLabel("工作流 / AI 应用", star: true)
             HStack(spacing: 10) {
-                TextField("输入 AI 应用 ID 或链接", text: $appVm.webappInput)
+                TextField("输入工作流或 AI 应用 ID / 链接", text: $unifiedInput)
                     .font(.system(size: 15)).foregroundColor(.rhPrimary)
                     .autocapitalization(.none).disableAutocorrection(true)
                     .padding(.horizontal, 12).padding(.vertical, 10)
                     .background(Color.rhBackground)
                     .clipShape(SketchRoundedRect(radius: 10))
                     .overlay(SketchRoundedRect(radius: 10).stroke(Color.rhInk.opacity(0.18), lineWidth: 1.5))
-                    .onSubmit { Task { await appVm.fetchNodes() } }
-                Button { Task { await appVm.fetchNodes() } } label: {
-                    if appVm.isLoading {
+                    .onSubmit { fetchUnified() }
+                Button { fetchUnified() } label: {
+                    let isLoading = vm.isLoading || appVm.isLoading
+                    if isLoading {
                         ProgressView().frame(width: 40, height: 40)
                     } else {
                         RHIcon(name: .refresh, size: 18, color: .white)
@@ -215,16 +229,31 @@ struct HomeView: View {
                             .shadow(color: Color.rhInk.opacity(0.15), radius: 0, x: 2, y: 2)
                     }
                 }
-                .disabled(appVm.isLoading || appVm.webappInput.isBlank)
+                .disabled(vm.isLoading || appVm.isLoading || unifiedInput.isBlank)
                 .buttonStyle(ScaleButtonStyle())
             }
-            if let err = appVm.errorMessage {
+
+            // 错误提示
+            if let err = vm.errorMessage ?? appVm.errorMessage {
                 Text(err).font(.system(size: 12)).foregroundColor(.rhError).transition(.opacity)
             }
+
+            // 状态指示
             HStack(spacing: 6) {
-                Circle().fill(appVm.nodes.isEmpty ? Color.rhSecondary.opacity(0.4) : Color.rhSuccess).frame(width: 7, height: 7)
-                Text(appVm.nodes.isEmpty ? "输入应用 ID 后点击刷新" : "已加载 \(appVm.nodes.count) 个参数节点")
-                    .font(.system(size: 12)).foregroundColor(.rhSecondary)
+                let hasResult = vm.workflowDetail != nil || !appVm.nodes.isEmpty
+                Circle()
+                    .fill(hasResult ? Color.rhSuccess : Color.rhSecondary.opacity(0.4))
+                    .frame(width: 7, height: 7)
+                Group {
+                    if vm.workflowDetail != nil {
+                        Text("工作流已加载 · \(vm.workflowType.displayName)")
+                    } else if !appVm.nodes.isEmpty {
+                        Text("AI 应用已加载 · \(appVm.nodes.count) 个参数节点")
+                    } else {
+                        Text("输入 ID 后点击刷新，自动识别类型")
+                    }
+                }
+                .font(.system(size: 12)).foregroundColor(.rhSecondary)
                 Spacer()
             }
         }
@@ -260,47 +289,6 @@ struct HomeView: View {
         }
         .disabled(appVm.isSubmitting)
         .buttonStyle(ScaleButtonStyle())
-    }
-
-    private var aiAppEntryCard: some View { EmptyView() }
-
-    // MARK: - Workflow Input Card
-    private var workflowInputCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sketchSectionLabel("工作流", star: true)
-            HStack(spacing: 10) {
-                TextField("输入工作流 ID 或链接", text: $vm.workflowInput)
-                    .font(.system(size: 15)).foregroundColor(.rhPrimary)
-                    .autocapitalization(.none).disableAutocorrection(true)
-                    .padding(.horizontal, 12).padding(.vertical, 10)
-                    .background(Color.rhBackground)
-                    .clipShape(SketchRoundedRect(radius: 10))
-                    .overlay(SketchRoundedRect(radius: 10).stroke(Color.rhInk.opacity(0.18), lineWidth: 1.5))
-                    .onSubmit { Task { await vm.fetchWorkflow() } }
-                Button { Task { await vm.fetchWorkflow() } } label: {
-                    if vm.isLoading {
-                        ProgressView().frame(width: 40, height: 40)
-                    } else {
-                        RHIcon(name: .refresh, size: 18, color: .white)
-                            .frame(width: 40, height: 40)
-                            .background(Color.rhAccent)
-                            .clipShape(SketchRoundedRect(radius: 10))
-                            .shadow(color: Color.rhInk.opacity(0.15), radius: 0, x: 2, y: 2)
-                    }
-                }
-                .disabled(vm.isLoading || vm.workflowInput.isBlank)
-                .buttonStyle(ScaleButtonStyle())
-            }
-            if let err = vm.errorMessage {
-                Text(err).font(.system(size: 12)).foregroundColor(.rhError).transition(.opacity)
-            }
-            HStack(spacing: 6) {
-                Circle().fill(Color.rhSuccess).frame(width: 7, height: 7)
-                Text("就绪").font(.system(size: 12)).foregroundColor(.rhSecondary)
-                Spacer()
-            }
-        }
-        .sketchCard()
     }
 
     // MARK: - Workflow Info Card
@@ -347,7 +335,7 @@ struct HomeView: View {
         .sketchCard(padding: 14)
     }
 
-    // MARK: - Submit Button
+    // MARK: - Submit Button (workflow)
     private var submitButton: some View {
         Button { Task { await vm.submit() } } label: {
             HStack(spacing: 8) {
@@ -363,6 +351,37 @@ struct HomeView: View {
             .shadow(color: Color.rhInk.opacity(canSubmitNow ? 0.18 : 0), radius: 0, x: 2, y: 3)
         }
         .disabled(!canSubmitNow)
+        .buttonStyle(ScaleButtonStyle())
+    }
+
+    // MARK: - 卸甲 AI Button
+    private var grokButton: some View {
+        Button { showGrok = true } label: {
+            HStack(spacing: 14) {
+                ZStack {
+                    SketchRoundedRect(radius: 12)
+                        .fill(Color.rhGoldLight)
+                        .frame(width: 52, height: 52)
+                        .overlay(SketchRoundedRect(radius: 12).stroke(Color.rhInk.opacity(0.2), lineWidth: 1.5))
+                    Image(systemName: "brain.head.profile")
+                        .font(.system(size: 22))
+                        .foregroundColor(.rhAccent)
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("卸甲 AI")
+                        .font(.system(size: 15, weight: .semibold)).foregroundColor(.rhPrimary)
+                    Text("点击在应用内打开卸甲 AI 对话")
+                        .font(.system(size: 12)).foregroundColor(.rhSecondary)
+                }
+                Spacer()
+                RHIcon(name: .chevron, size: 14, color: .rhAccent.opacity(0.6))
+            }
+            .padding(14)
+            .background(Color.rhCard)
+            .clipShape(SketchRoundedRect(radius: 14))
+            .overlay(SketchRoundedRect(radius: 14).stroke(Color.rhInk.opacity(0.18), lineWidth: 1.8))
+            .shadow(color: Color.rhInk.opacity(0.12), radius: 0, x: 2, y: 3)
+        }
         .buttonStyle(ScaleButtonStyle())
     }
 
@@ -384,10 +403,13 @@ struct HomeView: View {
             let displayed = vm.showAllHistory ? vm.workflowHistory : Array(vm.workflowHistory.prefix(3))
             ForEach(displayed) { item in
                 Button {
+                    unifiedInput = item.workflowId
                     if item.itemType == .aiApp {
                         appVm.webappInput = item.workflowId
                         Task { await appVm.fetchNodes() }
-                    } else { vm.selectHistory(item) }
+                    } else {
+                        vm.selectHistory(item)
+                    }
                 } label: {
                     HStack(spacing: 10) {
                         RHIcon(name: .workflow, size: 14, color: .rhAccent)
@@ -419,6 +441,39 @@ struct HomeView: View {
     }
 
     // MARK: - Helpers
+    private func fetchUnified() {
+        let input = unifiedInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !input.isEmpty else { return }
+
+        // 清空两边旧状态
+        vm.workflowDetail = nil
+        vm.formFields = []
+        appVm.nodes = []
+        appVm.errorMessage = nil
+        vm.errorMessage = nil
+
+        // 判断类型：先尝试提取 webappId（AI 应用链接含 /webapp/），否则当工作流处理
+        let webappId = input.extractWebappId()
+        let isWebapp = input.lowercased().contains("webapp") || input.lowercased().contains("app")
+
+        if isWebapp && !webappId.isEmpty {
+            appVm.webappInput = input
+            Task { await appVm.fetchNodes() }
+        } else {
+            // 先尝试工作流，失败再尝试 AI 应用
+            vm.workflowInput = input
+            Task {
+                await vm.fetchWorkflow()
+                // 如果工作流失败且输入看起来像 ID（纯数字或短字符串），再试 AI 应用
+                if vm.workflowDetail == nil && vm.errorMessage != nil {
+                    appVm.webappInput = input
+                    await appVm.fetchNodes()
+                    if !appVm.nodes.isEmpty { vm.errorMessage = nil }
+                }
+            }
+        }
+    }
+
     private func sketchSectionLabel(_ title: String, star: Bool) -> some View {
         HStack(spacing: 6) {
             if star { Text("✦").font(.system(size: 11)).foregroundColor(.rhAccent) }
@@ -437,6 +492,15 @@ struct HomeView: View {
     }
 
     private var canSubmitNow: Bool { !vm.isSubmitting && appState.canSubmit && vm.workflowDetail != nil }
+}
+
+// MARK: - Safari View
+struct SafariView: UIViewControllerRepresentable {
+    let url: URL
+    func makeUIViewController(context: Context) -> SFSafariViewController {
+        SFSafariViewController(url: url)
+    }
+    func updateUIViewController(_ uiViewController: SFSafariViewController, context: Context) {}
 }
 
 // MARK: - Scale Button Style

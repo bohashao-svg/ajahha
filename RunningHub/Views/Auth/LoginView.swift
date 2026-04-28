@@ -29,20 +29,19 @@ struct LoginView: View {
                 // Logo
                 VStack(spacing: 12) {
                     ZStack {
-                        Circle()
-                            .fill(Color.rhRedMuted)
+                        SketchRoundedRect(radius: 20)
+                            .fill(Color.rhGoldLight)
                             .frame(width: 80, height: 80)
-                            .overlay(Circle().stroke(Color.rhAccent, lineWidth: 2))
+                            .overlay(SketchRoundedRect(radius: 20).stroke(Color.rhInk.opacity(0.25), lineWidth: 2))
                             .shadow(color: Color.rhInk.opacity(0.15), radius: 0, x: 3, y: 3)
-                        Image("AppLogo")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 52, height: 52)
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 34, weight: .medium))
+                            .foregroundColor(.rhAccent)
                     }
-                    Text("人民万岁")
+                    Text("RunningHub")
                         .font(.system(size: 26, weight: .bold))
                         .foregroundColor(.rhPrimary)
-                    Text("RunningHub AI 创作平台")
+                    Text("AI 创作平台")
                         .font(.system(size: 13))
                         .foregroundColor(.rhSecondary)
                 }
