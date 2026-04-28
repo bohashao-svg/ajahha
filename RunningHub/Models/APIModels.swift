@@ -131,32 +131,32 @@ struct RunWorkflowResponse: Codable {
 }
 
 // MARK: - Task Query (POST /openapi/v2/query)
-// Flat response — NOT wrapped in APIResponse
+// Wrapped in APIResponse<TaskQueryResponse>; inner data uses camelCase field "taskStatus"
 struct TaskQueryResponse: Codable {
-    let taskId: String
-    let status: String          // QUEUED, RUNNING, SUCCESS, FAILED, CANCELLED
+    let taskId: String?
+    let taskStatus: String?     // QUEUED, RUNNING, SUCCESS, FAILED, CANCELLED
     let errorCode: String?
     let errorMessage: String?
-    let results: [TaskQueryResult]?
+    let outputs: [TaskQueryResult]?
 
-    var taskStatus: TaskStatus {
-        switch status.uppercased() {
+    var resolvedStatus: TaskStatus {
+        switch (taskStatus ?? "").uppercased() {
         case "SUCCESS":   return .completed
         case "RUNNING":   return .running
         case "FAILED":    return .failed
         case "CANCELLED": return .cancelled
-        default:          return .queued   // QUEUED or unknown
+        default:          return .queued
         }
     }
 
     var outputUrls: [String] {
-        results?.compactMap { $0.url } ?? []
+        outputs?.compactMap { $0.fileUrl } ?? []
     }
 }
 
 struct TaskQueryResult: Codable {
-    let url: String
-    let outputType: String?
+    let fileUrl: String?
+    let fileType: String?
 }
 
 // MARK: - AI App (WebApp) Models

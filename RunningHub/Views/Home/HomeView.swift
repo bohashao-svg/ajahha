@@ -105,7 +105,7 @@ struct HomeView: View {
             }
             .alert("请先配置 API 密钥", isPresented: $showAPIKeyAlert) {
                 Button("去配置") { showSettings = true }
-                Button("取消", role: .cancel)
+                Button("取消", role: .cancel) {}
             }
             .onAppear { if !StorageService.shared.hasAPIKey { showAPIKeyAlert = true } }
         }

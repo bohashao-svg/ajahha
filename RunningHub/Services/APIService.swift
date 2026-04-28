@@ -155,7 +155,7 @@ final class APIService {
     }
 
     /// POST /openapi/v2/query — poll task status and results
-    /// Response is NOT wrapped in APIResponse, it's a flat object
+    /// Response is wrapped in APIResponse<TaskQueryResponse>
     func queryTask(taskId: String) async throws -> TaskQueryResponse {
         guard !apiKey.isEmpty else { throw APIError.noAPIKey }
         guard let url = URL(string: baseURL + "/openapi/v2/query") else { throw APIError.invalidURL }
@@ -176,8 +176,11 @@ final class APIService {
         #endif
 
         let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
-        return try decoder.decode(TaskQueryResponse.self, from: data)
+        let wrapper = try decoder.decode(APIResponse<TaskQueryResponse>.self, from: data)
+        guard wrapper.isSuccess, let result = wrapper.data else {
+            throw APIError.serverError(wrapper.msg ?? "查询失败")
+        }
+        return result
     }
 
     /// POST /task/openapi/upload — multipart/form-data 上传图片，返回文件名

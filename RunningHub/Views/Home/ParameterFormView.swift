@@ -226,5 +226,6 @@ private struct FieldRow: View {
 
 // MARK: - Notification
 extension Notification.Name {
-    static let loraDidSelect = Notification.Name("loraDidSelect")
+    static let loraDidSelect         = Notification.Name("loraDidSelect")
+    static let workflowHistoryDidChange = Notification.Name("workflowHistoryDidChange")
 }

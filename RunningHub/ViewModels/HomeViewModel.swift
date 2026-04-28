@@ -27,6 +27,14 @@ final class HomeViewModel: ObservableObject {
     init(appState: AppState = .shared) {
         self.appState = appState
         NotificationCenter.default.addObserver(
+            forName: .workflowHistoryDidChange, object: nil, queue: .main
+        ) { [weak self] _ in
+            guard let self else { return }
+            Task { @MainActor [weak self] in
+                self?.workflowHistory = StorageService.shared.workflowHistory
+            }
+        }
+        NotificationCenter.default.addObserver(
             forName: .loraDidSelect, object: nil, queue: .main
         ) { [weak self] note in
             guard let self,
@@ -282,7 +290,7 @@ final class HomeViewModel: ObservableObject {
                 workflowType: workflowType.displayName
             )
             StorageService.shared.addWorkflowHistory(historyItem)
-            workflowHistory = StorageService.shared.workflowHistory
+            NotificationCenter.default.post(name: .workflowHistoryDidChange, object: nil)
 
             resetForm()
 

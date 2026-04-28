@@ -104,6 +104,7 @@ final class AppViewModel: ObservableObject {
                 itemType: .aiApp
             )
             StorageService.shared.addWorkflowHistory(historyItem)
+            NotificationCenter.default.post(name: .workflowHistoryDidChange, object: nil)
 
             reset()
             didSubmitSuccessfully = true
