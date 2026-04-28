@@ -246,14 +246,14 @@ final class APIService {
 
     /// POST /task/openapi/ai-app/run — submit AI app task
     func runApp(webappId: String, nodeInfoList: [AppNodeInfo]) async throws -> AppRunData {
-        guard !apiKey.isEmpty else { throw APIError.noAPIKey }
+        guard !authToken.isEmpty else { throw APIError.noAPIKey }
         guard let url = URL(string: baseURL + "/task/openapi/ai-app/run") else { throw APIError.invalidURL }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.timeoutInterval = 60
         let inputs = nodeInfoList.map { AppNodeInput(nodeId: $0.nodeId, fieldName: $0.fieldName, fieldValue: $0.fieldValue) }
-        let body = AppRunRequest(webappId: webappId, apiKey: apiKey, nodeInfoList: inputs)
+        let body = AppRunRequest(webappId: webappId, apiKey: authToken, nodeInfoList: inputs)
         req.httpBody = try JSONEncoder().encode(body)
         let (data, _) = try await URLSession.shared.data(for: req)
         #if DEBUG
@@ -271,14 +271,14 @@ final class APIService {
 
     /// POST /task/openapi/outputs — query AI app task outputs
     func queryAppOutputs(taskId: String) async throws -> APIResponse<[AppOutputItem]> {
-        guard !apiKey.isEmpty else { throw APIError.noAPIKey }
+        guard !authToken.isEmpty else { throw APIError.noAPIKey }
         guard let url = URL(string: baseURL + "/task/openapi/outputs") else { throw APIError.invalidURL }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.timeoutInterval = 30
         struct Body: Encodable { let apiKey: String; let taskId: String }
-        req.httpBody = try JSONEncoder().encode(Body(apiKey: apiKey, taskId: taskId))
+        req.httpBody = try JSONEncoder().encode(Body(apiKey: authToken, taskId: taskId))
         let (data, _) = try await URLSession.shared.data(for: req)
         #if DEBUG
         if let str = String(data: data, encoding: .utf8) {

@@ -354,29 +354,29 @@ struct ProfileView: View {
     private var outputList: some View {
         ScrollView {
             LazyVStack(spacing: 12) {
+                ForEach(vm.outputs.indices, id: \.self) { index in
+                    let item = vm.outputs[index]
+                    OutputCard(item: item) {
+                        selectedActionTarget = .item(item)
+                        showActionDialog = true
+                    }
+                }
+
                 if vm.outputs.isEmpty && vm.isLoading {
                     ForEach(0..<6, id: \.self) { _ in OutputCardSkeleton() }
-                } else {
-                    ForEach(vm.outputs.indices, id: \.self) { index in
-                        let item = vm.outputs[index]
-                        OutputCard(item: item) {
-                            selectedActionTarget = .item(item)
-                            showActionDialog = true
+                }
+
+                if vm.hasNext {
+                    Color.clear
+                        .frame(height: 1)
+                        .onAppear {
+                            guard !vm.isLoading else { return }
+                            Task { await vm.loadPage(vm.currentPage + 1) }
                         }
-                    }
+                }
 
-                    if vm.hasNext {
-                        Color.clear
-                            .frame(height: 1)
-                            .onAppear {
-                                guard !vm.isLoading else { return }
-                                Task { await vm.loadPage(vm.currentPage + 1) }
-                            }
-                    }
-
-                    if vm.isLoading {
-                        ProgressView().padding()
-                    }
+                if !vm.outputs.isEmpty && vm.isLoading {
+                    ProgressView().padding()
                 }
             }
             .padding(16)
