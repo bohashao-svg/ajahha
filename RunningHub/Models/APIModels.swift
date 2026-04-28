@@ -241,9 +241,9 @@ struct ResourceOwner: Codable {
     let avatar: String?
 }
 
-// tag.id 在 spec 里是 int64，用 Int? 兼容缺失情况
+// tag.id 服务端返回字符串（如 "16"），用 String? 兼容
 struct ResourceTag: Codable {
-    let id: Int?
+    let id: String?
     let name: String?
 }
 

@@ -159,7 +159,6 @@ final class APIService {
         guard let url = URL(string: urlStr) else { throw APIError.invalidURL }
         var req = URLRequest(url: url)
         req.httpMethod = "GET"
-        req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         req.timeoutInterval = 30
         let (data, _) = try await URLSession.shared.data(for: req)
         #if DEBUG
