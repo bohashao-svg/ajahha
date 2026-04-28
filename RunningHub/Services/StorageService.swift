@@ -1,6 +1,10 @@
 import Foundation
 import CryptoKit
 
+extension Notification.Name {
+    static let authStateChanged = Notification.Name("authStateChanged")
+}
+
 // MARK: - Storage Service
 final class StorageService {
 
@@ -39,6 +43,7 @@ final class StorageService {
             } else {
                 KeychainHelper.delete(forKey: accessKeyKeychainKey)
             }
+            NotificationCenter.default.post(name: .authStateChanged, object: nil)
         }
     }
 

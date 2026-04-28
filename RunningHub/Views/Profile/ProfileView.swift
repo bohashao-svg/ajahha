@@ -3,6 +3,7 @@ import SwiftUI
 struct ProfileView: View {
     @StateObject private var vm = ProfileViewModel()
     @Environment(\.dismiss) private var dismiss
+    @State private var showLoginAlert = false
 
     var body: some View {
         NavigationView {
@@ -33,7 +34,18 @@ struct ProfileView: View {
                 }
             }
         }
-        .task { await vm.loadPage(1) }
+        .onAppear {
+            if !StorageService.shared.isLoggedIn {
+                showLoginAlert = true
+            } else {
+                Task { await vm.loadPage(1) }
+            }
+        }
+        .alert("请先登录", isPresented: $showLoginAlert) {
+            Button("确定") { dismiss() }
+        } message: {
+            Text("查看个人作品需要先登录账号")
+        }
     }
 
     private var outputList: some View {

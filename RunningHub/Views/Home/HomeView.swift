@@ -78,15 +78,8 @@ struct HomeView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    HStack(spacing: 12) {
-                        Button { showSettings = true } label: {
-                            RHIcon(name: .settings, size: 22, color: .rhSecondary)
-                        }
-                        Button { showProfile = true } label: {
-                            Image(systemName: "person.circle")
-                                .font(.system(size: 22))
-                                .foregroundColor(.rhSecondary)
-                        }
+                    Button { showSettings = true } label: {
+                        RHIcon(name: .settings, size: 22, color: .rhSecondary)
                     }
                 }
                 ToolbarItem(placement: .principal) {
@@ -95,7 +88,14 @@ struct HomeView: View {
                         .foregroundColor(.rhPrimary)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    taskCenterButton
+                    HStack(spacing: 12) {
+                        Button { showProfile = true } label: {
+                            Image(systemName: "person.circle")
+                                .font(.system(size: 22))
+                                .foregroundColor(.rhSecondary)
+                        }
+                        taskCenterButton
+                    }
                 }
             }
             .sheet(isPresented: $showTaskCenter) {

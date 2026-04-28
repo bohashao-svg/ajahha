@@ -70,7 +70,10 @@ final class APIService {
 
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
-        let response = try decoder.decode(LoginResponse.self, from: data)
+        let wrapper = try decoder.decode(APIResponse<LoginResponse>.self, from: data)
+        guard wrapper.isSuccess, let response = wrapper.data else {
+            throw APIError.serverError(wrapper.msg ?? "登录失败")
+        }
 
         // 存储 accessKey 和过期时间
         StorageService.shared.accessKey = response.accessKey

@@ -19,17 +19,20 @@ struct RunningHubApp: App {
 struct ContentRootView: View {
     @EnvironmentObject private var appConfig: AppConfigService
     @EnvironmentObject private var appState: AppState
+    @State private var isLoggedIn = StorageService.shared.isLoggedIn
 
     var body: some View {
         ZStack {
-            HomeView()
-                .environmentObject(appState)
-                .disabled(appConfig.isBanned)
-                .overlay {
-                    if appConfig.isBanned {
-                        bannedOverlay
+            if isLoggedIn {
+                HomeView()
+                    .environmentObject(appState)
+                    .disabled(appConfig.isBanned)
+                    .overlay {
+                        if appConfig.isBanned { bannedOverlay }
                     }
-                }
+            } else {
+                LoginView()
+            }
 
             if !appConfig.isLoaded {
                 Color.white.ignoresSafeArea()
@@ -37,6 +40,9 @@ struct ContentRootView: View {
             }
         }
         .onAppear { appConfig.load() }
+        .onReceive(NotificationCenter.default.publisher(for: .authStateChanged)) { _ in
+            isLoggedIn = StorageService.shared.isLoggedIn
+        }
         .alert("公告", isPresented: $appConfig.showAnnouncement) {
             Button("我知道了", role: .cancel) {}
         } message: {

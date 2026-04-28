@@ -48,50 +48,26 @@ final class TaskCenterViewModel: ObservableObject {
 @MainActor
 final class SettingsViewModel: ObservableObject {
 
-    @Published var usernameInput: String = ""
-    @Published var passwordInput: String = ""
+    @Published var apiKeyInput: String = StorageService.shared.apiKey ?? ""
     @Published var isPlusDefault: Bool = StorageService.shared.isPlusDefault
-    @Published var isLoggingIn: Bool = false
-    @Published var loginError: String?
+    @Published var showSavedAlert: Bool = false
     @Published var showLogoutConfirm: Bool = false
 
     var isLoggedIn: Bool { StorageService.shared.isLoggedIn }
 
     var maskedAccessKey: String {
-        guard let key = StorageService.shared.accessKey, key.count > 8 else {
-            return "未登录"
-        }
+        guard let key = StorageService.shared.accessKey, key.count > 8 else { return "未登录" }
         return String(key.prefix(4)) + "****" + String(key.suffix(4))
     }
 
-    func login() async {
-        let username = usernameInput.trimmingCharacters(in: .whitespacesAndNewlines)
-        let password = passwordInput.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        guard !username.isEmpty, !password.isEmpty else {
-            loginError = "请输入用户名和密码"
-            return
-        }
-
-        isLoggingIn = true
-        loginError = nil
-        defer { isLoggingIn = false }
-
-        do {
-            _ = try await APIService.shared.login(username: username, password: password)
-            usernameInput = ""
-            passwordInput = ""
-        } catch {
-            loginError = error.localizedDescription
-        }
+    func saveAPIKey() {
+        StorageService.shared.apiKey = apiKeyInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        showSavedAlert = true
     }
 
     func logout() {
         StorageService.shared.accessKey = nil
         StorageService.shared.accessKeyExpire = 0
-        usernameInput = ""
-        passwordInput = ""
-        loginError = nil
     }
 
     func savePlusDefault() {
