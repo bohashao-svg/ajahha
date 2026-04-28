@@ -482,26 +482,15 @@ extension TTDecodeService {
 
     func tryV2(pixels: [UInt8], width: Int, height: Int, password: String) -> TTFile? {
         let rgb = rgbaToRgb(pixels, width: width, height: height)
-        // Row-by-row scan
-        for row in 0..<height {
-            let off = row * width * 3
-            if off + 10 > rgb.count { break }
+        // Full byte-by-byte scan — magic can appear at any offset within a row
+        let limit = rgb.count
+        var off = 0
+        while off < limit {
+            // Quick pre-check: first byte must match one of the magic first bytes
+            let b = rgb[off]
+            guard b == 84 else { off += 1; continue }  // all magics start with 'T' (84)
             if let f = scanV2Row(rgb, rowOffset: off, password: password) { return f }
-        }
-        // Fallback: scan top 15% byte-by-byte for TTv2
-        let limit = min(rgb.count - 4, rgb.count * 15 / 100)
-        for off in 0..<limit {
-            guard matchMagic(rgb, at: off, magic: Self.MAGIC_TTV2) else { continue }
-            let hdrLen = 10
-            guard off + hdrLen <= rgb.count else { continue }
-            let hdrLenData = Int(UInt32(rgb[off+4]) << 24 | UInt32(rgb[off+5]) << 16
-                               | UInt32(rgb[off+6]) << 8  | UInt32(rgb[off+7]))
-            let crc = UInt16(rgb[off+8]) << 8 | UInt16(rgb[off+9])
-            if let r = parseV2Inner(rgb, offset: off, headerLen: hdrLen, crc: crc,
-                                    totalNeeded: hdrLen + hdrLenData, format: "V2-TTv2-Scan"),
-               !r.isExpired, let enc = r.encryptedData {
-                return TTFile(data: Data(enc), ext: r.ext, format: r.format)
-            }
+            off += 1
         }
         return nil
     }

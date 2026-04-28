@@ -90,6 +90,7 @@ struct OutputCard: View {
             .buttonStyle(.plain)
         }
         .padding(12)
+        .frame(maxWidth: .infinity, minHeight: 104, maxHeight: 104)
         .background(Color.rhCard)
         .cornerRadius(12)
     }
@@ -352,7 +353,7 @@ struct ProfileView: View {
 
     private var outputList: some View {
         ScrollView {
-            LazyVStack(spacing: 12) {
+            VStack(spacing: 12) {
                 ForEach(vm.outputs.indices, id: \.self) { index in
                     let item = vm.outputs[index]
                     OutputCard(item: item) {
@@ -416,15 +417,20 @@ struct ProfileView: View {
             }
 
             isDecoding = false
+            // Dismiss the password sheet first, then present result sheet after a short delay
+            activeSheet = nil
             let imageExts = ["png", "jpg", "jpeg", "webp", "gif", "bmp", "heic"]
+            let nextSheet: ProfileSheet
             if imageExts.contains(fileExt.lowercased()), let image = UIImage(data: fileData) {
-                activeSheet = .decodedImage(image)
+                nextSheet = .decodedImage(image)
             } else {
                 let tmpURL = FileManager.default.temporaryDirectory
                     .appendingPathComponent("decoded_\(Int(Date().timeIntervalSince1970)).\(fileExt)")
                 try fileData.write(to: tmpURL)
-                activeSheet = .shareFile(tmpURL)
+                nextSheet = .shareFile(tmpURL)
             }
+            try await Task.sleep(nanoseconds: 400_000_000)
+            activeSheet = nextSheet
         } catch {
             decodeError = error.localizedDescription
             isDecoding = false
