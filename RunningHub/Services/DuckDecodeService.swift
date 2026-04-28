@@ -77,8 +77,11 @@ final class DuckDecodeService {
         ) else { throw DecodeError.invalidImage }
         ctx.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
 
-        // Extract all RGB bytes in row order (no watermark skip — data starts at pixel 0)
-        let rgbBytes = extractAllRGB(pixels: pixelData, width: width, height: height)
+        // Skip watermark region (top-left 40% width × 8% height), matching JS WATERMARK_SKIP_W/H_RATIO
+        let skipW = Int(Double(width) * 0.4)
+        let skipH = Int(Double(height) * 0.08)
+        let rgbBytes = extractValidRGB(pixels: pixelData, width: width, height: height,
+                                       skipW: skipW, skipH: skipH)
 
         // Try each compress level
         for k in compressLevels {

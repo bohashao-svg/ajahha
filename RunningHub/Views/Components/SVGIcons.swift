@@ -83,16 +83,24 @@ struct TasksIcon: View {
     var body: some View {
         Canvas { ctx, size in
             let s = size.width
-            let rows: [CGFloat] = [0.25, 0.5, 0.75]
-            for y in rows {
-                // Checkbox
-                let box = CGRect(x: s * 0.05, y: y * s - s * 0.08, width: s * 0.16, height: s * 0.16)
-                ctx.stroke(Path(roundedRect: box, cornerRadius: 2), with: .foreground, lineWidth: 1.5)
-                // Line
+            let rows: [CGFloat] = [0.22, 0.5, 0.78]
+            for (i, y) in rows.enumerated() {
+                // Checkbox square
+                let box = CGRect(x: s * 0.06, y: y * s - s * 0.1, width: s * 0.2, height: s * 0.2)
+                ctx.stroke(Path(roundedRect: box, cornerRadius: 3), with: .foreground, lineWidth: 1.6)
+                // Checkmark inside first row to indicate "done"
+                if i == 0 {
+                    var tick = Path()
+                    tick.move(to: CGPoint(x: s * 0.09, y: y * s))
+                    tick.addLine(to: CGPoint(x: s * 0.14, y: y * s + s * 0.06))
+                    tick.addLine(to: CGPoint(x: s * 0.23, y: y * s - s * 0.06))
+                    ctx.stroke(tick, with: .foreground, style: StrokeStyle(lineWidth: 1.4, lineCap: .round, lineJoin: .round))
+                }
+                // Text line
                 var line = Path()
-                line.move(to: CGPoint(x: s * 0.28, y: y * s))
-                line.addLine(to: CGPoint(x: s * 0.95, y: y * s))
-                ctx.stroke(line, with: .foreground, lineWidth: 1.5)
+                line.move(to: CGPoint(x: s * 0.34, y: y * s))
+                line.addLine(to: CGPoint(x: s * 0.94, y: y * s))
+                ctx.stroke(line, with: .foreground, style: StrokeStyle(lineWidth: 1.6, lineCap: .round))
             }
         }
     }
@@ -102,26 +110,28 @@ struct SettingsIcon: View {
     var body: some View {
         Canvas { ctx, size in
             let s = size.width
-            let center = CGPoint(x: s / 2, y: s / 2)
-            let outerR = s * 0.42, innerR = s * 0.22
-            // Gear teeth (8)
+            let cx = s / 2, cy = s / 2
+            let outerR = s * 0.44, innerR = s * 0.18
+            let toothCount = 8
+            // Gear: alternate between outer (tooth tip) and mid (tooth base) radii
+            let midR = s * 0.33
             var gear = Path()
-            for i in 0..<8 {
-                let angle = Double(i) * .pi / 4
-                let toothAngle = .pi / 16.0
-                let p1 = CGPoint(x: center.x + outerR * cos(angle - toothAngle),
-                                 y: center.y + outerR * sin(angle - toothAngle))
-                let p2 = CGPoint(x: center.x + outerR * cos(angle + toothAngle),
-                                 y: center.y + outerR * sin(angle + toothAngle))
-                if i == 0 { gear.move(to: p1) } else { gear.addLine(to: p1) }
-                gear.addLine(to: p2)
+            for i in 0..<(toothCount * 2) {
+                let angle = Double(i) * .pi / Double(toothCount)
+                let r = i % 2 == 0 ? outerR : midR
+                let pt = CGPoint(x: cx + r * cos(angle - .pi / 2),
+                                 y: cy + r * sin(angle - .pi / 2))
+                if i == 0 { gear.move(to: pt) } else { gear.addLine(to: pt) }
             }
             gear.closeSubpath()
-            ctx.stroke(gear, with: .foreground, lineWidth: 1.5)
-            ctx.stroke(Path(ellipseIn: CGRect(x: center.x - innerR, y: center.y - innerR,
-                                              width: innerR * 2, height: innerR * 2)),
-                       with: .foreground, lineWidth: 1.5)
+            ctx.fill(gear, with: .foreground)
+            // Punch out center hole
+            let hole = Path(ellipseIn: CGRect(x: cx - innerR, y: cy - innerR,
+                                              width: innerR * 2, height: innerR * 2))
+            ctx.blendMode = .clear
+            ctx.fill(hole, with: .foreground)
         }
+        .compositingGroup()
     }
 }
 

@@ -157,7 +157,7 @@ final class APIService {
     /// POST /openapi/v2/query — poll task status and results
     /// Response is NOT wrapped in APIResponse, it's a flat object
     func queryTask(taskId: String) async throws -> TaskQueryResponse {
-        guard !authToken.isEmpty else { throw APIError.noAPIKey }
+        guard !apiKey.isEmpty else { throw APIError.noAPIKey }
         guard let url = URL(string: baseURL + "/openapi/v2/query") else { throw APIError.invalidURL }
 
         var req = URLRequest(url: url)
@@ -166,7 +166,7 @@ final class APIService {
         req.timeoutInterval = 30
 
         struct Body: Encodable { let apiKey: String; let taskId: String }
-        req.httpBody = try JSONEncoder().encode(Body(apiKey: authToken, taskId: taskId))
+        req.httpBody = try JSONEncoder().encode(Body(apiKey: apiKey, taskId: taskId))
 
         let (data, _) = try await URLSession.shared.data(for: req)
         #if DEBUG

@@ -86,6 +86,8 @@ struct HomeView: View {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button { showSettings = true } label: {
                         RHIcon(name: .settings, size: 22, color: .rhSecondary)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
                 }
                 ToolbarItem(placement: .principal) {
@@ -139,7 +141,6 @@ struct HomeView: View {
         Button { showTaskCenter = true } label: {
             ZStack(alignment: .topTrailing) {
                 RHIcon(name: .tasks, size: 22, color: .rhPrimary)
-                    .padding(8)
                 if appState.pendingCount > 0 {
                     Text("\(appState.pendingCount)")
                         .font(.system(size: 10, weight: .bold))
@@ -147,9 +148,10 @@ struct HomeView: View {
                         .padding(3)
                         .background(Color.rhAccent)
                         .clipShape(Circle())
-                        .offset(x: 2, y: 2)
+                        .offset(x: 8, y: -8)
                 }
             }
+            .frame(width: 44, height: 44)
             .contentShape(Rectangle())
         }
     }

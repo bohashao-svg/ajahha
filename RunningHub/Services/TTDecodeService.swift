@@ -379,8 +379,9 @@ extension TTDecodeService {
     private func parseV2Inner(_ rgb: [UInt8], offset: Int, headerLen: Int, crc: UInt16, totalNeeded: Int, format: String) -> V2ParseResult? {
         guard offset + totalNeeded <= rgb.count else { return nil }
         let inner = Array(rgb[(offset + headerLen)..<(offset + totalNeeded)])
-        // Skip CRC verification — it's expensive on large payloads and the magic match is sufficient
         guard inner.count >= 3 else { return nil }
+        // Verify CRC16 (matches Python parse_packet)
+        guard crc16(inner[...]) == crc else { return nil }
 
         let version = inner[0]
         let extLen  = Int(inner[2])
