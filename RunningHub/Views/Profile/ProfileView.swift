@@ -322,8 +322,7 @@ struct ProfileView: View {
         .confirmationDialog("选择操作", isPresented: $showActionDialog, titleVisibility: .visible) {
             if let item = selectedActionTarget?.item {
                 if item.outputType?.lowercased() != "zip" {
-                    Button("保存原图到相册") { Task { await saveImage(for: item, useOriginal: true) } }
-                    Button("保存预览图到相册") { Task { await saveImage(for: item, useOriginal: false) } }
+                    Button("保存原图到相册") { Task { await saveImage(for: item) } }
                 }
                 Button("鸭鸭解码") { startDecode(.duck) }
                 Button("TT解码") { startDecode(.tt) }
@@ -432,8 +431,8 @@ struct ProfileView: View {
         }
     }
 
-    private func saveImage(for item: OutputHistoryItem, useOriginal: Bool) async {
-        let urlStr = useOriginal ? (item.fileUrl ?? "") : (item.filePreviewUrl ?? "")
+    private func saveImage(for item: OutputHistoryItem) async {
+        let urlStr = item.fileUrl ?? ""
         guard let url = URL(string: urlStr) else {
             showToast("链接无效")
             return
