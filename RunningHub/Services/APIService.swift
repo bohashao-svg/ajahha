@@ -184,7 +184,7 @@ final class APIService {
         req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         req.timeoutInterval = 60
         let inputs = nodeInfoList.map { AppNodeInput(nodeId: $0.nodeId, fieldName: $0.fieldName, fieldValue: $0.fieldValue) }
-        let body = AppRunRequest(webappId: webappId, nodeInfoList: inputs)
+        let body = AppRunRequest(webappId: webappId, apiKey: apiKey, nodeInfoList: inputs)
         req.httpBody = try JSONEncoder().encode(body)
         let (data, _) = try await URLSession.shared.data(for: req)
         #if DEBUG
