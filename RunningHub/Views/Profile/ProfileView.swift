@@ -7,6 +7,21 @@ enum DecodeTool: String, CaseIterable {
     case tt   = "TT解码"
 }
 
+// MARK: - OutputCard Sheet Destination
+enum OutputCardSheet: Identifiable {
+    case decodePassword(DecodeTool)
+    case decodedImage(UIImage)
+    case shareFile(URL)
+
+    var id: String {
+        switch self {
+        case .decodePassword(let t): return "pwd_\(t.rawValue)"
+        case .decodedImage:          return "img"
+        case .shareFile(let u):      return "share_\(u.path)"
+        }
+    }
+}
+
 // MARK: - OutputCard
 struct OutputCard: View {
     let item: OutputHistoryItem
@@ -14,14 +29,13 @@ struct OutputCard: View {
     @State private var toast: String? = nil
     @State private var isSaving = false
 
-    // Decode sheet state
-    @State private var pendingTool: DecodeTool? = nil
-    @State private var showDecodeSheet = false
+    // Single sheet driver
+    @State private var activeSheet: OutputCardSheet? = nil
+
+    // Decode working state (shared across sheet presentations)
     @State private var decodePassword = ""
     @State private var isDecoding = false
     @State private var decodeError: String? = nil
-    @State private var decodedImage: UIImage? = nil
-    @State private var showDecodedResult = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -93,19 +107,21 @@ struct OutputCard: View {
         } message: {
             Text(item.taskName ?? "")
         }
-        .sheet(isPresented: $showDecodeSheet) {
-            DecodePasswordSheet(
-                tool: pendingTool ?? .duck,
-                password: $decodePassword,
-                isDecoding: isDecoding,
-                errorMessage: decodeError,
-                onConfirm: { Task { await runDecode() } },
-                onCancel: { showDecodeSheet = false }
-            )
-        }
-        .sheet(isPresented: $showDecodedResult) {
-            if let img = decodedImage {
+        .sheet(item: $activeSheet) { destination in
+            switch destination {
+            case .decodePassword(let tool):
+                DecodePasswordSheet(
+                    tool: tool,
+                    password: $decodePassword,
+                    isDecoding: isDecoding,
+                    errorMessage: decodeError,
+                    onConfirm: { Task { await runDecode(tool: tool) } },
+                    onCancel: { activeSheet = nil }
+                )
+            case .decodedImage(let img):
                 DecodedImageSheet(image: img, onSave: { Task { await saveDecodedImage(img) } })
+            case .shareFile(let url):
+                ShareSheet(items: [url])
             }
         }
     }
@@ -113,15 +129,12 @@ struct OutputCard: View {
     // MARK: - Decode flow
 
     private func startDecode(_ tool: DecodeTool) {
-        pendingTool = tool
-        decodePassword = tool == .tt ? TTDecodeService.shared.defaultPassword : ""
+        decodePassword = ""
         decodeError = nil
-        decodedImage = nil
-        showDecodeSheet = true
+        activeSheet = .decodePassword(tool)
     }
 
-    private func runDecode() async {
-        guard let tool = pendingTool else { return }
+    private func runDecode(tool: DecodeTool) async {
         let urlStr = item.fileUrl ?? item.filePreviewUrl ?? ""
         guard !urlStr.isEmpty else {
             decodeError = "没有可用的图片链接"
@@ -130,23 +143,29 @@ struct OutputCard: View {
         isDecoding = true
         decodeError = nil
         do {
-            let data: Data
+            let fileData: Data
+            let fileExt: String
             switch tool {
             case .duck:
-                data = try await DuckDecodeService.shared.decode(imageUrl: urlStr, password: decodePassword)
+                fileData = try await DuckDecodeService.shared.decode(imageUrl: urlStr, password: decodePassword)
+                fileExt = "png"
             case .tt:
                 let ttFile = try await TTDecodeService.shared.decode(imageUrl: urlStr, password: decodePassword)
-                data = ttFile.data
+                fileData = ttFile.data
+                fileExt = ttFile.ext
             }
-            guard let img = UIImage(data: data) else {
-                decodeError = "解码成功，但无法渲染为图片"
-                isDecoding = false
-                return
-            }
+
             isDecoding = false
-            showDecodeSheet = false
-            decodedImage = img
-            showDecodedResult = true
+
+            let imageExts = ["png", "jpg", "jpeg", "webp", "gif", "bmp", "heic"]
+            if imageExts.contains(fileExt.lowercased()), let img = UIImage(data: fileData) {
+                activeSheet = .decodedImage(img)
+            } else {
+                let tmpURL = FileManager.default.temporaryDirectory
+                    .appendingPathComponent("decoded_\(Int(Date().timeIntervalSince1970)).\(fileExt)")
+                try fileData.write(to: tmpURL)
+                activeSheet = .shareFile(tmpURL)
+            }
         } catch {
             decodeError = error.localizedDescription
             isDecoding = false
@@ -234,12 +253,16 @@ struct DecodePasswordSheet: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("解码密码")
                         .font(.system(size: 13)).foregroundColor(.rhSecondary)
-                    SecureField("输入密码（无密码可留空）", text: $password)
+                    SecureField("无密码留空", text: $password)
                         .font(.system(size: 15))
                         .padding(12)
                         .background(Color.rhBackground)
                         .cornerRadius(10)
                         .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.rhBorder, lineWidth: 1))
+                    if tool == .tt {
+                        Text("TT编码图通常无需输入密码，直接点击解码即可")
+                            .font(.system(size: 12)).foregroundColor(.rhSecondary)
+                    }
                 }
 
                 if let err = errorMessage {
@@ -386,21 +409,36 @@ struct ProfileView: View {
     private var outputList: some View {
         ScrollView {
             LazyVStack(spacing: 12) {
-                if vm.isLoading && vm.outputs.isEmpty {
+                if vm.outputs.isEmpty && vm.isLoading {
+                    // 首次加载骨架屏
                     ForEach(0..<6, id: \.self) { _ in OutputCardSkeleton() }
                 } else {
                     ForEach(vm.outputs) { item in
                         OutputCard(item: item)
                             .onAppear {
-                                if item.id == vm.outputs.last?.id && vm.hasNext && !vm.isLoading {
+                                // 触底加载下一页，用 index 判断避免 id 比较问题
+                                if let idx = vm.outputs.firstIndex(where: { $0.id == item.id }),
+                                   idx >= vm.outputs.count - 3,
+                                   vm.hasNext, !vm.isLoading {
                                     Task { await vm.loadPage(vm.currentPage + 1) }
                                 }
                             }
                     }
-                    if vm.isLoading { ProgressView().padding() }
+                    if vm.isLoading {
+                        ProgressView().padding()
+                    }
                 }
             }
             .padding(16)
         }
     }
+}
+
+// MARK: - ShareSheet
+struct ShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
