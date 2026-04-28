@@ -250,7 +250,7 @@ struct HomeView: View {
                     } else if !appVm.nodes.isEmpty {
                         Text("AI 应用已加载 · \(appVm.nodes.count) 个参数节点")
                     } else {
-                        Text("输入 ID 后点击刷新，自动识别类型")
+                        Text("输入 ID 后点击刷新")
                     }
                 }
                 .font(.system(size: 12)).foregroundColor(.rhSecondary)

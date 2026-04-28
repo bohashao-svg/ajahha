@@ -38,10 +38,10 @@ struct LoginView: View {
                             .font(.system(size: 34, weight: .medium))
                             .foregroundColor(.rhAccent)
                     }
-                    Text("RunningHub")
+                    Text("人民万岁")
                         .font(.system(size: 26, weight: .bold))
                         .foregroundColor(.rhPrimary)
-                    Text("AI 创作平台")
+                    Text("RunningHub AI 创作平台")
                         .font(.system(size: 13))
                         .foregroundColor(.rhSecondary)
                 }

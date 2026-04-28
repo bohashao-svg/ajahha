@@ -35,17 +35,17 @@ final class PremiumWorkflowService {
         let (data, _) = try await URLSession.shared.data(from: url)
 
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let gzl = json["gzl"] as? [String] else {
+              let gzl = json["gzl"] as? [[String: Any]] else {
             throw URLError(.cannotParseResponse)
         }
 
-        // Deduplicate by workflowId, filter out invalid entries
         var seen = Set<String>()
         var items: [PremiumWorkflowItem] = []
-        for urlString in gzl {
-            let item = PremiumWorkflowItem(url: urlString, name: "")
+        for entry in gzl {
+            guard let urlString = entry["url"] as? String else { continue }
+            let name = entry["name"] as? String ?? ""
+            let item = PremiumWorkflowItem(url: urlString, name: name)
             let wid = item.workflowId
-            // Skip if workflowId looks invalid (same as full URL, or too short)
             guard wid != urlString, wid.count > 3, !seen.contains(wid) else { continue }
             seen.insert(wid)
             items.append(item)

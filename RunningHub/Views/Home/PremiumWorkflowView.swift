@@ -192,23 +192,8 @@ struct PremiumWorkflowView: View {
         isLoading = true
         errorMessage = nil
         do {
-            let fetched = try await PremiumWorkflowService.shared.fetchPremiumWorkflows()
-            items = fetched
+            items = try await PremiumWorkflowService.shared.fetchPremiumWorkflows()
             isLoading = false
-
-            await withTaskGroup(of: (Int, String).self) { group in
-                for (index, item) in fetched.enumerated() {
-                    group.addTask {
-                        let name = (try? await PremiumWorkflowService.shared.fetchWorkflowName(workflowId: item.workflowId)) ?? item.workflowId
-                        return (index, name)
-                    }
-                }
-                for await (index, name) in group {
-                    if index < items.count {
-                        items[index].name = name
-                    }
-                }
-            }
         } catch {
             errorMessage = "加载失败：\(error.localizedDescription)"
             isLoading = false
