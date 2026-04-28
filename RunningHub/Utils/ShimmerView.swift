@@ -19,13 +19,12 @@ struct ShimmerModifier: ViewModifier {
                         endPoint: .init(x: phase + 1, y: 0.5)
                     )
                     .frame(width: geo.size.width, height: geo.size.height)
+                    .animation(.linear(duration: 1.4).repeatForever(autoreverses: false), value: phase)
                 }
                 .allowsHitTesting(false)
             )
             .onAppear {
-                withAnimation(.linear(duration: 1.4).repeatForever(autoreverses: false)) {
-                    phase = 1
-                }
+                phase = 1
             }
     }
 }
