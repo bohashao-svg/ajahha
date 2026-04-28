@@ -40,6 +40,7 @@ struct OutputCard: View {
 
     var body: some View {
         HStack(spacing: 12) {
+            // Thumbnail
             AsyncImage(url: URL(string: item.filePreviewUrl ?? "")) { phase in
                 switch phase {
                 case .success(let img):
@@ -47,16 +48,14 @@ struct OutputCard: View {
                 case .empty:
                     Color.rhBorder.opacity(0.3).overlay(ProgressView().scaleEffect(0.7))
                 default:
-                    Color.rhBorder.opacity(0.3).overlay(
-                        Image(systemName: "photo")
-                            .font(.system(size: 20))
-                            .foregroundColor(.rhBorder)
+                    Color.rhBackground.overlay(
+                        Image(systemName: "photo").font(.system(size: 20)).foregroundColor(.rhBorder)
                     )
                 }
             }
-            .frame(width: 80, height: 80)
-            .cornerRadius(10)
-            .clipped()
+            .frame(width: 72, height: 72)
+            .clipShape(SketchRoundedRect(radius: 10))
+            .overlay(SketchRoundedRect(radius: 10).stroke(Color.rhInk.opacity(0.12), lineWidth: 1.2))
 
             VStack(alignment: .leading, spacing: 5) {
                 Text(item.taskName ?? "未命名")
@@ -68,13 +67,14 @@ struct OutputCard: View {
                     .font(.system(size: 12))
                     .foregroundColor(.rhSecondary)
 
-                HStack(spacing: 4) {
-                    Circle()
-                        .fill(statusColor(item.taskStatus))
-                        .frame(width: 6, height: 6)
+                HStack(spacing: 5) {
+                    Circle().fill(statusColor(item.taskStatus)).frame(width: 6, height: 6)
                     Text(statusText(item.taskStatus))
-                        .font(.system(size: 11))
+                        .font(.system(size: 11, weight: .medium))
                         .foregroundColor(statusColor(item.taskStatus))
+                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .background(statusColor(item.taskStatus).opacity(0.1))
+                        .clipShape(SketchRoundedRect(radius: 5))
                 }
             }
 
@@ -82,17 +82,22 @@ struct OutputCard: View {
 
             Button(action: onMore) {
                 Image(systemName: "ellipsis")
-                    .font(.system(size: 16))
+                    .font(.system(size: 15))
                     .foregroundColor(.rhSecondary)
                     .frame(width: 32, height: 32)
+                    .background(Color.rhBackground)
+                    .clipShape(SketchRoundedRect(radius: 8))
+                    .overlay(SketchRoundedRect(radius: 8).stroke(Color.rhInk.opacity(0.12), lineWidth: 1))
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
         }
         .padding(12)
-        .frame(maxWidth: .infinity, minHeight: 104, maxHeight: 104)
+        .frame(maxWidth: .infinity, minHeight: 96, maxHeight: 96)
         .background(Color.rhCard)
-        .cornerRadius(12)
+        .clipShape(SketchRoundedRect(radius: 14))
+        .overlay(SketchRoundedRect(radius: 14).stroke(Color.rhInk.opacity(0.15), lineWidth: 1.5))
+        .shadow(color: Color.rhInk.opacity(0.1), radius: 0, x: 2, y: 3)
     }
 
     private func statusColor(_ status: String?) -> Color {
@@ -166,7 +171,9 @@ struct DecodePasswordSheet: View {
                     .frame(maxWidth: .infinity)
                     .frame(height: 48)
                     .background(isDecoding ? Color.rhAccent.opacity(0.6) : Color.rhAccent)
-                    .cornerRadius(12)
+                    .clipShape(SketchRoundedRect(radius: 12))
+                    .overlay(SketchRoundedRect(radius: 12).stroke(Color.rhInk.opacity(isDecoding ? 0 : 0.2), lineWidth: 1.5))
+                    .shadow(color: Color.rhInk.opacity(isDecoding ? 0 : 0.15), radius: 0, x: 2, y: 3)
                 }
                 .disabled(isDecoding)
 
@@ -216,7 +223,9 @@ struct DecodedImageSheet: View {
                     .frame(maxWidth: .infinity)
                     .frame(height: 48)
                     .background(saved ? Color.rhSuccess : Color.rhAccent)
-                    .cornerRadius(12)
+                    .clipShape(SketchRoundedRect(radius: 12))
+                    .overlay(SketchRoundedRect(radius: 12).stroke(Color.rhInk.opacity(0.2), lineWidth: 1.5))
+                    .shadow(color: Color.rhInk.opacity(0.15), radius: 0, x: 2, y: 3)
                     .padding(.horizontal, 20)
                 }
                 .disabled(saved)
@@ -283,11 +292,13 @@ struct ProfileView: View {
                         Spacer()
                         Text(msg)
                             .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
-                            .background(Color.black.opacity(0.75))
-                            .cornerRadius(20)
+                            .foregroundColor(.rhPrimary)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 9)
+                            .background(Color.rhCard)
+                            .clipShape(SketchRoundedRect(radius: 20))
+                            .overlay(SketchRoundedRect(radius: 20).stroke(Color.rhInk.opacity(0.2), lineWidth: 1.5))
+                            .shadow(color: Color.rhInk.opacity(0.15), radius: 0, x: 2, y: 3)
                             .padding(.bottom, 24)
                     }
                     .transition(.opacity.combined(with: .scale))
@@ -297,11 +308,16 @@ struct ProfileView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button { dismiss() } label: {
-                        RHIcon(name: .close, size: 20, color: .rhSecondary)
+                        RHIcon(name: .close, size: 18, color: .rhPrimary)
+                            .frame(width: 32, height: 32)
+                            .background(Color.rhCard)
+                            .clipShape(SketchRoundedRect(radius: 8))
+                            .overlay(SketchRoundedRect(radius: 8).stroke(Color.rhInk.opacity(0.2), lineWidth: 1.5))
+                            .shadow(color: Color.rhInk.opacity(0.1), radius: 0, x: 2, y: 2)
                     }
                 }
                 ToolbarItem(placement: .principal) {
-                    Text("我的作品").font(.system(size: 17, weight: .semibold))
+                    Text("我的作品").font(.system(size: 17, weight: .bold)).foregroundColor(.rhPrimary)
                 }
             }
         }

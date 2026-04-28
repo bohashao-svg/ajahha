@@ -8,25 +8,36 @@ struct LoginView: View {
 
     var body: some View {
         ZStack {
-            // 背景渐变
-            LinearGradient(
-                colors: [Color.rhBackground, Color.rhCard],
-                startPoint: .top, endPoint: .bottom
-            )
+            Color.rhBackground.ignoresSafeArea()
+
+            // Background doodles
+            Canvas { ctx, size in
+                let s = size
+                var c1 = Path(); c1.addEllipse(in: CGRect(x: s.width*0.05, y: s.height*0.04, width: 70, height: 70))
+                ctx.stroke(c1, with: .color(Color.rhInk.opacity(0.04)), style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
+                var c2 = Path(); c2.addEllipse(in: CGRect(x: s.width*0.78, y: s.height*0.08, width: 50, height: 50))
+                ctx.stroke(c2, with: .color(Color.rhAccent.opacity(0.05)), style: StrokeStyle(lineWidth: 2, dash: [5, 5]))
+                var c3 = Path(); c3.addEllipse(in: CGRect(x: s.width*0.82, y: s.height*0.72, width: 80, height: 80))
+                ctx.stroke(c3, with: .color(Color.rhInk.opacity(0.04)), style: StrokeStyle(lineWidth: 2, dash: [8, 5]))
+            }
             .ignoresSafeArea()
+            .allowsHitTesting(false)
 
             VStack(spacing: 0) {
                 Spacer()
 
-                // Logo 区域
-                VStack(spacing: 10) {
+                // Logo
+                VStack(spacing: 12) {
                     ZStack {
                         Circle()
-                            .fill(Color.rhAccent.opacity(0.12))
+                            .fill(Color.rhRedMuted)
                             .frame(width: 80, height: 80)
-                        Image(systemName: "sparkles")
-                            .font(.system(size: 34, weight: .medium))
-                            .foregroundColor(.rhAccent)
+                            .overlay(Circle().stroke(Color.rhAccent, lineWidth: 2))
+                            .shadow(color: Color.rhInk.opacity(0.15), radius: 0, x: 3, y: 3)
+                        Image("AppLogo")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 52, height: 52)
                     }
                     Text("人民万岁")
                         .font(.system(size: 26, weight: .bold))
@@ -36,11 +47,11 @@ struct LoginView: View {
                         .foregroundColor(.rhSecondary)
                 }
 
-                Spacer().frame(height: 44)
+                Spacer().frame(height: 40)
 
-                // 表单卡片
+                // Form card
                 VStack(spacing: 16) {
-                    // 用户名
+                    // Username
                     HStack(spacing: 10) {
                         Image(systemName: "person")
                             .font(.system(size: 15))
@@ -54,15 +65,15 @@ struct LoginView: View {
                             .submitLabel(.next)
                             .onSubmit { focusedField = .password }
                     }
-                    .padding(.horizontal, 16).padding(.vertical, 14)
+                    .padding(.horizontal, 14).padding(.vertical, 13)
                     .background(Color.rhBackground)
-                    .cornerRadius(12)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(focusedField == .username ? Color.rhAccent : Color.rhBorder, lineWidth: 1.5)
-                    )
+                    .clipShape(SketchRoundedRect(radius: 12))
+                    .overlay(SketchRoundedRect(radius: 12).stroke(
+                        focusedField == .username ? Color.rhAccent : Color.rhInk.opacity(0.2),
+                        lineWidth: focusedField == .username ? 2 : 1.5
+                    ))
 
-                    // 密码
+                    // Password
                     HStack(spacing: 10) {
                         Image(systemName: "lock")
                             .font(.system(size: 15))
@@ -74,19 +85,17 @@ struct LoginView: View {
                             .submitLabel(.go)
                             .onSubmit { if !vm.isBlank { Task { await vm.login() } } }
                     }
-                    .padding(.horizontal, 16).padding(.vertical, 14)
+                    .padding(.horizontal, 14).padding(.vertical, 13)
                     .background(Color.rhBackground)
-                    .cornerRadius(12)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(focusedField == .password ? Color.rhAccent : Color.rhBorder, lineWidth: 1.5)
-                    )
+                    .clipShape(SketchRoundedRect(radius: 12))
+                    .overlay(SketchRoundedRect(radius: 12).stroke(
+                        focusedField == .password ? Color.rhAccent : Color.rhInk.opacity(0.2),
+                        lineWidth: focusedField == .password ? 2 : 1.5
+                    ))
 
-                    // 错误提示
                     if let err = vm.errorMessage {
                         HStack(spacing: 6) {
-                            Image(systemName: "exclamationmark.circle.fill")
-                                .font(.system(size: 12))
+                            Image(systemName: "exclamationmark.circle.fill").font(.system(size: 12))
                             Text(err).font(.system(size: 12))
                         }
                         .foregroundColor(.rhError)
@@ -94,7 +103,7 @@ struct LoginView: View {
                         .padding(.top, -4)
                     }
 
-                    // 登录按钮
+                    // Login button
                     Button {
                         focusedField = nil
                         Task { await vm.login() }
@@ -103,27 +112,28 @@ struct LoginView: View {
                             if vm.isLoading {
                                 ProgressView().tint(.white)
                             } else {
-                                Text("登录")
+                                Text("登 录")
                                     .font(.system(size: 16, weight: .semibold))
                                     .foregroundColor(.white)
+                                    .tracking(4)
                             }
                         }
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 50)
-                        .background(
-                            vm.isBlank
-                                ? Color.rhBorder
-                                : Color.rhAccent
-                        )
-                        .cornerRadius(14)
+                        .frame(maxWidth: .infinity).frame(height: 50)
+                        .background(vm.isBlank ? Color.rhBorder : Color.rhAccent)
+                        .clipShape(SketchRoundedRect(radius: 12))
+                        .overlay(SketchRoundedRect(radius: 12).stroke(
+                            vm.isBlank ? Color.rhBorder : Color.rhInk.opacity(0.3), lineWidth: 1.5
+                        ))
+                        .shadow(color: Color.rhInk.opacity(vm.isBlank ? 0 : 0.18), radius: 0, x: 2, y: 3)
                     }
                     .disabled(vm.isLoading || vm.isBlank)
                     .padding(.top, 4)
                 }
                 .padding(24)
                 .background(Color.rhCard)
-                .cornerRadius(20)
-                .shadow(color: .black.opacity(0.06), radius: 16, x: 0, y: 4)
+                .clipShape(SketchRoundedRect(radius: 18))
+                .overlay(SketchRoundedRect(radius: 18).stroke(Color.rhInk.opacity(0.2), lineWidth: 1.8))
+                .shadow(color: Color.rhInk.opacity(0.14), radius: 0, x: 3, y: 4)
                 .padding(.horizontal, 24)
 
                 Spacer()

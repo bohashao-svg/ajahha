@@ -12,7 +12,6 @@ struct TaskCenterView: View {
         NavigationView {
             ZStack {
                 Color.rhBackground.ignoresSafeArea()
-
                 VStack(spacing: 0) {
                     tabBar
                     taskList
@@ -21,12 +20,16 @@ struct TaskCenterView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Text("任务中心")
-                        .font(.system(size: 17, weight: .semibold))
+                    Text("任务中心").font(.system(size: 17, weight: .bold)).foregroundColor(.rhPrimary)
                 }
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button { dismiss() } label: {
-                        RHIcon(name: .close, size: 20, color: .rhSecondary)
+                        RHIcon(name: .close, size: 18, color: .rhPrimary)
+                            .frame(width: 32, height: 32)
+                            .background(Color.rhCard)
+                            .clipShape(SketchRoundedRect(radius: 8))
+                            .overlay(SketchRoundedRect(radius: 8).stroke(Color.rhInk.opacity(0.2), lineWidth: 1.5))
+                            .shadow(color: Color.rhInk.opacity(0.1), radius: 0, x: 2, y: 2)
                     }
                 }
             }
@@ -36,14 +39,12 @@ struct TaskCenterView: View {
     // MARK: - Tab Bar
     private var tabBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 0) {
+            HStack(spacing: 6) {
                 ForEach(tabs, id: \.self) { tab in
                     let count = vm.tasks(for: tab).count
                     let isSelected = vm.selectedTab == tab
                     Button {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            vm.selectedTab = tab
-                        }
+                        withAnimation(.easeInOut(duration: 0.2)) { vm.selectedTab = tab }
                     } label: {
                         HStack(spacing: 5) {
                             Text(tab.displayName)
@@ -52,33 +53,28 @@ struct TaskCenterView: View {
                                 Text("\(count)")
                                     .font(.system(size: 11, weight: .bold))
                                     .foregroundColor(isSelected ? .white : tab.color)
-                                    .padding(.horizontal, 5)
-                                    .padding(.vertical, 2)
-                                    .background(isSelected ? tab.color.opacity(0.7) : tab.color.opacity(0.12))
-                                    .cornerRadius(6)
+                                    .padding(.horizontal, 5).padding(.vertical, 1)
+                                    .background(isSelected ? tab.color.opacity(0.7) : tab.color.opacity(0.15))
+                                    .clipShape(SketchRoundedRect(radius: 6))
                             }
                         }
                         .foregroundColor(isSelected ? .white : .rhSecondary)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 9)
-                        .background(
-                            isSelected
-                                ? LinearGradient(colors: [tab.color, tab.color.opacity(0.8)],
-                                                 startPoint: .topLeading, endPoint: .bottomTrailing)
-                                : LinearGradient(colors: [Color.clear, Color.clear],
-                                                 startPoint: .topLeading, endPoint: .bottomTrailing)
+                        .padding(.horizontal, 14).padding(.vertical, 8)
+                        .background(isSelected ? tab.color : Color.clear)
+                        .clipShape(SketchRoundedRect(radius: 10))
+                        .overlay(
+                            SketchRoundedRect(radius: 10)
+                                .stroke(isSelected ? tab.color : Color.rhInk.opacity(0.12), lineWidth: isSelected ? 0 : 1.2)
                         )
-                        .cornerRadius(12)
-                        .frame(maxWidth: .infinity)
+                        .shadow(color: isSelected ? tab.color.opacity(0.25) : .clear, radius: 0, x: 2, y: 2)
                     }
                 }
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
+            .padding(.horizontal, 14).padding(.vertical, 10)
             .frame(minWidth: UIScreen.main.bounds.width)
         }
         .background(Color.rhCard)
-        .shadow(color: Color(hex: "#C8392B").opacity(0.05), radius: 6, x: 0, y: 2)
+        .overlay(Rectangle().frame(height: 1.5).foregroundColor(Color.rhInk.opacity(0.1)), alignment: .bottom)
     }
 
     // MARK: - Task List
@@ -93,8 +89,7 @@ struct TaskCenterView: View {
                         ForEach(tasks) { task in
                             HStack(spacing: 8) {
                                 NavigationLink {
-                                    TaskDetailView(task: task, vm: vm)
-                                        .environmentObject(appState)
+                                    TaskDetailView(task: task, vm: vm).environmentObject(appState)
                                 } label: {
                                     TaskCardView(task: task)
                                 }
@@ -102,16 +97,13 @@ struct TaskCenterView: View {
 
                                 if task.isFinished {
                                     Button {
-                                        withAnimation(.easeInOut(duration: 0.2)) {
-                                            appState.removeTask(id: task.id)
-                                        }
+                                        withAnimation(.easeInOut(duration: 0.2)) { appState.removeTask(id: task.id) }
                                     } label: {
-                                        ZStack {
-                                            RoundedRectangle(cornerRadius: 12)
-                                                .fill(Color.rhError.opacity(0.08))
-                                                .frame(width: 38, height: 38)
-                                            RHIcon(name: .trash, size: 15, color: .rhError)
-                                        }
+                                        RHIcon(name: .trash, size: 15, color: .rhError)
+                                            .frame(width: 38, height: 38)
+                                            .background(Color.rhRedMuted)
+                                            .clipShape(SketchRoundedRect(radius: 10))
+                                            .overlay(SketchRoundedRect(radius: 10).stroke(Color.rhError.opacity(0.3), lineWidth: 1.2))
                                     }
                                     .buttonStyle(ScaleButtonStyle())
                                 }
@@ -128,16 +120,14 @@ struct TaskCenterView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 14) {
             ZStack {
-                Circle()
-                    .fill(Color.rhAccentSoft)
-                    .frame(width: 72, height: 72)
-                RHIcon(name: .tasks, size: 32, color: .rhAccent.opacity(0.4))
+                Circle().fill(Color.rhRedMuted).frame(width: 72, height: 72)
+                    .overlay(Circle().stroke(Color.rhAccent.opacity(0.2), lineWidth: 1.5))
+                RHIcon(name: .tasks, size: 30, color: .rhAccent.opacity(0.5))
             }
             Text("暂无\(vm.selectedTab.displayName)任务")
-                .font(.system(size: 15))
-                .foregroundColor(.rhSecondary)
+                .font(.system(size: 15)).foregroundColor(.rhSecondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

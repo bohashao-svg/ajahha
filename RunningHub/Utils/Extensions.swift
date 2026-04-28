@@ -44,17 +44,22 @@ extension Date {
 
 // MARK: - Color
 extension Color {
-    static let rhBackground   = Color(hex: "#F5EDE4")   // 更深的暖米，与卡片拉开对比
-    static let rhCard         = Color(hex: "#FFFCF9")   // 卡片近白
+    static let rhBackground   = Color(hex: "#F5EDE4")
+    static let rhCard         = Color(hex: "#FFFCF9")
     static let rhPrimary      = Color(hex: "#2D1A0E")
     static let rhAccent       = Color(hex: "#C8392B")
-    static let rhGold         = Color(hex: "#C9920A")   // 金色加深，更易辨认
+    static let rhGold         = Color(hex: "#C9920A")
     static let rhSecondary    = Color(hex: "#8C7B6E")
     static let rhSuccess      = Color(hex: "#4A8F5F")
     static let rhError        = Color(hex: "#C0392B")
     static let rhWarning      = Color(hex: "#C9920A")
-    static let rhBorder       = Color(hex: "#E8D5C4")   // 边框加深一点
+    static let rhBorder       = Color(hex: "#E8D5C4")
     static let rhAccentSoft   = Color(hex: "#F7E4E2")
+    // Hand-drawn palette
+    static let rhInk          = Color(hex: "#2C1810")   // deep ink for borders/shadows
+    static let rhPaper        = Color(hex: "#F5EDE4")   // same as background
+    static let rhRedMuted     = Color(hex: "#F2D5D3")   // light red tint
+    static let rhGoldLight    = Color(hex: "#FDF3DC")   // light gold tint
 
     init(hex: String) {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
@@ -69,17 +74,57 @@ extension Color {
 
 // MARK: - View
 extension View {
+    /// Legacy card style (kept for compatibility)
     func rhCard(padding: CGFloat = 16, cornerRadius: CGFloat = 16) -> some View {
         self
             .padding(padding)
             .background(Color.rhCard)
-            .cornerRadius(cornerRadius)
-            .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 2)
+            .clipShape(SketchRoundedRect(radius: cornerRadius))
+            .overlay(SketchRoundedRect(radius: cornerRadius).stroke(Color.rhInk.opacity(0.18), lineWidth: 1.5))
+            .shadow(color: Color.rhInk.opacity(0.12), radius: 0, x: 2, y: 3)
+    }
+
+    /// Hand-drawn card style
+    func sketchCard(padding: CGFloat = 16) -> some View {
+        self
+            .padding(padding)
+            .background(Color.rhCard)
+            .clipShape(SketchRoundedRect(radius: 14))
+            .overlay(SketchRoundedRect(radius: 14).stroke(Color.rhInk.opacity(0.22), lineWidth: 1.8))
+            .shadow(color: Color.rhInk.opacity(0.15), radius: 0, x: 2, y: 3)
     }
 
     func hideKeyboard() {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder),
                                         to: nil, from: nil, for: nil)
+    }
+}
+
+// MARK: - Sketch Rounded Rect (slightly irregular corners for hand-drawn feel)
+struct SketchRoundedRect: Shape {
+    var radius: CGFloat
+    func path(in rect: CGRect) -> Path {
+        // Slightly vary each corner radius for organic feel
+        let tl = radius * 0.7
+        let tr = radius * 1.1
+        let br = radius * 0.85
+        let bl = radius * 1.0
+        var p = Path()
+        p.move(to: CGPoint(x: rect.minX + tl, y: rect.minY))
+        p.addLine(to: CGPoint(x: rect.maxX - tr, y: rect.minY))
+        p.addQuadCurve(to: CGPoint(x: rect.maxX, y: rect.minY + tr),
+                       control: CGPoint(x: rect.maxX, y: rect.minY))
+        p.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - br))
+        p.addQuadCurve(to: CGPoint(x: rect.maxX - br, y: rect.maxY),
+                       control: CGPoint(x: rect.maxX, y: rect.maxY))
+        p.addLine(to: CGPoint(x: rect.minX + bl, y: rect.maxY))
+        p.addQuadCurve(to: CGPoint(x: rect.minX, y: rect.maxY - bl),
+                       control: CGPoint(x: rect.minX, y: rect.maxY))
+        p.addLine(to: CGPoint(x: rect.minX, y: rect.minY + tl))
+        p.addQuadCurve(to: CGPoint(x: rect.minX + tl, y: rect.minY),
+                       control: CGPoint(x: rect.minX, y: rect.minY))
+        p.closeSubpath()
+        return p
     }
 }
 
