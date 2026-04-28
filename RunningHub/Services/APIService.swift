@@ -23,13 +23,13 @@ final class APIService {
 
     // MARK: - POST with Encodable body
     private func postEncodable<B: Encodable, T: Codable>(path: String, body: B) async throws -> T {
-        guard !apiKey.isEmpty else { throw APIError.noAPIKey }
+        guard !authToken.isEmpty else { throw APIError.noAPIKey }
         guard let url = URL(string: baseURL + path) else { throw APIError.invalidURL }
 
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        req.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
         req.timeoutInterval = 30
         req.httpBody = try JSONEncoder().encode(body)
 
@@ -128,13 +128,13 @@ final class APIService {
     /// POST /openapi/v2/query — poll task status and results
     /// Response is NOT wrapped in APIResponse, it's a flat object
     func queryTask(taskId: String) async throws -> TaskQueryResponse {
-        guard !apiKey.isEmpty else { throw APIError.noAPIKey }
+        guard !authToken.isEmpty else { throw APIError.noAPIKey }
         guard let url = URL(string: baseURL + "/openapi/v2/query") else { throw APIError.invalidURL }
 
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        req.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
         req.timeoutInterval = 30
 
         struct Body: Encodable { let taskId: String }
@@ -154,7 +154,7 @@ final class APIService {
 
     /// POST /task/openapi/upload — multipart/form-data 上传图片，返回文件名
     func uploadImage(_ image: UIImage) async throws -> String {
-        guard !apiKey.isEmpty else { throw APIError.noAPIKey }
+        guard !authToken.isEmpty else { throw APIError.noAPIKey }
         guard let url = URL(string: baseURL + "/task/openapi/upload") else { throw APIError.invalidURL }
         guard let imageData = image.jpegData(compressionQuality: 0.9) else { throw APIError.invalidResponse }
 
@@ -162,7 +162,7 @@ final class APIService {
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-        req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        req.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
         req.timeoutInterval = 60
 
         var body = Data()
@@ -197,8 +197,8 @@ final class APIService {
 
     /// GET /api/webapp/apiCallDemo — fetch node list for a WebApp
     func fetchAppNodes(webappId: String) async throws -> [AppNodeInfo] {
-        guard !apiKey.isEmpty else { throw APIError.noAPIKey }
-        let urlStr = baseURL + "/api/webapp/apiCallDemo?apiKey=\(apiKey)&webappId=\(webappId)"
+        guard !authToken.isEmpty else { throw APIError.noAPIKey }
+        let urlStr = baseURL + "/api/webapp/apiCallDemo?apiKey=\(authToken)&webappId=\(webappId)"
         guard let url = URL(string: urlStr) else { throw APIError.invalidURL }
         var req = URLRequest(url: url)
         req.httpMethod = "GET"
@@ -219,7 +219,7 @@ final class APIService {
 
     /// POST /task/openapi/ai-app/run — submit AI app task
     func runApp(webappId: String, nodeInfoList: [AppNodeInfo]) async throws -> AppRunData {
-        guard !apiKey.isEmpty else { throw APIError.noAPIKey }
+        guard !authToken.isEmpty else { throw APIError.noAPIKey }
         guard let url = URL(string: baseURL + "/task/openapi/ai-app/run") else { throw APIError.invalidURL }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
@@ -245,15 +245,15 @@ final class APIService {
 
     /// POST /task/openapi/outputs — query AI app task outputs
     func queryAppOutputs(taskId: String) async throws -> APIResponse<[AppOutputItem]> {
-        guard !apiKey.isEmpty else { throw APIError.noAPIKey }
+        guard !authToken.isEmpty else { throw APIError.noAPIKey }
         guard let url = URL(string: baseURL + "/task/openapi/outputs") else { throw APIError.invalidURL }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        req.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
         req.timeoutInterval = 30
         struct Body: Encodable { let apiKey: String; let taskId: String }
-        req.httpBody = try JSONEncoder().encode(Body(apiKey: apiKey, taskId: taskId))
+        req.httpBody = try JSONEncoder().encode(Body(apiKey: authToken, taskId: taskId))
         let (data, _) = try await URLSession.shared.data(for: req)
         #if DEBUG
         if let str = String(data: data, encoding: .utf8) {
