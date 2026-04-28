@@ -189,6 +189,12 @@ struct AppRunRequest: Encodable {
     let nodeInfoList: [AppNodeInput]
 }
 
+// JWT 鉴权提交：/task/webapp/create 用 inputs 字段
+struct WebAppRunRequest: Encodable {
+    let webappId: String
+    let inputs: [AppNodeInput]
+}
+
 // MARK: - Login
 // Step 1: /uc/pwdLogin → JWT access_token
 struct PwdLoginResponse: Codable {
@@ -223,6 +229,9 @@ struct OutputHistoryItem: Codable, Identifiable {
 
 struct AppRunData: Codable {
     let taskId: String
+    let clientId: String?
+    let taskStatus: String?
+    let netWssUrl: String?
     let promptTips: String?
 }
 

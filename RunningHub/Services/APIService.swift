@@ -244,24 +244,25 @@ final class APIService {
         return result.nodeInfoList
     }
 
-    /// POST /task/openapi/ai-app/run — submit AI app task
+    /// POST /task/webapp/create — submit AI app task via JWT (supports team webapps)
     func runApp(webappId: String, nodeInfoList: [AppNodeInfo]) async throws -> AppRunData {
-        guard !authToken.isEmpty else { throw APIError.noAPIKey }
-        guard let url = URL(string: baseURL + "/task/openapi/ai-app/run") else { throw APIError.invalidURL }
+        guard let jwt = StorageService.shared.jwtToken, !jwt.isEmpty else { throw APIError.noAPIKey }
+        guard let url = URL(string: baseURL + "/task/webapp/create") else { throw APIError.invalidURL }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")
         req.timeoutInterval = 60
         let inputs = nodeInfoList.map { AppNodeInput(nodeId: $0.nodeId, fieldName: $0.fieldName, fieldValue: $0.fieldValue) }
-        let body = AppRunRequest(webappId: webappId, apiKey: authToken, nodeInfoList: inputs)
-        req.httpBody = try JSONEncoder().encode(body)
+        req.httpBody = try JSONEncoder().encode(WebAppRunRequest(webappId: webappId, inputs: inputs))
         let (data, _) = try await URLSession.shared.data(for: req)
         #if DEBUG
         if let str = String(data: data, encoding: .utf8) {
-            print("[API] /task/openapi/ai-app/run → \(str.prefix(800))")
+            print("[API] /task/webapp/create → \(str.prefix(800))")
         }
         #endif
         let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
         let decoded = try decoder.decode(APIResponse<AppRunData>.self, from: data)
         guard decoded.isSuccess, let result = decoded.data else {
             throw APIError.serverError(decoded.msg ?? "提交失败")
