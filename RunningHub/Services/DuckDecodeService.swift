@@ -66,13 +66,13 @@ final class DuckDecodeService {
         let totalBytes    = height * bytesPerRow
 
         var pixelData = [UInt8](repeating: 0, count: totalBytes)
-        let colorSpace = cgImage.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
+        // Use DeviceRGB (no color space conversion) — matches JS colorSpaceConversion:"none"
         guard let ctx = CGContext(
             data: &pixelData,
             width: width, height: height,
             bitsPerComponent: 8,
             bytesPerRow: bytesPerRow,
-            space: colorSpace,
+            space: CGColorSpaceCreateDeviceRGB(),
             bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
         ) else { throw DecodeError.invalidImage }
         ctx.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
@@ -225,11 +225,14 @@ final class DuckDecodeService {
             result = try decryptData(payload, password: password, salt: saltBytes)
         }
 
-        // Handle .binpng format: payload is raw binary (e.g. mp4), ext encodes the real type
+        // Handle .binpng format: payload is a PNG image whose pixels store the real file bytes
         var finalData = Data(result)
         var finalExt = ext.hasPrefix(".") ? String(ext.dropFirst()) : ext
         if ext.lowercased().hasSuffix(".binpng") {
-            // Strip ".binpng" suffix — payload is already the raw file bytes, no conversion needed
+            // payload is a PNG-encoded binary — decode pixels back to raw bytes
+            if let recovered = try? convertBinPngToBytes(Data(result)) {
+                finalData = recovered
+            }
             let stripped = String(ext.dropLast(".binpng".count))
             let clean = stripped.hasPrefix(".") ? String(stripped.dropFirst()) : stripped
             finalExt = clean.isEmpty ? "mp4" : clean

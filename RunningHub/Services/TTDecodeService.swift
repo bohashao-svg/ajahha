@@ -57,9 +57,9 @@ final class TTDecodeService {
         let height = cgImage.height
         let bpr    = width * 4
         var pixels = [UInt8](repeating: 0, count: height * bpr)
-        // Use the image's own color space to avoid Core Graphics converting pixel values
-        // (DeviceRGB on P3 devices would shift sRGB values, breaking magic byte detection)
-        let colorSpace = cgImage.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
+        // Use DeviceRGB (no color space conversion) — matches JS colorSpaceConversion:"none"
+        // Using cgImage.colorSpace on P3 displays would shift pixel values and break CRC/magic detection
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
         guard let ctx = CGContext(data: &pixels, width: width, height: height,
                                   bitsPerComponent: 8, bytesPerRow: bpr,
                                   space: colorSpace,
