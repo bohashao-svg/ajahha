@@ -226,7 +226,7 @@ final class GachaViewModel: ObservableObject {
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let (data, _) = try await URLSession.shared.data(for: req)
-        print("[Gacha] runWorkflow response: \(String(data: data, encoding: .utf8)?.prefix(400) ?? "")")
+
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let code = json["code"] as? Int, code == 0,
               let dataDict = json["data"] as? [String: Any],
@@ -261,7 +261,7 @@ final class GachaViewModel: ObservableObject {
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let (data, _) = try await URLSession.shared.data(for: req)
-        print("[Gacha] runApp response: \(String(data: data, encoding: .utf8)?.prefix(400) ?? "")")
+
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let code = json["code"] as? Int, code == 0,
               let dataDict = json["data"] as? [String: Any],
@@ -314,7 +314,7 @@ final class GachaViewModel: ObservableObject {
         req.httpBody = try JSONSerialization.data(withJSONObject: ["apiKey": gachaApiKey, "taskId": taskId])
 
         let (data, _) = try await URLSession.shared.data(for: req)
-        print("[Gacha] pollOutputs \(taskId) → \(String(data: data, encoding: .utf8)?.prefix(400) ?? "")")
+
 
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw URLError(.cannotParseResponse)
@@ -418,7 +418,7 @@ final class GachaViewModel: ObservableObject {
         req.timeoutInterval = 30
         req.httpBody = try JSONSerialization.data(withJSONObject: ["apiKey": gachaApiKey, "workflowId": workflowId])
         let (data, _) = try await URLSession.shared.data(for: req)
-        print("[Gacha] fetchWorkflowDetail → \(String(data: data, encoding: .utf8)?.prefix(300) ?? "")")
+
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         let wrapper = try decoder.decode(APIResponse<WorkflowDetailResponse>.self, from: data)
