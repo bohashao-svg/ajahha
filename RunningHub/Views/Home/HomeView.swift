@@ -12,6 +12,7 @@ struct HomeView: View {
     @State private var showAPIKeyAlert = false
     @State private var showPremium = false
     @State private var showGrok = false
+    @State private var grokSessionId = UUID()
     @State private var showGacha = false
 
     // 统一输入框
@@ -117,6 +118,7 @@ struct HomeView: View {
             }
             .sheet(isPresented: $showGrok) {
                 SafariView(url: URL(string: "https://grok.dairoot.cn/")!)
+                    .id(grokSessionId)
                     .ignoresSafeArea()
             }
             .sheet(isPresented: $showGacha) {
@@ -361,7 +363,10 @@ struct HomeView: View {
     }
 
     // MARK: - 卸甲 AI Button
-    private var grokButton: some View {        Button { showGrok = true } label: {
+    private var grokButton: some View {        Button {
+            grokSessionId = UUID()
+            showGrok = true
+        } label: {
             HStack(spacing: 14) {
                 ZStack {
                     SketchRoundedRect(radius: 12)
