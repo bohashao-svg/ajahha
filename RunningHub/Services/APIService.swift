@@ -234,7 +234,9 @@ final class APIService {
         let msg = json["msg"] as? String
 
         guard code == 0 else {
-            throw APIError.serverError(msg ?? "查询失败")
+            // Non-zero code while task is queued/pending — treat as still queued
+            print("[API] /task/openapi/outputs non-zero code \(code): \(msg ?? "")")
+            return TaskOutputsPollResult(status: .queued, outputUrls: [], errorMessage: nil)
         }
 
         let dataField = json["data"]

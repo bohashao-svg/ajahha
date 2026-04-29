@@ -278,18 +278,27 @@ final class GachaViewModel: ObservableObject {
         req.httpBody = try JSONSerialization.data(withJSONObject: ["apiKey": gachaApiKey, "taskId": taskId])
 
         let (data, _) = try await URLSession.shared.data(for: req)
+        print("[Gacha] pollOutputs \(taskId) → \(String(data: data, encoding: .utf8)?.prefix(400) ?? "")")
+
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw URLError(.cannotParseResponse)
         }
         let code = json["code"] as? Int ?? -1
+
+        // code != 0 but task may still be queued — treat as queued instead of throwing
         guard code == 0 else {
-            throw URLError(.badServerResponse, userInfo: [NSLocalizedDescriptionKey: json["msg"] as? String ?? "查询失败"])
+            return TaskOutputsPollResult(status: .queued, outputUrls: [], errorMessage: nil)
         }
+
         let dataField = json["data"]
+
+        // data is array → completed
         if let items = dataField as? [[String: Any]] {
             let urls = items.compactMap { $0["fileUrl"] as? String }
             return TaskOutputsPollResult(status: .completed, outputUrls: urls, errorMessage: nil)
         }
+
+        // data is dict → in progress
         if let dict = dataField as? [String: Any] {
             let rawStatus = (dict["taskStatus"] as? String ?? "").uppercased()
             let status: TaskStatus
@@ -302,6 +311,8 @@ final class GachaViewModel: ObservableObject {
             }
             return TaskOutputsPollResult(status: status, outputUrls: [], errorMessage: dict["errorMessage"] as? String)
         }
+
+        // data is null → still queued
         return TaskOutputsPollResult(status: .queued, outputUrls: [], errorMessage: nil)
     }
 
@@ -371,13 +382,14 @@ final class GachaViewModel: ObservableObject {
         req.timeoutInterval = 30
         req.httpBody = try JSONSerialization.data(withJSONObject: ["apiKey": gachaApiKey, "workflowId": workflowId])
         let (data, _) = try await URLSession.shared.data(for: req)
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let code = json["code"] as? Int, code == 0,
-              let rawData = json["data"] else { throw URLError(.badServerResponse) }
-        let reEncoded = try JSONSerialization.data(withJSONObject: rawData)
+        print("[Gacha] fetchWorkflowDetail → \(String(data: data, encoding: .utf8)?.prefix(300) ?? "")")
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
-        return try decoder.decode(WorkflowDetailResponse.self, from: reEncoded)
+        let wrapper = try decoder.decode(APIResponse<WorkflowDetailResponse>.self, from: data)
+        guard wrapper.isSuccess, let result = wrapper.data else {
+            throw URLError(.badServerResponse, userInfo: [NSLocalizedDescriptionKey: wrapper.msg ?? "获取工作流失败"])
+        }
+        return result
     }
 
     private func fetchAppNodes(webappId: String) async throws -> [AppNodeInfo] {
