@@ -30,6 +30,7 @@ final class GachaViewModel: ObservableObject {
     @Published var isTTEncoded: Bool = false
     @Published var extraFields: [FormField] = []   // image / lora fields only
     @Published var appNodes: [AppNodeInfo] = []
+    @Published var appPromptNodes: [AppNodeInfo] = []  // STRING/TEXT nodes for prompt injection
     @Published var isWebApp: Bool = false
     @Published var targetLoaded: Bool = false
 
@@ -71,6 +72,7 @@ final class GachaViewModel: ObservableObject {
         workflowDetail = nil
         extraFields = []
         appNodes = []
+        appPromptNodes = []
         isWebApp = false
 
         defer { isLoadingTarget = false }
@@ -92,6 +94,11 @@ final class GachaViewModel: ObservableObject {
         // Try AI app
         do {
             let nodes = try await fetchAppNodes(webappId: input)
+            // STRING/TEXT nodes are prompt targets; others are configurable extra fields
+            appPromptNodes = nodes.filter {
+                let ft = $0.fieldType.uppercased()
+                return ft == "STRING" || ft == "TEXT"
+            }
             appNodes = nodes.filter {
                 let ft = $0.fieldType.uppercased()
                 return ft != "STRING" && ft != "TEXT"
@@ -193,6 +200,7 @@ final class GachaViewModel: ObservableObject {
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let (data, _) = try await URLSession.shared.data(for: req)
+        print("[Gacha] runWorkflow response: \(String(data: data, encoding: .utf8)?.prefix(400) ?? "")")
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let code = json["code"] as? Int, code == 0,
               let dataDict = json["data"] as? [String: Any],
@@ -211,13 +219,14 @@ final class GachaViewModel: ObservableObject {
         req.timeoutInterval = 30
 
         var nodeInputs: [[String: String]] = []
+        // Extra fields (image, lora, etc.) — user-configured values
         for node in appNodes where !node.fieldValue.isBlank {
             nodeInputs.append(["nodeId": node.nodeId, "fieldName": node.fieldName, "fieldValue": node.fieldValue])
         }
-        // Inject prompt into STRING/TEXT nodes
-        // (appNodes already filtered to non-string; inject prompt separately via all nodes)
-        // We need the full node list to find prompt fields
-        // Use targetId as webappId — inject prompt into first STRING node not in appNodes
+        // Inject prompt into all STRING/TEXT nodes
+        for node in appPromptNodes {
+            nodeInputs.append(["nodeId": node.nodeId, "fieldName": node.fieldName, "fieldValue": prompt])
+        }
         let body: [String: Any] = [
             "apiKey": gachaApiKey,
             "workflowId": targetId,
@@ -226,6 +235,7 @@ final class GachaViewModel: ObservableObject {
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let (data, _) = try await URLSession.shared.data(for: req)
+        print("[Gacha] runApp response: \(String(data: data, encoding: .utf8)?.prefix(400) ?? "")")
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let code = json["code"] as? Int, code == 0,
               let dataDict = json["data"] as? [String: Any],

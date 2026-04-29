@@ -282,6 +282,56 @@ struct GachaView: View {
                 statusPill(count: vm.gachaTasks.filter { $0.status == .completed }.count, label: "完成", color: .rhSuccess)
                 statusPill(count: vm.gachaTasks.filter { $0.status == .failed }.count, label: "失败", color: .rhError)
             }
+
+            // 失败任务错误详情
+            let failedTasks = vm.gachaTasks.filter { $0.status == .failed }
+            if !failedTasks.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(failedTasks) { task in
+                        HStack(alignment: .top, spacing: 6) {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 11)).foregroundColor(.rhError)
+                                .padding(.top, 1)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(task.prompt)
+                                    .font(.system(size: 11, weight: .medium)).foregroundColor(.rhPrimary)
+                                    .lineLimit(1)
+                                Text(task.errorMsg ?? "未知错误")
+                                    .font(.system(size: 11)).foregroundColor(.rhError)
+                                    .lineLimit(3)
+                            }
+                        }
+                        .padding(8)
+                        .background(Color.rhError.opacity(0.06))
+                        .clipShape(SketchRoundedRect(radius: 8))
+                    }
+                }
+            }
+
+            // 失败任务错误详情
+            let failedTasks = vm.gachaTasks.filter { $0.status == .failed }
+            if !failedTasks.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(failedTasks) { task in
+                        HStack(alignment: .top, spacing: 6) {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 11)).foregroundColor(.rhError)
+                                .padding(.top, 1)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(task.prompt)
+                                    .font(.system(size: 11, weight: .medium)).foregroundColor(.rhPrimary)
+                                    .lineLimit(1)
+                                Text(task.errorMsg ?? "未知错误")
+                                    .font(.system(size: 11)).foregroundColor(.rhError)
+                                    .lineLimit(3)
+                            }
+                        }
+                        .padding(8)
+                        .background(Color.rhError.opacity(0.06))
+                        .clipShape(SketchRoundedRect(radius: 8))
+                    }
+                }
+            }
         }
         .sketchCard()
     }
