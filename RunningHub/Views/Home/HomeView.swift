@@ -1,10 +1,12 @@
 import SwiftUI
 import SafariServices
+import WebKit
 
 // MARK: - Home View
 struct HomeView: View {
     @StateObject private var vm = HomeViewModel()
     @StateObject private var appVm = AppViewModel()
+    @StateObject private var grokWebVm = GrokWebViewModel()
     @EnvironmentObject private var appState: AppState
     @State private var showTaskCenter = false
     @State private var showSettings = false
@@ -116,7 +118,7 @@ struct HomeView: View {
                 PromptSelectorView(fields: vm.availablePromptFields, onConfirm: { vm.applyPromptSelection($0) })
             }
             .sheet(isPresented: $showGrok) {
-                SafariView(url: URL(string: "https://grok.dairoot.cn/")!)
+                GrokWebView(webView: grokWebVm.webView)
                     .ignoresSafeArea()
             }
             .sheet(isPresented: $showGacha) {
@@ -540,6 +542,23 @@ struct HomeView: View {
     }
 
     private var canSubmitNow: Bool { !vm.isSubmitting && appState.canSubmit && vm.workflowDetail != nil }
+}
+
+// MARK: - Persistent WebView (keeps session across sheet open/close)
+final class GrokWebViewModel: ObservableObject {
+    let webView: WKWebView = {
+        let config = WKWebViewConfiguration()
+        config.websiteDataStore = .default()
+        let wv = WKWebView(frame: .zero, configuration: config)
+        wv.load(URLRequest(url: URL(string: "https://grok.dairoot.cn/")!))
+        return wv
+    }()
+}
+
+struct GrokWebView: UIViewRepresentable {
+    let webView: WKWebView
+    func makeUIView(context: Context) -> WKWebView { webView }
+    func updateUIView(_ uiView: WKWebView, context: Context) {}
 }
 
 // MARK: - Safari View
