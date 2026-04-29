@@ -253,15 +253,16 @@ final class GachaViewModel: ObservableObject {
         for node in appPromptNodes {
             nodeInputs.append(["nodeId": node.nodeId, "fieldName": node.fieldName, "fieldValue": prompt])
         }
+
+        // AI 应用用 webappId 字段，不是 workflowId
         let body: [String: Any] = [
             "apiKey": gachaApiKey,
-            "workflowId": resolvedId,
+            "webappId": resolvedId,
             "nodeInfoList": nodeInputs
         ]
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let (data, _) = try await URLSession.shared.data(for: req)
-
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let code = json["code"] as? Int, code == 0,
               let dataDict = json["data"] as? [String: Any],
