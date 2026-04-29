@@ -12,6 +12,7 @@ struct HomeView: View {
     @State private var showAPIKeyAlert = false
     @State private var showPremium = false
     @State private var showGrok = false
+    @State private var showGacha = false
 
     // 统一输入框
     @State private var unifiedInput: String = ""
@@ -52,6 +53,9 @@ struct HomeView: View {
 
                         // 卸甲 AI 按钮
                         grokButton.padding(.horizontal, 16)
+
+                        // 抽卡入口
+                        gachaEntryCard.padding(.horizontal, 16)
 
                         Spacer(minLength: 24)
 
@@ -114,6 +118,9 @@ struct HomeView: View {
             .sheet(isPresented: $showGrok) {
                 SafariView(url: URL(string: "https://grok.dairoot.cn/")!)
                     .ignoresSafeArea()
+            }
+            .sheet(isPresented: $showGacha) {
+                GachaView()
             }
             .alert("请先配置 API 密钥", isPresented: $showAPIKeyAlert) {
                 Button("去配置") { showSettings = true }
@@ -354,8 +361,7 @@ struct HomeView: View {
     }
 
     // MARK: - 卸甲 AI Button
-    private var grokButton: some View {
-        Button { showGrok = true } label: {
+    private var grokButton: some View {        Button { showGrok = true } label: {
             HStack(spacing: 14) {
                 ZStack {
                     SketchRoundedRect(radius: 12)
@@ -437,6 +443,49 @@ struct HomeView: View {
             }
         }
         .sketchCard()
+    }
+
+    // MARK: - 抽卡入口
+    private var gachaEntryCard: some View {
+        Button { showGacha = true } label: {
+            VStack(spacing: 0) {
+                HStack(spacing: 14) {
+                    ZStack {
+                        SketchRoundedRect(radius: 12)
+                            .fill(Color.rhRedMuted)
+                            .frame(width: 52, height: 52)
+                            .overlay(SketchRoundedRect(radius: 12).stroke(Color.rhAccent.opacity(0.25), lineWidth: 1.5))
+                        Image(systemName: "rectangle.stack.fill")
+                            .font(.system(size: 22))
+                            .foregroundColor(.rhAccent)
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("抽卡批量生成")
+                            .font(.system(size: 15, weight: .semibold)).foregroundColor(.rhPrimary)
+                        Text("多提示词并发批量生成，独立运行")
+                            .font(.system(size: 12)).foregroundColor(.rhSecondary)
+                    }
+                    Spacer()
+                    RHIcon(name: .chevron, size: 14, color: .rhAccent.opacity(0.6))
+                }
+                .padding(14)
+
+                // 警告提示条
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 11)).foregroundColor(.rhWarning)
+                    Text("该功能是批量生成，可能会快速消耗你的钱包")
+                        .font(.system(size: 11)).foregroundColor(.rhWarning)
+                    Spacer()
+                }
+                .padding(.horizontal, 14).padding(.bottom, 10)
+            }
+            .background(Color.rhCard)
+            .clipShape(SketchRoundedRect(radius: 14))
+            .overlay(SketchRoundedRect(radius: 14).stroke(Color.rhAccent.opacity(0.2), lineWidth: 1.8))
+            .shadow(color: Color.rhInk.opacity(0.12), radius: 0, x: 2, y: 3)
+        }
+        .buttonStyle(ScaleButtonStyle())
     }
 
     // MARK: - Helpers
