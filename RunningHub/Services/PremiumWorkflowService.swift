@@ -7,19 +7,24 @@ struct PremiumWorkflowItem: Identifiable {
     var name: String
 
     var workflowId: String {
-        // Parse URL properly to avoid including query string in the path component
         guard let urlObj = URL(string: url),
               let components = URLComponents(url: urlObj, resolvingAgainstBaseURL: false) else {
             return url
         }
-        // Try query param: ?workflowId=xxx
-        if let item = components.queryItems?.first(where: { $0.name == "workflowId" }),
-           let value = item.value, !value.isEmpty {
-            return value
+        // Query param: ?workflowId=xxx or ?id=xxx
+        let queryNames = ["workflowId", "id"]
+        for name in queryNames {
+            if let item = components.queryItems?.first(where: { $0.name == name }),
+               let value = item.value, !value.isEmpty {
+                return value
+            }
         }
-        // Path-based: /workflow/12345  — take last non-empty path component (no query string)
+        // Path-based: /workflow/12345 or /ai-detail-mobile/12345
         let pathComponents = components.path.split(separator: "/").map(String.init)
-        return pathComponents.last ?? url
+        if let last = pathComponents.last, !last.isEmpty {
+            return last
+        }
+        return url
     }
 }
 
@@ -39,18 +44,12 @@ final class PremiumWorkflowService {
             throw URLError(.cannotParseResponse)
         }
 
-        var seen = Set<String>()
-        var items: [PremiumWorkflowItem] = []
-        for entry in gzl {
-            guard let urlString = entry["url"] as? String else { continue }
+        // No deduplication — show all entries as configured in JSON
+        return gzl.compactMap { entry -> PremiumWorkflowItem? in
+            guard let urlString = entry["url"] as? String else { return nil }
             let name = entry["name"] as? String ?? ""
-            let item = PremiumWorkflowItem(url: urlString, name: name)
-            let wid = item.workflowId
-            guard wid != urlString, wid.count > 3, !seen.contains(wid) else { continue }
-            seen.insert(wid)
-            items.append(item)
+            return PremiumWorkflowItem(url: urlString, name: name)
         }
-        return items
     }
 
     /// Fetch workflow name by calling getJsonApiFormat and extracting a title from node meta
