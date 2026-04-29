@@ -19,6 +19,7 @@ final class GachaViewModel: ObservableObject {
     // MARK: - Config
     @Published var gachaApiKey: String = UserDefaults.standard.string(forKey: "gacha_api_key") ?? ""
     @Published var targetId: String = ""
+    private var resolvedId: String = ""  // 解析后的纯 ID，提交任务时使用
     @Published var concurrency: Int = 3
     @Published var promptsText: String = ""
 
@@ -66,6 +67,8 @@ final class GachaViewModel: ObservableObject {
             errorMessage = "请先填写 API Key 和目标 ID"
             return
         }
+        // Extract pure numeric/alphanumeric ID from URL or plain input
+        let parsed = Self.extractId(from: input)
         isLoadingTarget = true
         errorMessage = nil
         targetLoaded = false
@@ -79,7 +82,7 @@ final class GachaViewModel: ObservableObject {
 
         // Try workflow first
         do {
-            let detail = try await fetchWorkflowDetail(workflowId: input)
+            let detail = try await fetchWorkflowDetail(workflowId: parsed)
             workflowDetail = detail
             let nodes = detail.allNodes
             workflowType = WorkflowType.detect(from: nodes)
@@ -87,13 +90,14 @@ final class GachaViewModel: ObservableObject {
             isTTEncoded = TTDecodeService.shared.detectTTNode(in: nodes)
             extraFields = buildExtraFields(from: detail)
             isWebApp = false
+            resolvedId = parsed
             targetLoaded = true
             return
         } catch {}
 
         // Try AI app
         do {
-            let nodes = try await fetchAppNodes(webappId: input)
+            let nodes = try await fetchAppNodes(webappId: parsed)
             // STRING/TEXT nodes are prompt targets; others are configurable extra fields
             appPromptNodes = nodes.filter {
                 let ft = $0.fieldType.uppercased()
@@ -104,10 +108,32 @@ final class GachaViewModel: ObservableObject {
                 return ft != "STRING" && ft != "TEXT"
             }
             isWebApp = true
+            resolvedId = parsed
             targetLoaded = true
         } catch {
             errorMessage = "无法识别该 ID，请检查后重试"
         }
+    }
+
+    /// Extract pure ID from a URL or plain ID string
+    private static func extractId(from input: String) -> String {
+        guard input.contains("://") || input.hasPrefix("http"),
+              let urlObj = URL(string: input),
+              let components = URLComponents(url: urlObj, resolvingAgainstBaseURL: false) else {
+            return input  // already a plain ID
+        }
+        // Query params: ?workflowId=xxx or ?id=xxx
+        for name in ["workflowId", "id"] {
+            if let value = components.queryItems?.first(where: { $0.name == name })?.value,
+               !value.isEmpty {
+                return value
+            }
+        }
+        // Path-based: last path component
+        if let last = components.path.split(separator: "/").map(String.init).last, !last.isEmpty {
+            return last
+        }
+        return input
     }
 
     // MARK: - Start Batch
@@ -194,7 +220,7 @@ final class GachaViewModel: ObservableObject {
 
         let body: [String: Any] = [
             "apiKey": gachaApiKey,
-            "workflowId": targetId,
+            "workflowId": resolvedId,
             "nodeInfoList": nodeInputs
         ]
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -229,7 +255,7 @@ final class GachaViewModel: ObservableObject {
         }
         let body: [String: Any] = [
             "apiKey": gachaApiKey,
-            "workflowId": targetId,
+            "workflowId": resolvedId,
             "nodeInfoList": nodeInputs
         ]
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
