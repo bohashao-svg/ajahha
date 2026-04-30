@@ -2,8 +2,6 @@ import SwiftUI
 import Photos
 
 // MARK: - SwiftUI bridge for ImagePickerController
-// Wraps the ImagePicker library's UIViewController in a SwiftUI sheet.
-
 struct ImagePickerSheet: UIViewControllerRepresentable {
     @Binding var selectedImage: UIImage?
     var onDismiss: (() -> Void)?
@@ -11,7 +9,7 @@ struct ImagePickerSheet: UIViewControllerRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     func makeUIViewController(context: Context) -> ImagePickerController {
-        let config = Configuration()
+        let config = ImagePickerConfiguration()
         config.allowMultiplePhotoSelection = false
         config.recordLocation = false
         let vc = ImagePickerController(configuration: config)
@@ -21,10 +19,8 @@ struct ImagePickerSheet: UIViewControllerRepresentable {
 
     func updateUIViewController(_ uiViewController: ImagePickerController, context: Context) {}
 
-    // MARK: - Coordinator
     final class Coordinator: NSObject, ImagePickerDelegate {
         let parent: ImagePickerSheet
-
         init(_ parent: ImagePickerSheet) { self.parent = parent }
 
         func wrapperDidPress(_ imagePicker: ImagePickerController, images: [UIImage]) {}
