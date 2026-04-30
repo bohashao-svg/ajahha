@@ -31,16 +31,19 @@ class CameraMan: NSObject {
   }
 
   func setupDevices() {
-    AVCaptureDevice
-      .devices()
-      .filter { $0.hasMediaType(.video) }
-      .forEach {
-        switch $0.position {
-        case .front: self.frontCamera = try? AVCaptureDeviceInput(device: $0)
-        case .back:  self.backCamera  = try? AVCaptureDeviceInput(device: $0)
-        default: break
-        }
+    // AVCaptureDevice.devices() 已废弃，改用 AVCaptureDeviceDiscoverySession
+    let discoverySession = AVCaptureDevice.DiscoverySession(
+      deviceTypes: [.builtInWideAngleCamera],
+      mediaType: .video,
+      position: .unspecified
+    )
+    discoverySession.devices.forEach {
+      switch $0.position {
+      case .front: self.frontCamera = try? AVCaptureDeviceInput(device: $0)
+      case .back:  self.backCamera  = try? AVCaptureDeviceInput(device: $0)
+      default: break
       }
+    }
     photoOutput = AVCapturePhotoOutput()
   }
 
@@ -117,8 +120,9 @@ class CameraMan: NSObject {
   }
 
   func flash(_ mode: AVCaptureDevice.FlashMode) {
-    guard let device = currentInput?.device, device.isFlashModeSupported(mode) else { return }
-    queue.async { self.lock { device.flashMode = mode } }
+    guard let device = currentInput?.device,
+          device.isFlashAvailable else { return }
+    queue.async { self.lock { device.torchMode = mode == .on ? .on : .off } }
   }
 
   func focus(_ point: CGPoint) {

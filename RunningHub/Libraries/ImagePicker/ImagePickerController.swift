@@ -200,7 +200,7 @@ open class ImagePickerController: UIViewController {
 
     let alertAction = UIAlertAction(title: configuration.OKButtonTitle, style: .default) { _ in
       if let settingsURL = URL(string: UIApplication.openSettingsURLString) {
-        UIApplication.shared.openURL(settingsURL)
+        UIApplication.shared.open(settingsURL)
       }
     }
 

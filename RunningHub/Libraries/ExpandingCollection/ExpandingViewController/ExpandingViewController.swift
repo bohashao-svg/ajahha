@@ -63,7 +63,7 @@ public extension ExpandingViewController {
         viewController.transitionDriver = transitionDriver
         let insets = viewController.automaticallyAdjustsScrollViewInsets
         let tabBarHeight = insets == true ? navigationController.navigationBar.frame.size.height : 0
-        let stausBarHeight = insets == true ? UIApplication.shared.statusBarFrame.size.height : 0
+        let stausBarHeight = insets == true ? ( UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first?.statusBarManager?.statusBarFrame.height ?? 0 ) : 0
         let backImage = getBackImage(viewController, headerHeight: viewController.headerHeight)
 
         transitionDriver?.pushTransitionAnimationIndex(currentIndex,

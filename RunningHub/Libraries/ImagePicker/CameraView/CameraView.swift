@@ -64,7 +64,7 @@ class CameraView: UIViewController, CLLocationManagerDelegate, CameraManDelegate
       ])
 
     button.setAttributedTitle(title, for: UIControl.State())
-    button.contentEdgeInsets = UIEdgeInsets(top: 5.0, left: 10.0, bottom: 5.0, right: 10.0)
+    button.contentEdgeInsets = UIEdgeInsets(top: 5.0, left: 10.0, bottom: 5.0, right: 10.0) // legacy fallback
     button.sizeToFit()
     button.layer.borderColor = self.configuration.settingsColor.cgColor
     button.layer.borderWidth = 1
@@ -188,7 +188,7 @@ class CameraView: UIViewController, CLLocationManagerDelegate, CameraManDelegate
   @objc func settingsButtonDidTap() {
     DispatchQueue.main.async {
       if let settingsURL = URL(string: UIApplication.openSettingsURLString) {
-        UIApplication.shared.openURL(settingsURL)
+        UIApplication.shared.open(settingsURL)
       }
     }
   }

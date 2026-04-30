@@ -87,19 +87,17 @@ final class NotificationService: NSObject {
             content.body  = body
             content.sound = sound
             content.userInfo = ["taskId": taskId, "status": status]
-            // Badge: show count of active tasks
-            content.badge = NSNumber(value: AppState.shared.pendingCount)
-
-            // Use taskId + status as identifier so each status change
-            // creates a NEW notification (not replacing the previous one).
             let identifier = "rh_\(taskId)_\(status)"
-
-            let request = UNNotificationRequest(
-                identifier: identifier,
-                content: content,
-                trigger: nil   // nil = deliver immediately
-            )
-            UNUserNotificationCenter.current().add(request) { _ in }
+            // pendingCount 是 @MainActor 属性，在后台线程用 Task 安全读取
+            Task { @MainActor in
+                content.badge = NSNumber(value: AppState.shared.pendingCount)
+                let request = UNNotificationRequest(
+                    identifier: identifier,
+                    content: content,
+                    trigger: nil
+                )
+                UNUserNotificationCenter.current().add(request) { _ in }
+            }
         }
     }
 

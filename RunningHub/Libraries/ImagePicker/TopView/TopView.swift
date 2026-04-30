@@ -23,7 +23,8 @@ open class TopView: UIView {
     let button = UIButton()
     button.setImage(AssetManager.getImage("AUTO"), for: UIControl.State())
     button.setTitle("AUTO", for: UIControl.State())
-    button.titleEdgeInsets = UIEdgeInsets(top: 0, left: 4, bottom: 0, right: 0)
+    // titleEdgeInsets deprecated — spacing handled by imageEdgeInsets
+    button.imageEdgeInsets = UIEdgeInsets(top: 0, left: -4, bottom: 0, right: 4)
     button.setTitleColor(UIColor.white, for: UIControl.State())
     button.setTitleColor(UIColor.white, for: .highlighted)
     button.titleLabel?.font = self.configuration.flashButton
