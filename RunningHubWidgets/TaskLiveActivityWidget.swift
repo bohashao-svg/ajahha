@@ -68,7 +68,6 @@ struct RunningHubWidgets: Widget {
         } else {
             Image(systemName: "sparkles")
                 .foregroundColor(.blue)
-                .symbolEffect(.pulse)
         }
     }
 }
@@ -87,7 +86,6 @@ private struct LockScreenView: View {
                 Image(systemName: iconName)
                     .font(.system(size: 20, weight: .medium))
                     .foregroundColor(iconColor)
-                    .symbolEffect(.pulse, isActive: !state.isFinished)
             }
 
             // Text
