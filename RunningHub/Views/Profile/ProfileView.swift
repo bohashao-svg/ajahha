@@ -14,8 +14,7 @@ struct ProfileView: View {
                     Spacer(minLength: 24)
                 }
                 .padding(.horizontal, 16)
-                    .padding(.top, 12)
-                }
+                .padding(.top, 12)
             }
             .background(AnimatedMeshBackground().ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
@@ -116,9 +115,7 @@ struct ProfileView: View {
             }
 
             if vm.isLoading && vm.outputs.isEmpty {
-                ForEach(0..<4, id: \.self) { _ in
-                    OutputCardSkeleton()
-                }
+                ForEach(0..<4, id: \.self) { _ in OutputCardSkeleton() }
             } else if vm.outputs.isEmpty {
                 VStack(spacing: 12) {
                     ZStack {
@@ -133,12 +130,8 @@ struct ProfileView: View {
                 LazyVStack(spacing: 10) {
                     ForEach(vm.outputs) { item in
                         NavigationLink {
-                            // Build a synthetic RHTask so TaskDetailView's duck/TT decode works
-                            TaskDetailView(
-                                task: item.asRHTask(),
-                                vm: TaskCenterViewModel()
-                            )
-                            .environmentObject(AppState.shared)
+                            TaskDetailView(task: item.asRHTask(), vm: TaskCenterViewModel())
+                                .environmentObject(AppState.shared)
                         } label: {
                             OutputHistoryRow(item: item)
                         }
@@ -177,7 +170,6 @@ struct OutputHistoryRow: View {
                     RHIcon(name: .image, size: 24, color: Color(hex: "#6C8EFF").opacity(0.5))
                 }
             }
-
             VStack(alignment: .leading, spacing: 4) {
                 Text(item.taskName ?? "生成结果")
                     .font(.system(size: 14, weight: .medium))
@@ -186,7 +178,6 @@ struct OutputHistoryRow: View {
                     Text(t).font(.system(size: 11)).foregroundColor(Color(hex: "#8B9CC8"))
                 }
             }
-
             Spacer()
             RHIcon(name: .chevron, size: 12, color: Color(hex: "#8B9CC8").opacity(0.4))
         }

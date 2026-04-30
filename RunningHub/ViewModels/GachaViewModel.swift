@@ -308,7 +308,6 @@ final class GachaViewModel: ObservableObject {
               let taskId = dataDict["taskId"] as? String, !taskId.isEmpty else {
             throw URLError(.badServerResponse, userInfo: [NSLocalizedDescriptionKey: "服务器未返回 taskId（\(serverMsg)）"])
         }
-        }
         return taskId
     }
 

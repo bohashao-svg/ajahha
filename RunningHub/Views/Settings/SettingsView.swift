@@ -19,7 +19,6 @@ struct SettingsView: View {
                 .padding(.top, 12)
             }
             .background(AnimatedMeshBackground().ignoresSafeArea())
-            }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
