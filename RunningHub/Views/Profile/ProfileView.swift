@@ -7,19 +7,17 @@ struct ProfileView: View {
 
     var body: some View {
         NavigationView {
-            ZStack {
-                AnimatedMeshBackground()
-
-                ScrollView {
-                    VStack(spacing: 16) {
-                        profileHeaderCard
-                        outputsSection
-                        Spacer(minLength: 24)
-                    }
-                    .padding(.horizontal, 16)
+            ScrollView {
+                VStack(spacing: 16) {
+                    profileHeaderCard
+                    outputsSection
+                    Spacer(minLength: 24)
+                }
+                .padding(.horizontal, 16)
                     .padding(.top, 12)
                 }
             }
+            .background(AnimatedMeshBackground().ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {

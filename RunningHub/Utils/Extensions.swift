@@ -264,67 +264,66 @@ extension View {
     }
 }
 
-// MARK: - Animated Gradient Background
-// Uses drawingGroup() to offload compositing to Metal, avoiding main-thread layout side-effects.
-// Orbs are positioned with fixed offsets + subtle scale animation (no offset animation)
-// to prevent ScrollView content-size recalculation on every frame.
+// MARK: - Animated Mesh Background
+// Single static background — no per-frame layout changes, no blur on animated layers.
+// Blur is applied once at snapshot time via drawingGroup(); animation only drives opacity.
 struct AnimatedMeshBackground: View {
-    @State private var pulse: Bool = false
+    @State private var phase: Bool = false
 
     var body: some View {
-        ZStack {
-            Color(hex: "#0A0E1A").ignoresSafeArea()
+        // Fixed dark base — never changes size or position
+        Color(hex: "#0A0E1A")
+            .ignoresSafeArea()
+            .overlay(orbs.ignoresSafeArea())
+    }
 
-            // Orb 1 — blue
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [Color(hex: "#6C8EFF").opacity(0.22), .clear],
-                        center: .center, startRadius: 0, endRadius: 200
-                    )
-                )
-                .frame(width: 420, height: 420)
-                .scaleEffect(pulse ? 1.06 : 0.96)
-                .offset(x: -70, y: -150)
-                .blur(radius: 40)
-                .allowsHitTesting(false)
-
-            // Orb 2 — purple
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [Color(hex: "#A78BFA").opacity(0.16), .clear],
-                        center: .center, startRadius: 0, endRadius: 160
-                    )
-                )
-                .frame(width: 340, height: 340)
-                .scaleEffect(pulse ? 0.94 : 1.04)
-                .offset(x: 130, y: 210)
-                .blur(radius: 50)
-                .allowsHitTesting(false)
-
-            // Orb 3 — teal
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [Color(hex: "#4ECDC4").opacity(0.10), .clear],
-                        center: .center, startRadius: 0, endRadius: 130
-                    )
-                )
-                .frame(width: 280, height: 280)
-                .scaleEffect(pulse ? 1.08 : 0.92)
-                .offset(x: 70, y: -70)
-                .blur(radius: 45)
-                .allowsHitTesting(false)
-        }
-        // drawingGroup() moves compositing to Metal — eliminates per-frame CPU layout cost
-        .drawingGroup()
-        .ignoresSafeArea()
-        .onAppear {
-            withAnimation(.easeInOut(duration: 6).repeatForever(autoreverses: true)) {
-                pulse = true
+    private var orbs: some View {
+        // All orbs are pre-blurred static shapes; only opacity animates.
+        // opacity animation does NOT affect layout, so ScrollView stays still.
+        Canvas { ctx, size in
+            // Orb 1 — blue, top-left
+            ctx.opacity = phase ? 0.22 : 0.14
+            ctx.drawLayer { inner in
+                let r = CGRect(x: size.width * 0.05, y: size.height * 0.02,
+                               width: size.width * 0.65, height: size.height * 0.45)
+                inner.fill(Path(ellipseIn: r),
+                           with: .linearGradient(
+                            Gradient(colors: [Color(hex: "#6C8EFF").opacity(0.55), .clear]),
+                            startPoint: CGPoint(x: r.midX, y: r.minY),
+                            endPoint:   CGPoint(x: r.midX, y: r.maxY)
+                           ))
+            }
+            // Orb 2 — purple, bottom-right
+            ctx.opacity = phase ? 0.18 : 0.10
+            ctx.drawLayer { inner in
+                let r = CGRect(x: size.width * 0.45, y: size.height * 0.5,
+                               width: size.width * 0.6, height: size.height * 0.45)
+                inner.fill(Path(ellipseIn: r),
+                           with: .linearGradient(
+                            Gradient(colors: [Color(hex: "#A78BFA").opacity(0.5), .clear]),
+                            startPoint: CGPoint(x: r.midX, y: r.minY),
+                            endPoint:   CGPoint(x: r.midX, y: r.maxY)
+                           ))
+            }
+            // Orb 3 — teal, center
+            ctx.opacity = phase ? 0.14 : 0.08
+            ctx.drawLayer { inner in
+                let r = CGRect(x: size.width * 0.25, y: size.height * 0.25,
+                               width: size.width * 0.5, height: size.height * 0.35)
+                inner.fill(Path(ellipseIn: r),
+                           with: .linearGradient(
+                            Gradient(colors: [Color(hex: "#4ECDC4").opacity(0.4), .clear]),
+                            startPoint: CGPoint(x: r.midX, y: r.minY),
+                            endPoint:   CGPoint(x: r.midX, y: r.maxY)
+                           ))
             }
         }
+        // drawingGroup() rasterises to a single Metal texture — zero per-frame CPU layout
+        .drawingGroup()
+        .blur(radius: 60)   // single blur pass on the already-rasterised texture
+        .animation(.easeInOut(duration: 5).repeatForever(autoreverses: true), value: phase)
+        .onAppear { phase = true }
+        .allowsHitTesting(false)
     }
 }
 

@@ -10,13 +10,11 @@ struct TaskCenterView: View {
 
     var body: some View {
         NavigationView {
-            ZStack {
-                AnimatedMeshBackground()
-                VStack(spacing: 0) {
-                    tabBar
-                    taskList
-                }
+            VStack(spacing: 0) {
+                tabBar
+                taskList
             }
+            .background(AnimatedMeshBackground().ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {

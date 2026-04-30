@@ -7,26 +7,23 @@ struct GachaView: View {
 
     var body: some View {
         NavigationView {
-            ZStack {
-                AnimatedMeshBackground()
-
-                ScrollView {
-                    VStack(spacing: 16) {
-                        warningBanner
-                        configCard
-                        if vm.targetLoaded { extraFieldsCard }
-                        promptInputCard
-                        if !vm.parsedPrompts.isEmpty { promptPreviewCard }
-                        if vm.targetLoaded && !vm.parsedPrompts.isEmpty { submitButton }
-                        if !vm.gachaTasks.isEmpty { taskListCard }
-                        Spacer(minLength: 24)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 12)
-                    .animation(.spring(response: 0.38, dampingFraction: 0.82), value: vm.targetLoaded)
-                    .animation(.spring(response: 0.38, dampingFraction: 0.82), value: vm.gachaTasks.count)
+            ScrollView {
+                VStack(spacing: 16) {
+                    warningBanner
+                    configCard
+                    if vm.targetLoaded { extraFieldsCard }
+                    promptInputCard
+                    if !vm.parsedPrompts.isEmpty { promptPreviewCard }
+                    if vm.targetLoaded && !vm.parsedPrompts.isEmpty { submitButton }
+                    if !vm.gachaTasks.isEmpty { taskListCard }
+                    Spacer(minLength: 24)
                 }
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                .animation(.spring(response: 0.38, dampingFraction: 0.82), value: vm.targetLoaded)
+                .animation(.spring(response: 0.38, dampingFraction: 0.82), value: vm.gachaTasks.count)
             }
+            .background(AnimatedMeshBackground().ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {

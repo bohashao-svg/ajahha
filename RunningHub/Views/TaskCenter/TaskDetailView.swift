@@ -22,23 +22,19 @@ struct TaskDetailView: View {
     }
 
     var body: some View {
-        ZStack {
-            AnimatedMeshBackground()
-
-            ScrollView {
-                VStack(spacing: 16) {
-                    infoCard
-                    if !liveTask.outputUrls.isEmpty { outputSection }
-                    if liveTask.status == .running || liveTask.status == .pending || liveTask.status == .queued {
-                        cancelButton
+        ScrollView {
+            VStack(spacing: 16) {
+                infoCard
+                if !liveTask.outputUrls.isEmpty { outputSection }
+                if liveTask.status == .running || liveTask.status == .pending || liveTask.status == .queued {
+                    cancelButton
                     }
                 }
                 .padding(16)
             }
-
-            if let toast = saveToast {
-                VStack {
-                    Spacer()
+            .background(AnimatedMeshBackground().ignoresSafeArea())
+            .overlay(alignment: .bottom) {
+                if let toast = saveToast {
                     HStack(spacing: 8) {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.system(size: 14))
@@ -50,25 +46,17 @@ struct TaskDetailView: View {
                     .padding(.horizontal, 18)
                     .padding(.vertical, 12)
                     .background(
-                        ZStack {
-                            LiquidGlassShape(radius: 22)
-                                .fill(Color(hex: "#111827").opacity(0.9))
-                            LiquidGlassShape(radius: 22)
-                                .fill(LinearGradient(
-                                    colors: [Color.white.opacity(0.08), Color.white.opacity(0.02)],
-                                    startPoint: .topLeading, endPoint: .bottomTrailing
-                                ))
-                        }
+                        LiquidGlassShape(radius: 22)
+                            .fill(Color(hex: "#111827").opacity(0.9))
                     )
                     .overlay(LiquidGlassShape(radius: 22).stroke(Color.white.opacity(0.15), lineWidth: 0.8))
                     .shadow(color: Color.black.opacity(0.3), radius: 16, x: 0, y: 6)
                     .padding(.bottom, 44)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    .animation(.spring(response: 0.3, dampingFraction: 0.8), value: saveToast)
                 }
-                .transition(.opacity.combined(with: .move(edge: .bottom)))
-                .animation(.spring(response: 0.3, dampingFraction: 0.8), value: saveToast)
             }
-        }
-        .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
                 Text("任务详情")

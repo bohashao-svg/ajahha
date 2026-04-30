@@ -7,31 +7,10 @@ struct LoginView: View {
     enum Field { case username, password }
 
     var body: some View {
-        ZStack {
-            AnimatedMeshBackground()
+        VStack(spacing: 0) {
+            Spacer()
 
-            // Floating glass orbs decoration
-            GeometryReader { geo in
-                let w = geo.size.width
-                let h = geo.size.height
-                Circle()
-                    .fill(Color(hex: "#6C8EFF").opacity(0.08))
-                    .frame(width: 200, height: 200)
-                    .blur(radius: 30)
-                    .offset(x: w * 0.6, y: h * 0.1)
-                Circle()
-                    .fill(Color(hex: "#A78BFA").opacity(0.06))
-                    .frame(width: 160, height: 160)
-                    .blur(radius: 25)
-                    .offset(x: w * 0.05, y: h * 0.65)
-            }
-            .ignoresSafeArea()
-            .allowsHitTesting(false)
-
-            VStack(spacing: 0) {
-                Spacer()
-
-                // Logo section
+            // Logo section
                 VStack(spacing: 14) {
                     ZStack {
                         // Outer glow ring
@@ -229,8 +208,8 @@ struct LoginView: View {
                     .font(.system(size: 11))
                     .foregroundColor(Color(hex: "#8B9CC8").opacity(0.5))
                     .padding(.bottom, 36)
-            }
         }
+        .background(AnimatedMeshBackground().ignoresSafeArea())
         .onTapGesture { focusedField = nil }
     }
 }

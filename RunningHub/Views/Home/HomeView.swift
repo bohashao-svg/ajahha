@@ -19,11 +19,11 @@ struct HomeView: View {
 
     var body: some View {
         NavigationView {
-            ZStack(alignment: .top) {
-                AnimatedMeshBackground()
-
-                ScrollView {
-                    VStack(spacing: 16) {
+            // Background is a separate layer behind the scroll content.
+            // Using .background() instead of ZStack prevents the background
+            // from participating in ScrollView's content-size measurement.
+            ScrollView {
+                VStack(spacing: 16) {
                         premiumEntryCard.padding(.horizontal, 16)
                         unifiedInputCard.padding(.horizontal, 16)
 
@@ -62,12 +62,13 @@ struct HomeView: View {
                             .frame(maxWidth: .infinity)
                             .padding(.bottom, 20)
                     }
-                    .padding(.top, 12)
-                    .animation(.spring(response: 0.38, dampingFraction: 0.82), value: appVm.nodes.isEmpty)
-                    .animation(.spring(response: 0.38, dampingFraction: 0.82), value: vm.workflowDetail == nil)
-                    .animation(.spring(response: 0.38, dampingFraction: 0.82), value: vm.workflowHistory.isEmpty)
-                }
+                .padding(.top, 12)
+                .animation(.spring(response: 0.38, dampingFraction: 0.82), value: appVm.nodes.isEmpty)
+                .animation(.spring(response: 0.38, dampingFraction: 0.82), value: vm.workflowDetail == nil)
+                .animation(.spring(response: 0.38, dampingFraction: 0.82), value: vm.workflowHistory.isEmpty)
             }
+            // Background attached here — outside ScrollView layout, never affects content size
+            .background(AnimatedMeshBackground().ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {

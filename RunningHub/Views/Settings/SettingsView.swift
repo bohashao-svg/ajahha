@@ -8,19 +8,17 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationView {
-            ZStack {
-                AnimatedMeshBackground()
-
-                ScrollView {
-                    VStack(spacing: 16) {
-                        apiKeySection
-                        accountSection
-                        aboutSection
-                        Spacer(minLength: 24)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 12)
+            ScrollView {
+                VStack(spacing: 16) {
+                    apiKeySection
+                    accountSection
+                    aboutSection
+                    Spacer(minLength: 24)
                 }
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+            }
+            .background(AnimatedMeshBackground().ignoresSafeArea())
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -8,29 +8,26 @@ struct AppView: View {
     var initialAppId: String = ""
 
     var body: some View {
-        ZStack {
-            AnimatedMeshBackground()
-
-            ScrollView {
-                VStack(spacing: 16) {
-                    inputCard
-                    if vm.isLoading {
-                        NodeFormCardSkeleton()
-                            .padding(.horizontal, 16)
-                            .transition(.opacity)
-                    } else if !vm.nodes.isEmpty {
-                        nodeFormCard
-                            .transition(.opacity.combined(with: .move(edge: .top)))
-                        submitButton
-                            .transition(.opacity)
-                            .padding(.horizontal, 16)
-                    }
-                    Spacer(minLength: 24)
+        ScrollView {
+            VStack(spacing: 16) {
+                inputCard
+                if vm.isLoading {
+                    NodeFormCardSkeleton()
+                        .padding(.horizontal, 16)
+                        .transition(.opacity)
+                } else if !vm.nodes.isEmpty {
+                    nodeFormCard
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                    submitButton
+                        .transition(.opacity)
+                        .padding(.horizontal, 16)
                 }
-                .padding(.top, 12)
-                .animation(.spring(response: 0.38, dampingFraction: 0.82), value: vm.nodes.isEmpty)
+                Spacer(minLength: 24)
             }
+            .padding(.top, 12)
+            .animation(.spring(response: 0.38, dampingFraction: 0.82), value: vm.nodes.isEmpty)
         }
+        .background(AnimatedMeshBackground().ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
