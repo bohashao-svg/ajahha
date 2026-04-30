@@ -87,14 +87,10 @@ struct AppView: View {
             HStack(spacing: 10) {
                 TextField("输入 AI 应用 ID 或链接", text: $vm.webappInput)
                     .font(.system(size: 15))
-                    .foregroundColor(Color(hex: "#F0F4FF"))
                     .tint(Color(hex: "#6C8EFF"))
                     .autocapitalization(.none)
                     .disableAutocorrection(true)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
-                    .background(LiquidGlassShape(radius: 10).fill(Color.white.opacity(0.05)))
-                    .overlay(LiquidGlassShape(radius: 10).stroke(Color.white.opacity(0.1), lineWidth: 0.8))
+                    .nativeInput()
                     .onSubmit { Task { await vm.fetchNodes() } }
 
                 Button {

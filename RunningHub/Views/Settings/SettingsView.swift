@@ -60,12 +60,10 @@ struct SettingsView: View {
                     Image(systemName: "key.fill")
                         .font(.system(size: 14)).foregroundColor(Color(hex: "#FFD166")).frame(width: 20)
                     SecureField("输入 API Key", text: $vm.apiKeyInput)
-                        .font(.system(size: 14)).foregroundColor(Color(hex: "#F0F4FF"))
+                        .font(.system(size: 14))
                         .tint(Color(hex: "#6C8EFF")).autocapitalization(.none).disableAutocorrection(true)
                 }
-                .padding(.horizontal, 12).padding(.vertical, 11)
-                .background(LiquidGlassShape(radius: 12).fill(Color.white.opacity(0.05)))
-                .overlay(LiquidGlassShape(radius: 12).stroke(Color.white.opacity(0.1), lineWidth: 0.8))
+                .nativeInput()
 
                 Button { vm.saveAPIKey() } label: {
                     HStack(spacing: 6) {

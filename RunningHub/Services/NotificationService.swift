@@ -208,19 +208,37 @@ final class NotificationService {
     // MARK: - Notify (called when task status changes to completed/failed)
 
     func notify(task: RHTask) {
-        let isSuccess = task.status == .completed
-        let title = isSuccess ? "任务完成 ✓" : "任务失败"
-        let name  = task.workflowName.isEmpty ? task.workflowType : task.workflowName
-        let body  = isSuccess
-            ? "\(name) 已生成完毕，点击查看结果"
-            : "\(name) 执行失败：\(task.errorMsg ?? "未知错误")"
+        let name = task.workflowName.isEmpty ? task.workflowType : task.workflowName
 
-        // In-app banner (must be on main thread)
+        let (title, body, isSuccess): (String, String, Bool)
+        switch task.status {
+        case .queued:
+            title = "任务排队中 ⏳"
+            body  = "\(name) 已加入队列，等待执行"
+            isSuccess = true
+        case .running:
+            title = "任务生成中 ⚡"
+            body  = "\(name) 正在生成，请稍候..."
+            isSuccess = true
+        case .completed:
+            title = "任务完成 ✓"
+            body  = "\(name) 已生成完毕，点击查看结果"
+            isSuccess = true
+        case .failed:
+            title = "任务失败"
+            body  = "\(name) 执行失败：\(task.errorMsg ?? "未知错误")"
+            isSuccess = false
+        case .cancelled:
+            title = "任务已取消"
+            body  = "\(name) 已被取消"
+            isSuccess = false
+        case .pending:
+            return
+        }
+
         DispatchQueue.main.async { [weak self] in
             self?.showBanner(title: title, body: body, isSuccess: isSuccess)
         }
-
-        // System push (fires even when app is backgrounded)
         scheduleSystemNotification(title: title, body: body, taskId: task.id, isSuccess: isSuccess)
     }
 

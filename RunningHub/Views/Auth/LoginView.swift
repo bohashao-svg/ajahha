@@ -98,13 +98,10 @@ struct LoginView: View {
                     HStack(spacing: 12) {
                         Image(systemName: "person")
                             .font(.system(size: 15, weight: .medium))
-                            .foregroundColor(focusedField == .username ? Color(hex: "#6C8EFF") : Color(hex: "#8B9CC8"))
+                            .foregroundColor(focusedField == .username ? Color(hex: "#6C8EFF") : Color(UIColor.secondaryLabel))
                             .frame(width: 20)
-                            .animation(.easeInOut(duration: 0.2), value: focusedField)
-
                         TextField("用户名", text: $vm.username)
                             .font(.system(size: 15))
-                            .foregroundColor(Color(hex: "#F0F4FF"))
                             .tint(Color(hex: "#6C8EFF"))
                             .autocapitalization(.none)
                             .disableAutocorrection(true)
@@ -112,60 +109,23 @@ struct LoginView: View {
                             .submitLabel(.next)
                             .onSubmit { focusedField = .password }
                     }
-                    .padding(.horizontal, 16).padding(.vertical, 14)
-                    .background(
-                        LiquidGlassShape(radius: 14)
-                            .fill(Color.white.opacity(focusedField == .username ? 0.1 : 0.05))
-                    )
-                    .overlay(
-                        LiquidGlassShape(radius: 14)
-                            .stroke(
-                                focusedField == .username
-                                    ? Color(hex: "#6C8EFF").opacity(0.7)
-                                    : Color.white.opacity(0.1),
-                                lineWidth: focusedField == .username ? 1.5 : 0.8
-                            )
-                    )
-                    .shadow(
-                        color: focusedField == .username ? Color(hex: "#6C8EFF").opacity(0.2) : .clear,
-                        radius: 12, x: 0, y: 0
-                    )
+                    .nativeInput(focused: focusedField == .username)
                     .animation(.easeInOut(duration: 0.2), value: focusedField)
 
                     // Password field
                     HStack(spacing: 12) {
                         Image(systemName: "lock")
                             .font(.system(size: 15, weight: .medium))
-                            .foregroundColor(focusedField == .password ? Color(hex: "#6C8EFF") : Color(hex: "#8B9CC8"))
+                            .foregroundColor(focusedField == .password ? Color(hex: "#6C8EFF") : Color(UIColor.secondaryLabel))
                             .frame(width: 20)
-                            .animation(.easeInOut(duration: 0.2), value: focusedField)
-
                         SecureField("密码", text: $vm.password)
                             .font(.system(size: 15))
-                            .foregroundColor(Color(hex: "#F0F4FF"))
                             .tint(Color(hex: "#6C8EFF"))
                             .focused($focusedField, equals: .password)
                             .submitLabel(.go)
                             .onSubmit { if !vm.isBlank { Task { await vm.login() } } }
                     }
-                    .padding(.horizontal, 16).padding(.vertical, 14)
-                    .background(
-                        LiquidGlassShape(radius: 14)
-                            .fill(Color.white.opacity(focusedField == .password ? 0.1 : 0.05))
-                    )
-                    .overlay(
-                        LiquidGlassShape(radius: 14)
-                            .stroke(
-                                focusedField == .password
-                                    ? Color(hex: "#6C8EFF").opacity(0.7)
-                                    : Color.white.opacity(0.1),
-                                lineWidth: focusedField == .password ? 1.5 : 0.8
-                            )
-                    )
-                    .shadow(
-                        color: focusedField == .password ? Color(hex: "#6C8EFF").opacity(0.2) : .clear,
-                        radius: 12, x: 0, y: 0
-                    )
+                    .nativeInput(focused: focusedField == .password)
                     .animation(.easeInOut(duration: 0.2), value: focusedField)
 
                     // Error message

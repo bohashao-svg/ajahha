@@ -188,9 +188,7 @@ struct HomeView: View {
                     .font(.system(size: 15)).foregroundColor(Color(hex: "#F0F4FF"))
                     .tint(Color(hex: "#6C8EFF"))
                     .autocapitalization(.none).disableAutocorrection(true)
-                    .padding(.horizontal, 12).padding(.vertical, 10)
-                    .background(LiquidGlassShape(radius: 10).fill(Color.white.opacity(0.05)))
-                    .overlay(LiquidGlassShape(radius: 10).stroke(Color.white.opacity(0.1), lineWidth: 0.8))
+                    .nativeInput()
                     .onSubmit { fetchUnified() }
 
                 Button { fetchUnified() } label: {

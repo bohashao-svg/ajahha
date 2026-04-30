@@ -212,7 +212,6 @@ final class GachaViewModel: ObservableObject {
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.timeoutInterval = 30
 
-        // Build node inputs: extra fields + prompt fields from workflowDetail
         var nodeInputs: [[String: String]] = []
 
         // Extra fields (image/lora)
@@ -220,7 +219,7 @@ final class GachaViewModel: ObservableObject {
             nodeInputs.append(["nodeId": f.nodeId, "fieldName": f.fieldName, "fieldValue": f.value])
         }
 
-        // Prompt fields from workflow
+        // Prompt fields — scan workflowDetail for text/prompt inputs
         if let detail = workflowDetail {
             let nodeDict = detail.parsedNodes
             for (nodeId, node) in nodeDict {
@@ -235,6 +234,18 @@ final class GachaViewModel: ObservableObject {
             }
         }
 
+        // Fallback: if no prompt node found via parsedNodes, use promptNodeLabels
+        // (these were detected during fetchTarget and stored separately)
+        if nodeInputs.filter({ $0["fieldName"] == "text" || $0["fieldName"] == "prompt" }).isEmpty {
+            for label in promptNodeLabels {
+                // promptNodeLabels stores "nodeId::fieldName" format
+                let parts = label.split(separator: "::", maxSplits: 1).map(String.init)
+                if parts.count == 2 {
+                    nodeInputs.append(["nodeId": parts[0], "fieldName": parts[1], "fieldValue": prompt])
+                }
+            }
+        }
+
         let body: [String: Any] = [
             "apiKey": gachaApiKey,
             "workflowId": resolvedId,
@@ -244,12 +255,17 @@ final class GachaViewModel: ObservableObject {
 
         let (data, _) = try await URLSession.shared.data(for: req)
 
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let code = json["code"] as? Int, code == 0,
-              let dataDict = json["data"] as? [String: Any],
-              let taskId = dataDict["taskId"] as? String else {
-            let msg = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["msg"] as? String
-            throw URLError(.badServerResponse, userInfo: [NSLocalizedDescriptionKey: msg ?? "提交失败"])
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw URLError(.badServerResponse, userInfo: [NSLocalizedDescriptionKey: "服务器返回无效数据"])
+        }
+        let code = json["code"] as? Int ?? -1
+        let serverMsg = json["msg"] as? String ?? "提交失败"
+        guard code == 0 else {
+            throw URLError(.badServerResponse, userInfo: [NSLocalizedDescriptionKey: serverMsg])
+        }
+        guard let dataDict = json["data"] as? [String: Any],
+              let taskId = dataDict["taskId"] as? String, !taskId.isEmpty else {
+            throw URLError(.badServerResponse, userInfo: [NSLocalizedDescriptionKey: "服务器未返回 taskId（\(serverMsg)）"])
         }
         return taskId
     }
@@ -280,12 +296,18 @@ final class GachaViewModel: ObservableObject {
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let (data, _) = try await URLSession.shared.data(for: req)
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let code = json["code"] as? Int, code == 0,
-              let dataDict = json["data"] as? [String: Any],
-              let taskId = dataDict["taskId"] as? String else {
-            let msg = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["msg"] as? String
-            throw URLError(.badServerResponse, userInfo: [NSLocalizedDescriptionKey: msg ?? "提交失败"])
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw URLError(.badServerResponse, userInfo: [NSLocalizedDescriptionKey: "服务器返回无效数据"])
+        }
+        let code = json["code"] as? Int ?? -1
+        let serverMsg = json["msg"] as? String ?? "提交失败"
+        guard code == 0 else {
+            throw URLError(.badServerResponse, userInfo: [NSLocalizedDescriptionKey: serverMsg])
+        }
+        guard let dataDict = json["data"] as? [String: Any],
+              let taskId = dataDict["taskId"] as? String, !taskId.isEmpty else {
+            throw URLError(.badServerResponse, userInfo: [NSLocalizedDescriptionKey: "服务器未返回 taskId（\(serverMsg)）"])
+        }
         }
         return taskId
     }

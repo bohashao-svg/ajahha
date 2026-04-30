@@ -189,8 +189,31 @@ extension View {
     }
 }
 
-// MARK: - Liquid Glass Button Style
-// Combines Material's spring press feedback with liquid glass visual
+// MARK: - Native Input Field Style
+// Plain system appearance — no glass background on text inputs per design requirement.
+struct NativeInputStyle: ViewModifier {
+    var focused: Bool = false
+    func body(content: Content) -> some View {
+        content
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(Color(UIColor.secondarySystemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(
+                        focused ? Color(hex: "#6C8EFF").opacity(0.7) : Color(UIColor.separator).opacity(0.5),
+                        lineWidth: focused ? 1.5 : 0.8
+                    )
+            )
+    }
+}
+
+extension View {
+    func nativeInput(focused: Bool = false) -> some View {
+        modifier(NativeInputStyle(focused: focused))
+    }
+}
 struct LiquidButtonStyle: ButtonStyle {
     var color: Color = .rhAccent
     var isDestructive: Bool = false
