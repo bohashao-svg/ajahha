@@ -82,7 +82,20 @@ final class GachaViewModel: ObservableObject {
 
         // Try workflow first
         do {
-            let detail = try await fetchWorkflowDetail(workflowId: parsed)
+            var workflowId = parsed
+            var detail: WorkflowDetailResponse
+            do {
+                detail = try await fetchWorkflowDetail(workflowId: workflowId)
+            } catch {
+                // Workflow not in user's workspace — auto-fork then retry
+                let msg = (error as? URLError)?.localizedDescription ?? error.localizedDescription
+                if msg.contains("NOT_SAVED") || msg.contains("WORKFLOW_NOT") || msg.contains("WORKFLOW_NOT_EXISTS") {
+                    workflowId = try await duplicateWorkflow(workflowId: workflowId)
+                    detail = try await fetchWorkflowDetail(workflowId: workflowId)
+                } else {
+                    throw error
+                }
+            }
             workflowDetail = detail
             let nodes = detail.allNodes
             workflowType = WorkflowType.detect(from: nodes)
@@ -90,7 +103,7 @@ final class GachaViewModel: ObservableObject {
             isTTEncoded = TTDecodeService.shared.detectTTNode(in: nodes)
             extraFields = buildExtraFields(from: detail)
             isWebApp = false
-            resolvedId = parsed
+            resolvedId = workflowId
             targetLoaded = true
             return
         } catch {}
@@ -411,6 +424,23 @@ final class GachaViewModel: ObservableObject {
     }
 
     // MARK: - Private API helpers (use gachaApiKey)
+    private func duplicateWorkflow(workflowId: String) async throws -> String {
+        guard let url = URL(string: baseURL + "/api/openapi/workflow/duplicate") else { throw URLError(.badURL) }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.timeoutInterval = 30
+        req.httpBody = try JSONSerialization.data(withJSONObject: ["apiKey": gachaApiKey, "workflowId": workflowId])
+        let (data, _) = try await URLSession.shared.data(for: req)
+        let decoder = JSONDecoder()
+        struct Res: Codable { let workflowId: String? }
+        let wrapper = try decoder.decode(APIResponse<Res>.self, from: data)
+        guard wrapper.isSuccess, let result = wrapper.data else {
+            throw URLError(.badServerResponse, userInfo: [NSLocalizedDescriptionKey: wrapper.msg ?? "复制工作流失败"])
+        }
+        return result.workflowId ?? workflowId
+    }
+
     private func fetchWorkflowDetail(workflowId: String) async throws -> WorkflowDetailResponse {
         guard let url = URL(string: baseURL + "/api/openapi/getJsonApiFormat") else { throw URLError(.badURL) }
         var req = URLRequest(url: url)
