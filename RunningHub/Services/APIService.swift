@@ -247,17 +247,21 @@ final class APIService {
             return TaskOutputsPollResult(status: .completed, outputUrls: urls, errorMessage: nil)
         }
 
-        // data is dict → task still in progress
+        // data is dict → task still in progress or queued
         if let dict = dataField as? [String: Any] {
             let rawStatus = (dict["taskStatus"] as? String ?? "").uppercased()
             let errMsg = dict["errorMessage"] as? String
+            let hasWss = (dict["netWssUrl"] as? String)?.isEmpty == false
+
             let status: TaskStatus
             switch rawStatus {
             case "SUCCESS":   status = .completed
             case "RUNNING":   status = .running
             case "FAILED":    status = .failed
             case "CANCELLED": status = .cancelled
-            default:          status = .queued
+            default:
+                // taskStatus 字段缺失时，有 netWssUrl 说明已在运行，否则还在排队
+                status = hasWss ? .running : .queued
             }
             return TaskOutputsPollResult(status: status, outputUrls: [], errorMessage: errMsg)
         }
