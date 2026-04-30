@@ -69,6 +69,18 @@ final class TaskPollingService {
                 if localTask.status != lastNotifiedStatus {
                     lastNotifiedStatus = localTask.status
                     NotificationService.shared.notify(task: snapshot)
+                    // Update or end the Live Activity to match the new status
+                    await MainActor.run {
+                        if snapshot.isFinished {
+                            LiveActivityService.shared.end(task: snapshot)
+                        } else {
+                            LiveActivityService.shared.update(task: snapshot)
+                        }
+                    }
+                } else if localTask.status == .running {
+                    // Progress may have changed even if status didn't — keep updating
+                    let snap = snapshot
+                    await MainActor.run { LiveActivityService.shared.update(task: snap) }
                 }
             } catch {
                 // On network error wait 5s before retry

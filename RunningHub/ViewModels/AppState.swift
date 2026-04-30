@@ -21,6 +21,7 @@ final class AppState: ObservableObject {
         tasks.insert(task, at: 0)
         StorageService.shared.upsertTask(task)
         TaskPollingService.shared.startPolling(task: task)
+        LiveActivityService.shared.start(task: task)
     }
 
     func updateTask(_ task: RHTask) {

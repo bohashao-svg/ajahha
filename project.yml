@@ -2,14 +2,14 @@ name: RunningHub
 options:
   bundleIdPrefix: com.runninghub
   deploymentTarget:
-    iOS: "16.0"
+    iOS: "16.2"
   xcodeVersion: "15.0"
   createIntermediateGroups: true
 
 settings:
   base:
     SWIFT_VERSION: 5.9
-    IPHONEOS_DEPLOYMENT_TARGET: 16.0
+    IPHONEOS_DEPLOYMENT_TARGET: 16.2
     TARGETED_DEVICE_FAMILY: 1
     PRODUCT_BUNDLE_IDENTIFIER: com.runninghub.ios
     PRODUCT_NAME: 人民万岁
@@ -31,6 +31,8 @@ targets:
           - "**/*.md"
           - "Libraries/XLActionController/Info.plist"
           - "Libraries/XLActionController/*.h"
+      # Shared Live Activity model — also compiled into the Widget Extension
+      - path: RunningHubWidgets/TaskActivityAttributes.swift
     info:
       path: RunningHub/Info.plist
       properties:
@@ -48,8 +50,35 @@ targets:
         CFBundleIconName: AppIcon
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
+        NSSupportsLiveActivities: true
     settings:
       base:
         INFOPLIST_FILE: RunningHub/Info.plist
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS: YES
+    dependencies:
+      - target: RunningHubWidgets
+        embed: true
+
+  RunningHubWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: RunningHubWidgets
+    info:
+      path: RunningHubWidgets/Info.plist
+      properties:
+        CFBundleDisplayName: RunningHubWidgets
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.runninghub.ios.widgets
+        PRODUCT_NAME: RunningHubWidgets
+        INFOPLIST_FILE: RunningHubWidgets/Info.plist
+        SWIFT_VERSION: 5.9
+        IPHONEOS_DEPLOYMENT_TARGET: 16.2
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: ""
+        CODE_SIGNING_REQUIRED: NO
+        CODE_SIGNING_ALLOWED: NO
