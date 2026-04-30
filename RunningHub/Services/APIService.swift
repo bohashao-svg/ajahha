@@ -204,57 +204,46 @@ final class APIService {
     /// data = dict (still running) OR array (completed with file URLs)
     func pollTaskOutputs(taskId: String) async throws -> TaskOutputsPollResult {
         guard !apiKey.isEmpty else { throw APIError.noAPIKey }
-        guard let url = URL(string: baseURL + "/task/openapi/outputs") else { throw APIError.invalidURL }
+        // Use V2 query API — returns status field directly, no ambiguous data shape
+        guard let url = URL(string: baseURL + "/openapi/v2/query") else { throw APIError.invalidURL }
 
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         req.timeoutInterval = 30
-        struct Body: Encodable { let apiKey: String; let taskId: String }
-        req.httpBody = try JSONEncoder().encode(Body(apiKey: apiKey, taskId: taskId))
+
+        struct Body: Encodable { let taskId: String }
+        req.httpBody = try JSONEncoder().encode(Body(taskId: taskId))
 
         let (data, _) = try await URLSession.shared.data(for: req)
 
-        // Parse outer wrapper manually to handle polymorphic data
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw APIError.invalidResponse
         }
-        let code = json["code"] as? Int ?? -1
-        let msg = json["msg"] as? String
 
-        guard code == 0 else {
-            return TaskOutputsPollResult(status: .queued, outputUrls: [], errorMessage: nil)
+        // V2 response: top-level status + results array
+        // { taskId, status, errorCode, errorMessage, results: [{url, outputType}] }
+        let rawStatus = (json["status"] as? String ?? "").uppercased()
+        let errorMessage = json["errorMessage"] as? String
+
+        let status: TaskStatus
+        switch rawStatus {
+        case "SUCCESS":   status = .completed
+        case "RUNNING":   status = .running
+        case "FAILED":    status = .failed
+        case "CANCELLED": status = .cancelled
+        case "QUEUED":    status = .queued
+        default:          status = .queued
         }
 
-        let dataField = json["data"]
-
-        // data is array → task completed, contains output files
-        if let items = dataField as? [[String: Any]] {
-            let urls = items.compactMap { $0["fileUrl"] as? String }
-            return TaskOutputsPollResult(status: .completed, outputUrls: urls, errorMessage: nil)
+        // Extract output URLs from results array
+        var outputUrls: [String] = []
+        if let results = json["results"] as? [[String: Any]] {
+            outputUrls = results.compactMap { $0["url"] as? String }
         }
 
-        // data is dict → task still in progress or queued
-        if let dict = dataField as? [String: Any] {
-            let rawStatus = (dict["taskStatus"] as? String ?? "").uppercased()
-            let errMsg = dict["errorMessage"] as? String
-            let hasWss = (dict["netWssUrl"] as? String)?.isEmpty == false
-
-            let status: TaskStatus
-            switch rawStatus {
-            case "SUCCESS":   status = .completed
-            case "RUNNING":   status = .running
-            case "FAILED":    status = .failed
-            case "CANCELLED": status = .cancelled
-            default:
-                // taskStatus 字段缺失时，有 netWssUrl 说明已在运行，否则还在排队
-                status = hasWss ? .running : .queued
-            }
-            return TaskOutputsPollResult(status: status, outputUrls: [], errorMessage: errMsg)
-        }
-
-        // data is null/missing → still queued
-        return TaskOutputsPollResult(status: .queued, outputUrls: [], errorMessage: nil)
+        return TaskOutputsPollResult(status: status, outputUrls: outputUrls, errorMessage: errorMessage)
     }
 
     /// POST /task/openapi/upload — multipart/form-data 上传图片，返回文件名
