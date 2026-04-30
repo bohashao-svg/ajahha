@@ -180,7 +180,7 @@ final class APIService {
     }
     /// Response is wrapped in APIResponse<TaskQueryResponse>
     func queryTask(taskId: String) async throws -> TaskQueryResponse {
-        guard !apiKey.isEmpty else { throw APIError.noAPIKey }
+        guard !authToken.isEmpty else { throw APIError.noAPIKey }
         guard let url = URL(string: baseURL + "/openapi/v2/query") else { throw APIError.invalidURL }
 
         var req = URLRequest(url: url)
@@ -189,7 +189,7 @@ final class APIService {
         req.timeoutInterval = 30
 
         struct Body: Encodable { let apiKey: String; let taskId: String }
-        req.httpBody = try JSONEncoder().encode(Body(apiKey: apiKey, taskId: taskId))
+        req.httpBody = try JSONEncoder().encode(Body(apiKey: authToken, taskId: taskId))
 
         let (data, _) = try await URLSession.shared.data(for: req)
         #if DEBUG
@@ -209,7 +209,7 @@ final class APIService {
     /// POST /task/openapi/outputs — polymorphic poll used by Python SDK
     /// data = dict (still running) OR array (completed with file URLs)
     func pollTaskOutputs(taskId: String) async throws -> TaskOutputsPollResult {
-        guard !apiKey.isEmpty else { throw APIError.noAPIKey }
+        guard !authToken.isEmpty else { throw APIError.noAPIKey }
         guard let url = URL(string: baseURL + "/task/openapi/outputs") else { throw APIError.invalidURL }
 
         var req = URLRequest(url: url)
@@ -217,7 +217,7 @@ final class APIService {
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.timeoutInterval = 30
         struct Body: Encodable { let apiKey: String; let taskId: String }
-        req.httpBody = try JSONEncoder().encode(Body(apiKey: apiKey, taskId: taskId))
+        req.httpBody = try JSONEncoder().encode(Body(apiKey: authToken, taskId: taskId))
 
         let (data, _) = try await URLSession.shared.data(for: req)
         #if DEBUG
