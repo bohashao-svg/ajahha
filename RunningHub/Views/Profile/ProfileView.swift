@@ -4,7 +4,10 @@ import SwiftUI
 struct ProfileView: View {
     @StateObject private var vm = ProfileViewModel()
     @Environment(\.dismiss) private var dismiss
+
+    // 自动弹出详情：始终存在的 NavigationLink，通过 isActive 驱动
     @State private var selectedItem: OutputHistoryItem? = nil
+    @State private var isDetailActive = false
 
     private let columns = [
         GridItem(.flexible(), spacing: 10),
@@ -13,61 +16,61 @@ struct ProfileView: View {
 
     var body: some View {
         NavigationView {
-            ZStack {
-                // Hidden NavigationLink driven by selectedItem — outside grid
-                // so it doesn't consume a grid cell
-                if let item = selectedItem {
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 0) {
+                    // 始终存在的隐藏 NavigationLink（不在条件块里，不会被销毁）
                     NavigationLink(
-                        destination: TaskDetailView(
-                            task: item.asRHTask(),
-                            vm: TaskCenterViewModel(),
-                            appState: AppState.shared
-                        ),
-                        isActive: Binding(
-                            get: { selectedItem != nil },
-                            set: { if !$0 { selectedItem = nil } }
-                        )
-                    ) { EmptyView() }
-                    .hidden()
-                }
-
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 0) {
-                        headerStrip
-                            .padding(.horizontal, 16)
-                            .padding(.top, 12)
-                            .padding(.bottom, 16)
-
-                        if vm.isLoading && vm.outputs.isEmpty {
-                            skeletonGrid
-                        } else if vm.outputs.isEmpty {
-                            emptyState
-                        } else {
-                            outputGrid
-                        }
-
-                        if vm.hasNext {
-                            Button {
-                                Task { await vm.loadPage(vm.currentPage + 1) }
-                            } label: {
-                                HStack(spacing: 6) {
-                                    if vm.isLoading {
-                                        ProgressView().scaleEffect(0.7).tint(Color(hex: "#6C8EFF"))
-                                    }
-                                    Text("加载更多")
-                                        .font(.system(size: 14, weight: .medium))
-                                        .foregroundColor(Color(hex: "#6C8EFF"))
-                                }
-                                .frame(maxWidth: .infinity).frame(height: 46)
-                                .background(Color(hex: "#6C8EFF").opacity(0.08))
-                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        destination: Group {
+                            if let item = selectedItem {
+                                TaskDetailView(
+                                    task: item.asRHTask(),
+                                    vm: TaskCenterViewModel(),
+                                    appState: AppState.shared
+                                )
+                            } else {
+                                EmptyView()
                             }
-                            .buttonStyle(LiquidButtonStyle())
-                            .padding(.horizontal, 16).padding(.vertical, 12)
-                        }
+                        },
+                        isActive: $isDetailActive
+                    ) { EmptyView() }
+                    .frame(width: 0, height: 0)
+                    .opacity(0)
+                    .disabled(true)
 
-                        Spacer(minLength: 30)
+                    headerStrip
+                        .padding(.horizontal, 16)
+                        .padding(.top, 12)
+                        .padding(.bottom, 16)
+
+                    if vm.isLoading && vm.outputs.isEmpty {
+                        skeletonGrid
+                    } else if vm.outputs.isEmpty {
+                        emptyState
+                    } else {
+                        outputGrid
                     }
+
+                    if vm.hasNext {
+                        Button {
+                            Task { await vm.loadPage(vm.currentPage + 1) }
+                        } label: {
+                            HStack(spacing: 6) {
+                                if vm.isLoading {
+                                    ProgressView().scaleEffect(0.7).tint(Color(hex: "#6C8EFF"))
+                                }
+                                Text("加载更多")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(Color(hex: "#6C8EFF"))
+                            }
+                            .frame(maxWidth: .infinity).frame(height: 46)
+                            .background(Color(hex: "#6C8EFF").opacity(0.08))
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+                        .buttonStyle(LiquidButtonStyle())
+                        .padding(.horizontal, 16).padding(.vertical, 12)
+                    }
+
+                    Spacer(minLength: 30)
                 }
             }
             .background(AnimatedMeshBackground().ignoresSafeArea())
@@ -101,7 +104,7 @@ struct ProfileView: View {
     // MARK: - Header Strip
     private var headerStrip: some View {
         HStack(spacing: 14) {
-            // 图库风格图标（非人形）
+            // 图库风格图标
             ZStack {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .fill(LinearGradient(
@@ -146,12 +149,16 @@ struct ProfileView: View {
     }
 
     // MARK: - Output Grid
-    // NavigationLink 在 grid 外部，每个 cell 只有一个 Button，双列正常
+    // 每个 cell 只有一个 Button，双列正常
     private var outputGrid: some View {
         LazyVGrid(columns: columns, spacing: 10) {
             ForEach(vm.outputs) { item in
                 Button {
                     selectedItem = item
+                    // 短暂延迟确保 selectedItem 已赋值再触发 push
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                        isDetailActive = true
+                    }
                 } label: {
                     outputCell(item)
                 }

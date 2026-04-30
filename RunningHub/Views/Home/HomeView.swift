@@ -117,17 +117,9 @@ struct HomeView: View {
         }
         ToolbarItem(placement: .navigationBarTrailing) {
             Button { showProfile = true } label: {
-                ZStack {
-                    Circle()
-                        .fill(LinearGradient(
-                            colors: [Color(hex: "#6C8EFF"), Color(hex: "#A78BFA")],
-                            startPoint: .topLeading, endPoint: .bottomTrailing
-                        ))
-                        .frame(width: 30, height: 30)
-                    Image(systemName: "person.fill")
-                        .font(.system(size: 13))
-                        .foregroundColor(.white)
-                }
+                Image(systemName: "photo.stack.fill")
+                    .font(.system(size: 17, weight: .medium))
+                    .foregroundColor(Color.white.opacity(0.7))
             }
         }
     }
