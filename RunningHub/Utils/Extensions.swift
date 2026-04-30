@@ -37,26 +37,23 @@ extension Date {
     }
 }
 
-// MARK: - Liquid Glass Color System
+// MARK: - Color
 extension Color {
-    // Core semantic colors — deep space palette
-    static let rhBackground   = Color(hex: "#0A0E1A")   // deep space navy
-    static let rhCard         = Color(hex: "#111827")   // glass card base
-    static let rhPrimary      = Color(hex: "#F0F4FF")   // near-white text
-    static let rhAccent       = Color(hex: "#6C8EFF")   // electric blue
-    static let rhGold         = Color(hex: "#FFD166")   // warm gold
-    static let rhSecondary    = Color(hex: "#8B9CC8")   // muted blue-grey
-    static let rhSuccess      = Color(hex: "#4ECDC4")   // teal
-    static let rhError        = Color(hex: "#FF6B6B")   // coral red
-    static let rhWarning      = Color(hex: "#FFD166")   // gold
-    static let rhBorder       = Color(hex: "#2A3550")   // subtle border
-    static let rhAccentSoft   = Color(hex: "#1A2340")   // accent tint bg
-    // Glass-specific
+    static let rhBackground   = Color(hex: "#0A0E1A")
+    static let rhCard         = Color(hex: "#111827")
+    static let rhPrimary      = Color(hex: "#F0F4FF")
+    static let rhAccent       = Color(hex: "#6C8EFF")
+    static let rhGold         = Color(hex: "#FFD166")
+    static let rhSecondary    = Color(hex: "#8B9CC8")
+    static let rhSuccess      = Color(hex: "#4ECDC4")
+    static let rhError        = Color(hex: "#FF6B6B")
+    static let rhWarning      = Color(hex: "#FFD166")
+    static let rhBorder       = Color(hex: "#2A3550")
+    static let rhAccentSoft   = Color(hex: "#1A2340")
     static let rhInk          = Color(hex: "#0A0E1A")
     static let rhPaper        = Color(hex: "#0A0E1A")
     static let rhRedMuted     = Color(hex: "#1F1520")
     static let rhGoldLight    = Color(hex: "#1A1608")
-    // Glass surface tints
     static let glassWhite     = Color.white.opacity(0.06)
     static let glassBorder    = Color.white.opacity(0.12)
     static let glassHighlight = Color.white.opacity(0.18)
@@ -117,10 +114,9 @@ struct LiquidGlassShape: Shape {
     }
 }
 
-// Legacy alias — keeps all existing call sites compiling
 typealias SketchRoundedRect = LiquidGlassShape
 
-// MARK: - Glass Background ViewModifier
+// MARK: - Glass Background
 struct GlassBackground: ViewModifier {
     var radius: CGFloat = 16
     var intensity: Double = 1.0
@@ -132,16 +128,14 @@ struct GlassBackground: ViewModifier {
                     .fill(Color(hex: "#111827").opacity(0.72 * intensity))
                     .overlay(
                         LiquidGlassShape(radius: radius)
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        Color.white.opacity(0.09 * intensity),
-                                        Color.white.opacity(0.02 * intensity)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
+                            .fill(LinearGradient(
+                                colors: [
+                                    Color.white.opacity(0.09 * intensity),
+                                    Color.white.opacity(0.02 * intensity)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ))
                     )
             )
             .overlay(
@@ -163,34 +157,23 @@ struct GlassBackground: ViewModifier {
 
 // MARK: - View Extensions
 extension View {
-    /// Primary liquid glass card — single shadow only to avoid offscreen render
     func glassCard(radius: CGFloat = 18, intensity: Double = 1.0) -> some View {
         self.modifier(GlassBackground(radius: radius, intensity: intensity))
             .shadow(color: Color.black.opacity(0.30), radius: 16, x: 0, y: 6)
     }
-
-    /// Legacy card style — now renders as glass
     func rhCard(padding: CGFloat = 16, cornerRadius: CGFloat = 16) -> some View {
-        self
-            .padding(padding)
-            .glassCard(radius: cornerRadius)
+        self.padding(padding).glassCard(radius: cornerRadius)
     }
-
-    /// Sketch card — now renders as glass
     func sketchCard(padding: CGFloat = 16) -> some View {
-        self
-            .padding(padding)
-            .glassCard(radius: 16)
+        self.padding(padding).glassCard(radius: 16)
     }
-
     func hideKeyboard() {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder),
                                         to: nil, from: nil, for: nil)
     }
 }
 
-// MARK: - Native Input Field Style
-// Plain system appearance — no glass background on text inputs per design requirement.
+// MARK: - Native Input Style
 struct NativeInputStyle: ViewModifier {
     var focused: Bool = false
     func body(content: Content) -> some View {
@@ -214,6 +197,8 @@ extension View {
         modifier(NativeInputStyle(focused: focused))
     }
 }
+
+// MARK: - Button Style
 struct LiquidButtonStyle: ButtonStyle {
     var color: Color = .rhAccent
     var isDestructive: Bool = false
@@ -226,14 +211,12 @@ struct LiquidButtonStyle: ButtonStyle {
     }
 }
 
-// Legacy alias
 typealias ScaleButtonStyle = LiquidButtonStyle
 
-// MARK: - Glow Modifier
+// MARK: - Glow
 struct GlowModifier: ViewModifier {
     var color: Color
     var radius: CGFloat = 12
-
     func body(content: Content) -> some View {
         content
             .shadow(color: color.opacity(0.6), radius: radius / 2, x: 0, y: 0)
@@ -247,9 +230,8 @@ extension View {
     }
 }
 
-// MARK: - Animated Mesh Background
-// Two alternating spotlight beams sweeping across a dark plane.
-// Uses Canvas + opacity-only animation — zero layout side-effects on ScrollView.
+// MARK: - Animated Spotlight Background
+// 两束交替扫描的探照灯，纯 Canvas 渲染，不影响 ScrollView 布局。
 struct AnimatedMeshBackground: View {
     @State private var phase: CGFloat = 0
 
@@ -260,72 +242,67 @@ struct AnimatedMeshBackground: View {
     }
 
     private var spotlights: some View {
-        TimelineView(.animation(minimumInterval: 1/60)) { tl in
-            Canvas { ctx, size in
-                let t = phase
-                let w = size.width
-                let h = size.height
+        // 用 TimelineView 驱动动画，phase 通过 onAppear 的 withAnimation 更新
+        Canvas { ctx, size in
+            let t = phase
+            let w = size.width
+            let h = size.height
 
-                // ── Beam 1: blue, sweeps left→right ──────────────────────
-                // Beam origin at top-left area, tip sweeps horizontally
-                let b1x = w * (0.15 + 0.55 * (0.5 + 0.5 * sin(t * 0.7)))
-                let b1y: CGFloat = 0
-                drawBeam(ctx: ctx, size: size,
-                         originX: b1x, originY: b1y,
-                         spreadAngle: 0.38,
-                         length: h * 1.1,
-                         color: Color(hex: "#6C8EFF"),
-                         opacity: 0.13 + 0.06 * sin(t * 1.1))
+            // 光束1：蓝色，从左向右扫
+            let b1x = w * (0.15 + 0.55 * (0.5 + 0.5 * sin(t * 0.7)))
+            drawBeam(&ctx, tipX: b1x, tipY: 0,
+                     spreadAngle: 0.38, length: h * 1.1,
+                     color: Color(hex: "#6C8EFF"),
+                     opacity: 0.13 + 0.06 * sin(t * 1.1))
 
-                // ── Beam 2: purple, sweeps right→left, offset phase ──────
-                let b2x = w * (0.85 - 0.55 * (0.5 + 0.5 * sin(t * 0.55 + 2.1)))
-                let b2y: CGFloat = 0
-                drawBeam(ctx: ctx, size: size,
-                         originX: b2x, originY: b2y,
-                         spreadAngle: 0.32,
-                         length: h * 1.05,
-                         color: Color(hex: "#A78BFA"),
-                         opacity: 0.10 + 0.05 * sin(t * 0.9 + 1.3))
+            // 光束2：紫色，从右向左扫，相位偏移
+            let b2x = w * (0.85 - 0.55 * (0.5 + 0.5 * sin(t * 0.55 + 2.1)))
+            drawBeam(&ctx, tipX: b2x, tipY: 0,
+                     spreadAngle: 0.32, length: h * 1.05,
+                     color: Color(hex: "#A78BFA"),
+                     opacity: 0.10 + 0.05 * sin(t * 0.9 + 1.3))
 
-                // ── Ambient floor glow ────────────────────────────────────
-                let floorRect = CGRect(x: 0, y: h * 0.7, width: w, height: h * 0.3)
-                ctx.opacity = 0.06
-                ctx.fill(Path(ellipseIn: floorRect),
-                         with: .linearGradient(
-                            Gradient(colors: [Color(hex: "#6C8EFF").opacity(0.4), .clear]),
-                            startPoint: CGPoint(x: w / 2, y: h * 0.7),
-                            endPoint:   CGPoint(x: w / 2, y: h)
-                         ))
-            }
+            // 地面环境光晕
+            var floorCtx = ctx
+            floorCtx.opacity = 0.06
+            let floorRect = CGRect(x: 0, y: h * 0.7, width: w, height: h * 0.3)
+            floorCtx.fill(
+                Path(ellipseIn: floorRect),
+                with: .linearGradient(
+                    Gradient(colors: [Color(hex: "#6C8EFF").opacity(0.4), .clear]),
+                    startPoint: CGPoint(x: w / 2, y: h * 0.7),
+                    endPoint:   CGPoint(x: w / 2, y: h)
+                )
+            )
         }
         .drawingGroup()
         .onAppear {
-            withAnimation(.linear(duration: 1).repeatForever(autoreverses: false)) {
-                phase = .pi * 2
+            withAnimation(.linear(duration: 8).repeatForever(autoreverses: false)) {
+                phase = .pi * 2 * 8   // 8秒一圈，与 duration 匹配
             }
         }
         .allowsHitTesting(false)
     }
 
-    private func drawBeam(ctx: GraphicsContext, size: CGSize,
-                          originX: CGFloat, originY: CGFloat,
+    // GraphicsContext 是值类型，用 inout 传递以便修改 opacity
+    private func drawBeam(_ ctx: inout GraphicsContext,
+                          tipX: CGFloat, tipY: CGFloat,
                           spreadAngle: CGFloat, length: CGFloat,
                           color: Color, opacity: CGFloat) {
-        let halfSpread = spreadAngle / 2
-        let tipX = originX
-        let tipY = originY
-        let leftX  = tipX - length * tan(halfSpread)
-        let rightX = tipX + length * tan(halfSpread)
+        let half   = spreadAngle / 2
+        let leftX  = tipX - length * tan(half)
+        let rightX = tipX + length * tan(half)
         let baseY  = tipY + length
 
         var beam = Path()
-        beam.move(to: CGPoint(x: tipX, y: tipY))
-        beam.addLine(to: CGPoint(x: leftX, y: baseY))
+        beam.move(to: CGPoint(x: tipX,   y: tipY))
+        beam.addLine(to: CGPoint(x: leftX,  y: baseY))
         beam.addLine(to: CGPoint(x: rightX, y: baseY))
         beam.closeSubpath()
 
-        ctx.opacity = opacity
-        ctx.fill(beam, with: .linearGradient(
+        var beamCtx = ctx
+        beamCtx.opacity = opacity
+        beamCtx.fill(beam, with: .linearGradient(
             Gradient(stops: [
                 .init(color: color.opacity(0.9), location: 0),
                 .init(color: color.opacity(0.3), location: 0.5),
@@ -336,7 +313,7 @@ struct AnimatedMeshBackground: View {
         ))
     }
 }
-                            endPoint:   CGPoint(x: r.midX, y: r.maxY)
+
 // MARK: - Task Status Color
 extension TaskStatus {
     var color: Color {
@@ -349,7 +326,6 @@ extension TaskStatus {
         case .cancelled: return Color(hex: "#8B9CC8")
         }
     }
-
     var uiColor: UIColor {
         switch self {
         case .queued, .pending: return UIColor(hex: "#FFD166")
@@ -362,10 +338,9 @@ extension TaskStatus {
 }
 
 // MARK: - App Icon System
-// Centralised SF Symbol names matching the app's AI/creative theme.
-// No emoji anywhere — all icons are SF Symbols.
+// 统一的 SF Symbol 映射，按功能分组，无重复原始值。
 enum RHIconName: String {
-    // Navigation & actions
+    // 导航与操作
     case settings       = "gearshape.fill"
     case close          = "xmark"
     case back           = "chevron.left"
@@ -374,7 +349,7 @@ enum RHIconName: String {
     case add            = "plus"
     case submit         = "paperplane.fill"
     case search         = "magnifyingglass"
-    case clear          = "xmark.circle.fill"
+    case clear          = "xmark.circle.fill"       // 清除输入框
     case delete         = "trash.fill"
     case save           = "square.and.arrow.down.fill"
     case share          = "square.and.arrow.up"
@@ -387,14 +362,14 @@ enum RHIconName: String {
     case info           = "info.circle"
     case warning        = "exclamationmark.triangle.fill"
     case success        = "checkmark.circle.fill"
-    case error          = "xmark.circle.fill"
+    case errorIcon      = "xmark.octagon.fill"      // 错误状态（区别于 clear）
     case lock           = "lock.fill"
-    case unlock         = "lock.open.fill"
+    case unlock         = "lock.open.fill"          // 解锁/解码入口
     case key            = "key.fill"
     case logout         = "rectangle.portrait.and.arrow.right"
     case clearHistory   = "clock.arrow.circlepath"
 
-    // Content types
+    // 内容类型
     case image          = "photo.fill"
     case video          = "video.fill"
     case audio          = "waveform"
@@ -408,7 +383,7 @@ enum RHIconName: String {
     case history        = "clock.fill"
     case gallery        = "photo.stack.fill"
 
-    // Status
+    // 任务状态
     case running        = "bolt.fill"
     case queued         = "hourglass"
     case completed      = "checkmark.seal.fill"
@@ -416,15 +391,15 @@ enum RHIconName: String {
     case cancelled      = "minus.circle.fill"
     case pending        = "clock.badge.fill"
 
-    // User & account
+    // 用户与账户
     case profile        = "person.crop.circle.fill"
     case premium        = "star.fill"
     case plus           = "crown.fill"
 
-    // Features
+    // 功能入口
     case grok           = "brain.head.profile"
     case gacha          = "square.stack.fill"
-    case decode         = "lock.open.fill"
+    case decodeAction   = "eye.fill"                // 解码操作按钮（区别于 unlock）
     case taskCenter     = "list.bullet.clipboard.fill"
     case notification   = "bell.fill"
     case sparkle        = "sparkles"

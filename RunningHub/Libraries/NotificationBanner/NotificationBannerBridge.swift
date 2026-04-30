@@ -225,18 +225,3 @@ extension View {
                                 subtitle: subtitle, style: style, duration: duration))
     }
 }
-
-// MARK: - Global Banner Helper (call from anywhere)
-
-enum RHBanner {
-    static func show(title: String, subtitle: String? = nil, style: BannerStyle = .info) {
-        DispatchQueue.main.async {
-            let banner = LiquidNotificationBanner(title: title, subtitle: subtitle, style: style)
-            banner.show()
-        }
-    }
-    static func success(_ title: String, subtitle: String? = nil) { show(title: title, subtitle: subtitle, style: .success) }
-    static func error(_ title: String, subtitle: String? = nil)   { show(title: title, subtitle: subtitle, style: .danger) }
-    static func warning(_ title: String, subtitle: String? = nil) { show(title: title, subtitle: subtitle, style: .warning) }
-    static func info(_ title: String, subtitle: String? = nil)    { show(title: title, subtitle: subtitle, style: .info) }
-}

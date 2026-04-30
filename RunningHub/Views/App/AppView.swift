@@ -8,7 +8,7 @@ struct AppView: View {
     var initialAppId: String = ""
 
     var body: some View {
-        ScrollView {
+        ScrollView(.vertical, showsIndicators: false) {
             VStack(spacing: 16) {
                 inputCard
                 if vm.isLoading {
