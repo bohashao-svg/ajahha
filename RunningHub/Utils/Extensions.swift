@@ -231,60 +231,56 @@ extension View {
 }
 
 // MARK: - Animated Spotlight Background
-// 两束交替扫描的探照灯，纯 Canvas 渲染，不影响 ScrollView 布局。
+// TimelineView 驱动，Canvas 直接从 date 计算 t，零 @State 变化，
+// 不触发任何 SwiftUI 布局 invalidation，ScrollView 完全静止。
 struct AnimatedMeshBackground: View {
-    @State private var phase: CGFloat = 0
+    // 记录启动时间，用于计算相对时间 t
+    private let startDate = Date()
 
     var body: some View {
         Color(hex: "#080C18")
             .ignoresSafeArea()
-            .overlay(spotlights.ignoresSafeArea())
-    }
+            .overlay(
+                TimelineView(.animation) { tl in
+                    let t = CGFloat(tl.date.timeIntervalSince(startDate))
+                    Canvas { ctx, size in
+                        let w = size.width
+                        let h = size.height
 
-    private var spotlights: some View {
-        // 用 TimelineView 驱动动画，phase 通过 onAppear 的 withAnimation 更新
-        Canvas { ctx, size in
-            let t = phase
-            let w = size.width
-            let h = size.height
+                        // 光束1：蓝色，左右扫
+                        let b1x = w * (0.15 + 0.55 * (0.5 + 0.5 * sin(t * 0.7)))
+                        drawBeam(&ctx, tipX: b1x, tipY: 0,
+                                 spreadAngle: 0.38, length: h * 1.1,
+                                 color: Color(hex: "#6C8EFF"),
+                                 opacity: 0.13 + 0.06 * sin(t * 1.1))
 
-            // 光束1：蓝色，从左向右扫
-            let b1x = w * (0.15 + 0.55 * (0.5 + 0.5 * sin(t * 0.7)))
-            drawBeam(&ctx, tipX: b1x, tipY: 0,
-                     spreadAngle: 0.38, length: h * 1.1,
-                     color: Color(hex: "#6C8EFF"),
-                     opacity: 0.13 + 0.06 * sin(t * 1.1))
+                        // 光束2：紫色，右左扫，相位偏移
+                        let b2x = w * (0.85 - 0.55 * (0.5 + 0.5 * sin(t * 0.55 + 2.1)))
+                        drawBeam(&ctx, tipX: b2x, tipY: 0,
+                                 spreadAngle: 0.32, length: h * 1.05,
+                                 color: Color(hex: "#A78BFA"),
+                                 opacity: 0.10 + 0.05 * sin(t * 0.9 + 1.3))
 
-            // 光束2：紫色，从右向左扫，相位偏移
-            let b2x = w * (0.85 - 0.55 * (0.5 + 0.5 * sin(t * 0.55 + 2.1)))
-            drawBeam(&ctx, tipX: b2x, tipY: 0,
-                     spreadAngle: 0.32, length: h * 1.05,
-                     color: Color(hex: "#A78BFA"),
-                     opacity: 0.10 + 0.05 * sin(t * 0.9 + 1.3))
-
-            // 地面环境光晕
-            var floorCtx = ctx
-            floorCtx.opacity = 0.06
-            let floorRect = CGRect(x: 0, y: h * 0.7, width: w, height: h * 0.3)
-            floorCtx.fill(
-                Path(ellipseIn: floorRect),
-                with: .linearGradient(
-                    Gradient(colors: [Color(hex: "#6C8EFF").opacity(0.4), .clear]),
-                    startPoint: CGPoint(x: w / 2, y: h * 0.7),
-                    endPoint:   CGPoint(x: w / 2, y: h)
-                )
+                        // 地面环境光晕
+                        var fc = ctx
+                        fc.opacity = 0.06
+                        fc.fill(
+                            Path(ellipseIn: CGRect(x: 0, y: h * 0.7, width: w, height: h * 0.3)),
+                            with: .linearGradient(
+                                Gradient(colors: [Color(hex: "#6C8EFF").opacity(0.4), .clear]),
+                                startPoint: CGPoint(x: w / 2, y: h * 0.7),
+                                endPoint:   CGPoint(x: w / 2, y: h)
+                            )
+                        )
+                    }
+                    // drawingGroup 把三层合并为一张 Metal 纹理，单次 GPU 提交
+                    .drawingGroup()
+                }
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
             )
-        }
-        .drawingGroup()
-        .onAppear {
-            withAnimation(.linear(duration: 8).repeatForever(autoreverses: false)) {
-                phase = .pi * 2 * 8   // 8秒一圈，与 duration 匹配
-            }
-        }
-        .allowsHitTesting(false)
     }
 
-    // GraphicsContext 是值类型，用 inout 传递以便修改 opacity
     private func drawBeam(_ ctx: inout GraphicsContext,
                           tipX: CGFloat, tipY: CGFloat,
                           spreadAngle: CGFloat, length: CGFloat,
@@ -295,14 +291,14 @@ struct AnimatedMeshBackground: View {
         let baseY  = tipY + length
 
         var beam = Path()
-        beam.move(to: CGPoint(x: tipX,   y: tipY))
+        beam.move(to:    CGPoint(x: tipX,   y: tipY))
         beam.addLine(to: CGPoint(x: leftX,  y: baseY))
         beam.addLine(to: CGPoint(x: rightX, y: baseY))
         beam.closeSubpath()
 
-        var beamCtx = ctx
-        beamCtx.opacity = opacity
-        beamCtx.fill(beam, with: .linearGradient(
+        var bc = ctx
+        bc.opacity = opacity
+        bc.fill(beam, with: .linearGradient(
             Gradient(stops: [
                 .init(color: color.opacity(0.9), location: 0),
                 .init(color: color.opacity(0.3), location: 0.5),
