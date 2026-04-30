@@ -180,54 +180,56 @@ final class HomeViewModel: ObservableObject {
 
             if ct.contains("loadimage") {
                 fields.append(FormField(
-                    nodeId: nodeId,
-                    fieldName: "image",
-                    label: title,
-                    placeholder: "图片 URL",
-                    value: "",
-                    type: .imageInput,
-                    promptRole: nil
+                    nodeId: nodeId, fieldName: "image", label: title,
+                    placeholder: "图片 URL", value: "", type: .imageInput, promptRole: nil
                 ))
             } else if ct.contains("lora") {
-                // LoRA 节点：lora_name 字段
                 let loraName = inputs["lora_name"]?.stringValue ?? inputs["lora"]?.stringValue ?? ""
                 fields.append(FormField(
-                    nodeId: nodeId,
-                    fieldName: "lora_name",
-                    label: title,
-                    placeholder: "选择 LoRA 模型...",
-                    value: loraName,
-                    type: .loraInput,
-                    promptRole: nil
+                    nodeId: nodeId, fieldName: "lora_name", label: title,
+                    placeholder: "选择 LoRA 模型...", value: loraName, type: .loraInput, promptRole: nil
                 ))
             } else if inputs.keys.contains("text") || inputs.keys.contains("prompt") {
                 let fieldName = inputs.keys.contains("text") ? "text" : "prompt"
                 let defaultText = inputs[fieldName]?.stringValue ?? ""
 
-                // If selectedPrompts provided, only include selected fields
                 if let selections = selectedPrompts {
                     if let selection = selections.first(where: { $0.nodeId == nodeId && $0.fieldName == fieldName }) {
                         fields.append(FormField(
-                            nodeId: nodeId,
-                            fieldName: fieldName,
+                            nodeId: nodeId, fieldName: fieldName,
                             label: selection.role == .positive ? "正向提示词" : "负向提示词",
-                            placeholder: "输入提示词...",
-                            value: defaultText,
-                            type: .multilineText,
-                            promptRole: selection.role
+                            placeholder: "输入提示词...", value: defaultText,
+                            type: .multilineText, promptRole: selection.role
                         ))
                     }
                 } else {
-                    // No selection dialog shown, include all
                     fields.append(FormField(
-                        nodeId: nodeId,
-                        fieldName: fieldName,
-                        label: title,
-                        placeholder: "输入提示词...",
-                        value: defaultText,
-                        type: .multilineText,
-                        promptRole: nil
+                        nodeId: nodeId, fieldName: fieldName, label: title,
+                        placeholder: "输入提示词...", value: defaultText,
+                        type: .multilineText, promptRole: nil
                     ))
+                }
+            } else {
+                // Scan all input fields for boolean / combo (enum) types
+                for (fieldName, fieldVal) in inputs {
+                    if let boolVal = fieldVal.value as? Bool {
+                        fields.append(FormField(
+                            nodeId: nodeId, fieldName: fieldName, label: title,
+                            placeholder: "", value: boolVal ? "true" : "false",
+                            type: .toggle, promptRole: nil
+                        ))
+                    } else if let arr = fieldVal.arrayValue, !arr.isEmpty,
+                              arr.allSatisfy({ $0.stringValue != nil }) {
+                        // Array of strings → combo/enum picker
+                        let opts = arr.compactMap { $0.stringValue }
+                        let current = inputs[fieldName]?.stringValue ?? opts[0]
+                        var f = FormField(
+                            nodeId: nodeId, fieldName: fieldName, label: "\(title) · \(fieldName)",
+                            placeholder: "", value: current, type: .picker, promptRole: nil
+                        )
+                        f.options = opts
+                        fields.append(f)
+                    }
                 }
             }
         }
@@ -331,9 +333,10 @@ struct FormField: Identifiable {
     var selectedImage: UIImage?   // 仅 imageInput 使用
     let type: FieldType
     let promptRole: PromptRole?
+    var options: [String] = []    // picker / toggle 用
 
     enum FieldType {
-        case text, multilineText, password, imageInput, loraInput
+        case text, multilineText, password, imageInput, loraInput, toggle, picker
     }
 }
 

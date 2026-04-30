@@ -191,6 +191,13 @@ struct AppNodeRow: View {
                 imagePickerField
             } else if ft == "LIST" {
                 listField
+            } else if ft == "BOOLEAN" || ft == "BOOL" {
+                Toggle(isOn: Binding(
+                    get: { node.fieldValue.lowercased() == "true" },
+                    set: { node.fieldValue = $0 ? "true" : "false" }
+                )) { EmptyView() }
+                .tint(.rhAccent)
+                .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 TextField(node.fieldValue.isEmpty ? "输入值..." : node.fieldValue,
                           text: $node.fieldValue)

@@ -41,7 +41,14 @@ private struct FieldRow: View {
                     default: return .rhSecondary
                     }
                 }()
-                RHIcon(name: field.type == .imageInput ? .image : .workflow, size: 13, color: iconColor)
+                RHIcon(name: {
+                    switch field.type {
+                    case .imageInput: return .image
+                    case .toggle:     return .workflow
+                    case .picker:     return .workflow
+                    default:          return .workflow
+                    }
+                }(), size: 13, color: iconColor)
                 Text(field.label)
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.rhPrimary)
@@ -79,6 +86,38 @@ private struct FieldRow: View {
     @ViewBuilder
     private var fieldInput: some View {
         switch field.type {
+        case .toggle:
+            Toggle(isOn: Binding(
+                get: { field.value == "true" },
+                set: { field.value = $0 ? "true" : "false" }
+            )) {
+                EmptyView()
+            }
+            .tint(.rhAccent)
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+        case .picker:
+            Menu {
+                ForEach(field.options, id: \.self) { opt in
+                    Button(opt) { field.value = opt }
+                }
+            } label: {
+                HStack {
+                    Text(field.value.isEmpty ? (field.options.first ?? "请选择") : field.value)
+                        .font(.system(size: 14))
+                        .foregroundColor(field.value.isEmpty ? .rhSecondary : .rhPrimary)
+                    Spacer()
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 12))
+                        .foregroundColor(.rhSecondary)
+                }
+                .padding(10)
+                .background(Color.rhBackground)
+                .cornerRadius(12)
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.rhBorder, lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+
         case .loraInput:
             Button { showLoraPicker = true } label: {
                 HStack(spacing: 10) {
