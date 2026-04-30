@@ -1,215 +1,249 @@
 import SwiftUI
 
+// MARK: - Settings View
 struct SettingsView: View {
     @StateObject private var vm = SettingsViewModel()
     @Environment(\.dismiss) private var dismiss
-    @State private var showClearConfirm = false
+    @State private var showLogoutAlert = false
 
     var body: some View {
         NavigationView {
             ZStack {
-                Color.rhBackground.ignoresSafeArea()
+                AnimatedMeshBackground()
+
                 ScrollView {
-                    VStack(spacing: 14) {
+                    VStack(spacing: 16) {
                         apiKeySection
+                        appearanceSection
                         accountSection
-                        preferencesSection
-                        dangerSection
-                        versionFooter
+                        aboutSection
+                        Spacer(minLength: 24)
                     }
-                    .padding(16)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Text("设置").font(.system(size: 17, weight: .bold)).foregroundColor(.rhPrimary)
+                    Text("设置")
+                        .font(.system(size: 17, weight: .bold, design: .rounded))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [Color(hex: "#F0F4FF"), Color(hex: "#8B9CC8")],
+                                startPoint: .leading, endPoint: .trailing
+                            )
+                        )
                 }
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button { dismiss() } label: {
-                        RHIcon(name: .close, size: 18, color: .rhPrimary)
-                            .frame(width: 32, height: 32)
-                            .background(Color.rhCard)
-                            .clipShape(SketchRoundedRect(radius: 8))
-                            .overlay(SketchRoundedRect(radius: 8).stroke(Color.rhInk.opacity(0.2), lineWidth: 1.5))
-                            .shadow(color: Color.rhInk.opacity(0.1), radius: 0, x: 2, y: 2)
+                        GlassIconButton(icon: .close, size: 18, color: Color(hex: "#8B9CC8"))
                     }
                 }
             }
-            .confirmationDialog("确认退出登录？", isPresented: $vm.showLogoutConfirm, titleVisibility: .visible) {
+            .alert("确认退出登录？", isPresented: $showLogoutAlert) {
                 Button("退出", role: .destructive) { vm.logout() }
                 Button("取消", role: .cancel) {}
             }
-            .confirmationDialog("确认清除所有任务记录？", isPresented: $showClearConfirm, titleVisibility: .visible) {
-                Button("清除", role: .destructive) { vm.clearHistory() }
-                Button("取消", role: .cancel) {}
-            }
-            .alert("已保存", isPresented: $vm.showSavedAlert) {
-                Button("好", role: .cancel) {}
-            }
         }
     }
 
-    // MARK: - API Key
+    // MARK: - API Key Section
     private var apiKeySection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            sketchHeader(title: "API 密钥", icon: .key, color: .rhGold)
-            TextField("输入 API Key", text: $vm.apiKeyInput)
-                .font(.system(size: 14))
-                .padding(11)
-                .background(Color.rhBackground)
-                .clipShape(SketchRoundedRect(radius: 10))
-                .overlay(SketchRoundedRect(radius: 10).stroke(Color.rhInk.opacity(0.18), lineWidth: 1.5))
-                .autocapitalization(.none).disableAutocorrection(true)
-            Button { vm.saveAPIKey() } label: {
-                Text("保 存")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.rhAccent)
-                    .tracking(2)
-                    .frame(maxWidth: .infinity).frame(height: 38)
-                    .background(Color.rhRedMuted)
-                    .clipShape(SketchRoundedRect(radius: 10))
-                    .overlay(SketchRoundedRect(radius: 10).stroke(Color.rhAccent.opacity(0.5), lineWidth: 1.5))
-                    .shadow(color: Color.rhAccent.opacity(0.15), radius: 0, x: 2, y: 2)
-            }
-        }
-        .sketchCard()
-    }
+        VStack(alignment: .leading, spacing: 12) {
+            sectionHeader("API 密钥", icon: "key.fill", color: Color(hex: "#FFD166"))
 
-    // MARK: - Account
-    private var accountSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            sketchHeader(title: "账号状态", icon: .lock, color: .rhAccent)
-            if vm.isLoggedIn {
-                // 登录状态行
-                HStack(spacing: 8) {
-                    Circle().fill(Color.rhSuccess).frame(width: 8, height: 8)
-                        .overlay(Circle().stroke(Color.rhSuccess.opacity(0.3), lineWidth: 3))
-                    Text("已登录：\(vm.maskedAccessKey)")
-                        .font(.system(size: 13)).foregroundColor(.rhSecondary)
-                    Spacer()
-                    Button { vm.showLogoutConfirm = true } label: {
-                        Text("退出登录")
-                            .font(.system(size: 13, weight: .medium)).foregroundColor(.rhError)
-                    }
-                }
-                .padding(.horizontal, 12).padding(.vertical, 10)
-                .background(Color.rhBackground)
-                .clipShape(SketchRoundedRect(radius: 10))
-                .overlay(SketchRoundedRect(radius: 10).stroke(Color.rhInk.opacity(0.12), lineWidth: 1.2))
-            } else {
-                Text("未登录").font(.system(size: 13)).foregroundColor(.rhSecondary)
-            }
-
-            // 余额区域
-            if vm.isLoadingAccount {
-                HStack { Spacer(); ProgressView().tint(.rhAccent); Spacer() }.padding(.vertical, 4)
-            } else if let status = vm.accountStatus {
+            VStack(spacing: 10) {
                 HStack(spacing: 10) {
-                    // RH 币
-                    VStack(spacing: 4) {
-                        Text(status.remainCoins ?? "--")
-                            .font(.system(size: 18, weight: .bold)).foregroundColor(.rhAccent)
-                        Text("RH 币")
-                            .font(.system(size: 11)).foregroundColor(.rhSecondary)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                    .background(Color.rhAccentSoft)
-                    .clipShape(SketchRoundedRect(radius: 10))
-                    .overlay(SketchRoundedRect(radius: 10).stroke(Color.rhAccent.opacity(0.2), lineWidth: 1.2))
-
-                    // 钱包余额
-                    VStack(spacing: 4) {
-                        let money = status.remainMoney ?? "--"
-                        let unit = status.currency ?? ""
-                        Text("\(money) \(unit)".trimmingCharacters(in: .whitespaces))
-                            .font(.system(size: 18, weight: .bold)).foregroundColor(.rhGold)
-                        Text("钱包余额")
-                            .font(.system(size: 11)).foregroundColor(.rhSecondary)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                    .background(Color.rhGoldLight)
-                    .clipShape(SketchRoundedRect(radius: 10))
-                    .overlay(SketchRoundedRect(radius: 10).stroke(Color.rhGold.opacity(0.25), lineWidth: 1.2))
+                    Image(systemName: "key.fill")
+                        .font(.system(size: 14))
+                        .foregroundColor(Color(hex: "#FFD166"))
+                        .frame(width: 20)
+                    SecureField("输入 API Key", text: $vm.apiKey)
+                        .font(.system(size: 14))
+                        .foregroundColor(Color(hex: "#F0F4FF"))
+                        .tint(Color(hex: "#6C8EFF"))
+                        .autocapitalization(.none)
+                        .disableAutocorrection(true)
                 }
-            }
+                .padding(.horizontal, 12).padding(.vertical, 11)
+                .background(LiquidGlassShape(radius: 12).fill(Color.white.opacity(0.05)))
+                .overlay(LiquidGlassShape(radius: 12).stroke(Color.white.opacity(0.1), lineWidth: 0.8))
 
-            // 刷新按钮
-            Button { Task { await vm.loadAccountStatus() } } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 12))
-                    Text("刷新余额")
-                        .font(.system(size: 13, weight: .medium))
+                Button { vm.saveAPIKey() } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark.circle.fill").font(.system(size: 14))
+                        Text("保存密钥").font(.system(size: 14, weight: .semibold))
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity).frame(height: 44)
+                    .background(
+                        LiquidGlassShape(radius: 12)
+                            .fill(LinearGradient(
+                                colors: [Color(hex: "#6C8EFF"), Color(hex: "#4A6FE8")],
+                                startPoint: .topLeading, endPoint: .bottomTrailing
+                            ))
+                    )
+                    .overlay(LiquidGlassShape(radius: 12).stroke(Color.white.opacity(0.2), lineWidth: 0.8))
+                    .shadow(color: Color(hex: "#6C8EFF").opacity(0.4), radius: 10)
                 }
-                .foregroundColor(.rhAccent)
-                .frame(maxWidth: .infinity).frame(height: 34)
-                .background(Color.rhBackground)
-                .clipShape(SketchRoundedRect(radius: 10))
-                .overlay(SketchRoundedRect(radius: 10).stroke(Color.rhAccent.opacity(0.3), lineWidth: 1.2))
-            }
-            .disabled(vm.isLoadingAccount)
-        }
-        .sketchCard()
-        .task { await vm.loadAccountStatus() }
-    }
+                .buttonStyle(LiquidButtonStyle())
 
-    // MARK: - Preferences
-    private var preferencesSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            sketchHeader(title: "偏好设置", icon: .settings, color: .rhAccent)
-            HStack {
-                VStack(alignment: .leading, spacing: 3) {
+                if vm.apiKeySaved {
                     HStack(spacing: 5) {
-                        Text("✦").font(.system(size: 11)).foregroundColor(.rhGold)
-                        Text("默认开启 Plus 模式").font(.system(size: 14, weight: .medium)).foregroundColor(.rhPrimary)
+                        Image(systemName: "checkmark.circle.fill").font(.system(size: 12)).foregroundColor(Color(hex: "#4ECDC4"))
+                        Text("密钥已保存").font(.system(size: 12)).foregroundColor(Color(hex: "#4ECDC4"))
                     }
-                    Text("新任务默认以 Plus 优先级提交").font(.system(size: 12)).foregroundColor(.rhSecondary)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
                 }
-                Spacer()
-                Toggle("", isOn: $vm.isPlusDefault).labelsHidden().tint(.rhAccent)
-                    .onChange(of: vm.isPlusDefault) { _ in vm.savePlusDefault() }
             }
         }
         .sketchCard()
     }
 
-    // MARK: - Danger
-    private var dangerSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            sketchHeader(title: "数据管理", icon: .trash, color: .rhError)
-            Button { showClearConfirm = true } label: {
-                HStack {
-                    Text("清除所有任务记录")
-                        .font(.system(size: 14, weight: .medium)).foregroundColor(.rhError)
+    // MARK: - Appearance Section
+    private var appearanceSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionHeader("外观", icon: "paintbrush.fill", color: Color(hex: "#A78BFA"))
+
+            settingsRow(
+                icon: "moon.stars.fill",
+                iconColor: Color(hex: "#A78BFA"),
+                title: "深色模式",
+                trailing: AnyView(
+                    Toggle("", isOn: $vm.isDarkMode)
+                        .labelsHidden()
+                        .tint(Color(hex: "#6C8EFF"))
+                )
+            )
+
+            glassDivider
+
+            settingsRow(
+                icon: "sparkles",
+                iconColor: Color(hex: "#6C8EFF"),
+                title: "液态玻璃效果",
+                trailing: AnyView(
+                    Toggle("", isOn: $vm.glassEffectEnabled)
+                        .labelsHidden()
+                        .tint(Color(hex: "#6C8EFF"))
+                )
+            )
+        }
+        .sketchCard()
+    }
+
+    // MARK: - Account Section
+    private var accountSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionHeader("账户", icon: "person.circle.fill", color: Color(hex: "#4ECDC4"))
+
+            settingsRow(
+                icon: "person.fill",
+                iconColor: Color(hex: "#4ECDC4"),
+                title: "用户名",
+                trailing: AnyView(
+                    Text(vm.username)
+                        .font(.system(size: 13))
+                        .foregroundColor(Color(hex: "#8B9CC8"))
+                )
+            )
+
+            glassDivider
+
+            Button { showLogoutAlert = true } label: {
+                HStack(spacing: 10) {
+                    ZStack {
+                        LiquidGlassShape(radius: 8)
+                            .fill(Color(hex: "#FF6B6B").opacity(0.12))
+                            .frame(width: 32, height: 32)
+                        Image(systemName: "rectangle.portrait.and.arrow.right")
+                            .font(.system(size: 14))
+                            .foregroundColor(Color(hex: "#FF6B6B"))
+                    }
+                    Text("退出登录")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(Color(hex: "#FF6B6B"))
                     Spacer()
-                    RHIcon(name: .chevron, size: 13, color: .rhError.opacity(0.5))
+                    RHIcon(name: .chevron, size: 12, color: Color(hex: "#FF6B6B").opacity(0.5))
                 }
-                .padding(12)
-                .background(Color.rhRedMuted)
-                .clipShape(SketchRoundedRect(radius: 10))
-                .overlay(SketchRoundedRect(radius: 10).stroke(Color.rhError.opacity(0.3), lineWidth: 1.5))
             }
+            .buttonStyle(LiquidButtonStyle())
         }
         .sketchCard()
     }
 
-    // MARK: - Footer
-    private var versionFooter: some View {
-        Text("人民万岁  v1.0.0")
-            .font(.system(size: 12))
-            .foregroundColor(.rhSecondary.opacity(0.5))
-            .frame(maxWidth: .infinity)
-            .padding(.top, 4)
+    // MARK: - About Section
+    private var aboutSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionHeader("关于", icon: "info.circle.fill", color: Color(hex: "#8B9CC8"))
+
+            settingsRow(
+                icon: "app.badge",
+                iconColor: Color(hex: "#6C8EFF"),
+                title: "版本",
+                trailing: AnyView(
+                    Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
+                        .font(.system(size: 13))
+                        .foregroundColor(Color(hex: "#8B9CC8"))
+                )
+            )
+
+            glassDivider
+
+            settingsRow(
+                icon: "person.2.fill",
+                iconColor: Color(hex: "#8B9CC8"),
+                title: "开发者",
+                trailing: AnyView(
+                    Text("iPhone83Plus")
+                        .font(.system(size: 13))
+                        .foregroundColor(Color(hex: "#8B9CC8"))
+                )
+            )
+        }
+        .sketchCard()
     }
 
-    private func sketchHeader(title: String, icon: RHIcon.IconName, color: Color) -> some View {
+    // MARK: - Helpers
+    private func sectionHeader(_ title: String, icon: String, color: Color) -> some View {
         HStack(spacing: 8) {
-            RoundedRectangle(cornerRadius: 2).fill(color).frame(width: 3, height: 14)
-            RHIcon(name: icon, size: 14, color: color)
-            Text(title).font(.system(size: 14, weight: .semibold)).foregroundColor(.rhPrimary)
+            ZStack {
+                LiquidGlassShape(radius: 8)
+                    .fill(color.opacity(0.15))
+                    .frame(width: 28, height: 28)
+                Image(systemName: icon)
+                    .font(.system(size: 13))
+                    .foregroundColor(color)
+            }
+            Text(title)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(Color(hex: "#F0F4FF"))
         }
+    }
+
+    private func settingsRow(icon: String, iconColor: Color, title: String, trailing: AnyView) -> some View {
+        HStack(spacing: 10) {
+            ZStack {
+                LiquidGlassShape(radius: 8)
+                    .fill(iconColor.opacity(0.12))
+                    .frame(width: 32, height: 32)
+                Image(systemName: icon)
+                    .font(.system(size: 14))
+                    .foregroundColor(iconColor)
+            }
+            Text(title)
+                .font(.system(size: 14))
+                .foregroundColor(Color(hex: "#F0F4FF"))
+            Spacer()
+            trailing
+        }
+    }
+
+    private var glassDivider: some View {
+        Rectangle()
+            .fill(Color.white.opacity(0.06))
+            .frame(height: 0.5)
+            .padding(.leading, 42)
     }
 }

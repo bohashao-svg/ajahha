@@ -1,8 +1,6 @@
 import SwiftUI
 
-// MARK: - SVG Icon Shape Definitions
-// All icons are drawn as SwiftUI Shape paths — no emoji, no SF Symbols dependency
-
+// MARK: - RHIcon — Liquid Glass Icon System
 struct RHIcon: View {
     let name: IconName
     var size: CGFloat = 24
@@ -42,32 +40,54 @@ struct RHIcon: View {
     }
 }
 
-// MARK: - Individual Icon Shapes
+// MARK: - Glass Icon Button Container
+struct GlassIconButton: View {
+    let icon: RHIcon.IconName
+    var size: CGFloat = 20
+    var color: Color = .rhPrimary
+    var containerSize: CGFloat = 36
+
+    var body: some View {
+        ZStack {
+            LiquidGlassShape(radius: containerSize * 0.3)
+                .fill(Color.white.opacity(0.07))
+            LiquidGlassShape(radius: containerSize * 0.3)
+                .stroke(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.2), Color.white.opacity(0.04)],
+                        startPoint: .topLeading, endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 0.8
+                )
+            RHIcon(name: icon, size: size, color: color)
+        }
+        .frame(width: containerSize, height: containerSize)
+        .shadow(color: color.opacity(0.2), radius: 8, x: 0, y: 0)
+    }
+}
+
+// MARK: - Individual Icon Shapes (unchanged paths, same visual language)
 
 struct WorkflowIcon: View {
     var body: some View {
         Canvas { ctx, size in
             let s = size.width
-            // Three connected nodes
             let r: CGFloat = s * 0.12
             let centers: [(CGFloat, CGFloat)] = [
                 (s * 0.2, s * 0.5),
                 (s * 0.6, s * 0.2),
                 (s * 0.6, s * 0.8)
             ]
-            // Lines
             for c in centers.dropFirst() {
                 var p = Path()
                 p.move(to: CGPoint(x: centers[0].0, y: centers[0].1))
                 p.addLine(to: CGPoint(x: c.0, y: c.1))
                 ctx.stroke(p, with: .foreground, lineWidth: 1.5)
             }
-            // Nodes
             for c in centers {
                 let rect = CGRect(x: c.0 - r, y: c.1 - r, width: r * 2, height: r * 2)
                 ctx.fill(Path(ellipseIn: rect), with: .foreground)
             }
-            // Arrow head on right side
             var arrow = Path()
             arrow.move(to: CGPoint(x: s * 0.78, y: s * 0.5))
             arrow.addLine(to: CGPoint(x: s * 0.95, y: s * 0.5))
@@ -85,10 +105,8 @@ struct TasksIcon: View {
             let s = size.width
             let rows: [CGFloat] = [0.22, 0.5, 0.78]
             for (i, y) in rows.enumerated() {
-                // Checkbox square
                 let box = CGRect(x: s * 0.06, y: y * s - s * 0.1, width: s * 0.2, height: s * 0.2)
                 ctx.stroke(Path(roundedRect: box, cornerRadius: 3), with: .foreground, lineWidth: 1.6)
-                // Checkmark inside first row to indicate "done"
                 if i == 0 {
                     var tick = Path()
                     tick.move(to: CGPoint(x: s * 0.09, y: y * s))
@@ -96,7 +114,6 @@ struct TasksIcon: View {
                     tick.addLine(to: CGPoint(x: s * 0.23, y: y * s - s * 0.06))
                     ctx.stroke(tick, with: .foreground, style: StrokeStyle(lineWidth: 1.4, lineCap: .round, lineJoin: .round))
                 }
-                // Text line
                 var line = Path()
                 line.move(to: CGPoint(x: s * 0.34, y: y * s))
                 line.addLine(to: CGPoint(x: s * 0.94, y: y * s))
@@ -113,7 +130,6 @@ struct SettingsIcon: View {
             let cx = s / 2, cy = s / 2
             let outerR = s * 0.44, innerR = s * 0.18
             let toothCount = 8
-            // Gear: alternate between outer (tooth tip) and mid (tooth base) radii
             let midR = s * 0.33
             var gear = Path()
             for i in 0..<(toothCount * 2) {
@@ -125,7 +141,6 @@ struct SettingsIcon: View {
             }
             gear.closeSubpath()
             ctx.fill(gear, with: .foreground)
-            // Punch out center hole
             let hole = Path(ellipseIn: CGRect(x: cx - innerR, y: cy - innerR,
                                               width: innerR * 2, height: innerR * 2))
             ctx.blendMode = .clear
@@ -185,7 +200,6 @@ struct RefreshIcon: View {
             var arc = Path()
             arc.addArc(center: c, radius: r, startAngle: .degrees(-30), endAngle: .degrees(240), clockwise: false)
             ctx.stroke(arc, with: .foreground, style: StrokeStyle(lineWidth: 1.8, lineCap: .round))
-            // Arrow head
             var arrow = Path()
             let tip = CGPoint(x: c.x + r * cos(.pi * 4 / 3), y: c.y + r * sin(.pi * 4 / 3))
             arrow.move(to: CGPoint(x: tip.x - s * 0.12, y: tip.y - s * 0.04))
@@ -217,11 +231,8 @@ struct DuckIcon: View {
     var body: some View {
         Canvas { ctx, size in
             let s = size.width
-            // Body
             ctx.fill(Path(ellipseIn: CGRect(x: s*0.15, y: s*0.45, width: s*0.7, height: s*0.45)), with: .foreground)
-            // Head
             ctx.fill(Path(ellipseIn: CGRect(x: s*0.5, y: s*0.1, width: s*0.35, height: s*0.35)), with: .foreground)
-            // Beak
             var beak = Path()
             beak.move(to: CGPoint(x: s*0.82, y: s*0.25))
             beak.addLine(to: CGPoint(x: s*0.98, y: s*0.22))

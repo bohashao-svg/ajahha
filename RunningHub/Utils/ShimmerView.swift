@@ -1,6 +1,6 @@
 import SwiftUI
 
-// MARK: - Shimmer Effect
+// MARK: - Liquid Glass Shimmer
 struct ShimmerModifier: ViewModifier {
     @State private var phase: CGFloat = -1
 
@@ -11,21 +11,20 @@ struct ShimmerModifier: ViewModifier {
                     LinearGradient(
                         gradient: Gradient(stops: [
                             .init(color: .clear, location: 0),
-                            .init(color: .white.opacity(0.45), location: 0.4),
-                            .init(color: .white.opacity(0.45), location: 0.6),
+                            .init(color: Color.white.opacity(0.12), location: 0.35),
+                            .init(color: Color.white.opacity(0.22), location: 0.5),
+                            .init(color: Color.white.opacity(0.12), location: 0.65),
                             .init(color: .clear, location: 1)
                         ]),
-                        startPoint: .init(x: phase, y: 0.5),
-                        endPoint: .init(x: phase + 1, y: 0.5)
+                        startPoint: .init(x: phase, y: 0.3),
+                        endPoint: .init(x: phase + 1, y: 0.7)
                     )
                     .frame(width: geo.size.width, height: geo.size.height)
-                    .animation(.linear(duration: 1.4).repeatForever(autoreverses: false), value: phase)
+                    .animation(.linear(duration: 1.8).repeatForever(autoreverses: false), value: phase)
                 }
                 .allowsHitTesting(false)
             )
-            .onAppear {
-                phase = 1
-            }
+            .onAppear { phase = 1 }
     }
 }
 
@@ -35,16 +34,20 @@ extension View {
     }
 }
 
-// MARK: - Skeleton block
+// MARK: - Skeleton block (glass style)
 struct SkeletonBlock: View {
     var width: CGFloat? = nil
     var height: CGFloat = 14
     var cornerRadius: CGFloat = 6
 
     var body: some View {
-        RoundedRectangle(cornerRadius: cornerRadius)
-            .fill(Color.rhBorder.opacity(0.5))
+        LiquidGlassShape(radius: cornerRadius)
+            .fill(Color.white.opacity(0.06))
             .frame(width: width, height: height)
+            .overlay(
+                LiquidGlassShape(radius: cornerRadius)
+                    .stroke(Color.white.opacity(0.08), lineWidth: 0.5)
+            )
             .shimmer()
     }
 }
@@ -53,8 +56,8 @@ struct SkeletonBlock: View {
 struct OutputCardSkeleton: View {
     var body: some View {
         HStack(spacing: 12) {
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color.rhBorder.opacity(0.5))
+            LiquidGlassShape(radius: 12)
+                .fill(Color.white.opacity(0.06))
                 .frame(width: 80, height: 80)
                 .shimmer()
 
@@ -66,17 +69,16 @@ struct OutputCardSkeleton: View {
             Spacer()
         }
         .padding(12)
-        .background(Color.rhCard)
-        .cornerRadius(12)
+        .glassCard(radius: 14)
     }
 }
 
-// MARK: - LoRA Resource Card Skeleton (3-column grid)
+// MARK: - LoRA Resource Card Skeleton
 struct ResourceCardSkeleton: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            RoundedRectangle(cornerRadius: 0)
-                .fill(Color.rhBorder.opacity(0.5))
+            LiquidGlassShape(radius: 0)
+                .fill(Color.white.opacity(0.06))
                 .frame(height: 110)
                 .shimmer()
 
@@ -87,19 +89,17 @@ struct ResourceCardSkeleton: View {
             .padding(.horizontal, 7)
             .padding(.vertical, 6)
         }
-        .background(Color.rhCard)
-        .cornerRadius(12)
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.rhBorder.opacity(0.5), lineWidth: 1))
+        .glassCard(radius: 12)
         .clipped()
     }
 }
 
-// MARK: - Workflow Row Skeleton (list row)
+// MARK: - Workflow Row Skeleton
 struct WorkflowRowSkeleton: View {
     var body: some View {
         HStack(spacing: 12) {
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color.rhBorder.opacity(0.5))
+            LiquidGlassShape(radius: 10)
+                .fill(Color.white.opacity(0.06))
                 .frame(width: 40, height: 40)
                 .shimmer()
 
@@ -110,8 +110,7 @@ struct WorkflowRowSkeleton: View {
             Spacer()
         }
         .padding(12)
-        .background(Color.rhCard)
-        .cornerRadius(14)
+        .glassCard(radius: 14)
     }
 }
 
@@ -133,12 +132,14 @@ struct NodeFormCardSkeleton: View {
             SkeletonBlock(width: 60, height: 14)
             ForEach(0..<count, id: \.self) { i in
                 AppNodeRowSkeleton()
-                if i < count - 1 { Divider().padding(.vertical, 2) }
+                if i < count - 1 {
+                    Divider()
+                        .background(Color.white.opacity(0.08))
+                        .padding(.vertical, 2)
+                }
             }
         }
         .padding(16)
-        .background(Color.rhCard)
-        .cornerRadius(16)
-        .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 2)
+        .glassCard(radius: 16)
     }
 }

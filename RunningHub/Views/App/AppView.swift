@@ -2,7 +2,6 @@ import SwiftUI
 import PhotosUI
 
 // MARK: - AI App View
-// 样式与 HomeView 工作流卡片完全一致，不嵌套 NavigationView（避免 sheet 闪退）
 struct AppView: View {
     @StateObject private var vm = AppViewModel()
     @Environment(\.dismiss) private var dismiss
@@ -10,7 +9,7 @@ struct AppView: View {
 
     var body: some View {
         ZStack {
-            Color.rhBackground.ignoresSafeArea()
+            AnimatedMeshBackground()
 
             ScrollView {
                 VStack(spacing: 16) {
@@ -36,16 +35,30 @@ struct AppView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
                 Button { dismiss() } label: {
-                    RHIcon(name: .close, size: 20, color: .rhSecondary)
+                    GlassIconButton(icon: .close, size: 18, color: Color(hex: "#8B9CC8"))
                 }
             }
             ToolbarItem(placement: .principal) {
                 Text("AI 应用")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.system(size: 17, weight: .semibold, design: .rounded))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [Color(hex: "#F0F4FF"), Color(hex: "#8B9CC8")],
+                            startPoint: .leading, endPoint: .trailing
+                        )
+                    )
             }
         }
         .onChange(of: vm.didSubmitSuccessfully) { success in
-            if success { dismiss() }
+            if success {
+                RHBanner.success("任务已提交", subtitle: "可在任务中心查看进度")
+                dismiss()
+            }
+        }
+        .onChange(of: vm.errorMessage) { err in
+            if let err, !err.isEmpty {
+                RHBanner.error("提交失败", subtitle: err)
+            }
         }
         .onAppear {
             if !initialAppId.isEmpty {
@@ -55,24 +68,33 @@ struct AppView: View {
         }
     }
 
-    // MARK: - Input Card（与 workflowInputCard 样式一致）
+    // MARK: - Input Card
     private var inputCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("AI 应用")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundColor(.rhSecondary)
+            HStack(spacing: 6) {
+                LiquidGlassShape(radius: 2)
+                    .fill(LinearGradient(
+                        colors: [Color(hex: "#6C8EFF"), Color(hex: "#A78BFA")],
+                        startPoint: .top, endPoint: .bottom
+                    ))
+                    .frame(width: 3, height: 14)
+                    .shadow(color: Color(hex: "#6C8EFF").opacity(0.6), radius: 4)
+                Text("AI 应用")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(Color(hex: "#8B9CC8"))
+            }
 
             HStack(spacing: 10) {
                 TextField("输入 AI 应用 ID 或链接", text: $vm.webappInput)
                     .font(.system(size: 15))
-                    .foregroundColor(.rhPrimary)
+                    .foregroundColor(Color(hex: "#F0F4FF"))
+                    .tint(Color(hex: "#6C8EFF"))
                     .autocapitalization(.none)
                     .disableAutocorrection(true)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 10)
-                    .background(Color.rhBackground)
-                    .cornerRadius(10)
-                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.rhBorder, lineWidth: 1))
+                    .background(LiquidGlassShape(radius: 10).fill(Color.white.opacity(0.05)))
+                    .overlay(LiquidGlassShape(radius: 10).stroke(Color.white.opacity(0.1), lineWidth: 0.8))
                     .onSubmit { Task { await vm.fetchNodes() } }
 
                 Button {
@@ -83,28 +105,36 @@ struct AppView: View {
                     } else {
                         RHIcon(name: .refresh, size: 18, color: .white)
                             .frame(width: 40, height: 40)
-                            .background(Color.rhAccent)
-                            .cornerRadius(10)
+                            .background(
+                                LiquidGlassShape(radius: 10)
+                                    .fill(LinearGradient(
+                                        colors: [Color(hex: "#6C8EFF"), Color(hex: "#4A6FE8")],
+                                        startPoint: .topLeading, endPoint: .bottomTrailing
+                                    ))
+                            )
+                            .overlay(LiquidGlassShape(radius: 10).stroke(Color.white.opacity(0.2), lineWidth: 0.8))
+                            .shadow(color: Color(hex: "#6C8EFF").opacity(0.4), radius: 10)
                     }
                 }
                 .disabled(vm.isLoading || vm.webappInput.isBlank)
-                .buttonStyle(ScaleButtonStyle())
+                .buttonStyle(LiquidButtonStyle())
             }
 
             if let err = vm.errorMessage {
                 Text(err)
                     .font(.system(size: 12))
-                    .foregroundColor(.rhError)
+                    .foregroundColor(Color(hex: "#FF6B6B"))
                     .transition(.opacity)
             }
 
             HStack(spacing: 6) {
                 Circle()
-                    .fill(vm.nodes.isEmpty ? Color.rhSecondary.opacity(0.4) : Color.rhSuccess)
+                    .fill(vm.nodes.isEmpty ? Color(hex: "#8B9CC8").opacity(0.4) : Color(hex: "#4ECDC4"))
                     .frame(width: 7, height: 7)
+                    .shadow(color: vm.nodes.isEmpty ? .clear : Color(hex: "#4ECDC4").opacity(0.6), radius: 4)
                 Text(vm.nodes.isEmpty ? "输入应用 ID 后点击刷新" : "已加载 \(vm.nodes.count) 个参数节点")
                     .font(.system(size: 12))
-                    .foregroundColor(.rhSecondary)
+                    .foregroundColor(Color(hex: "#8B9CC8"))
                 Spacer()
             }
         }
@@ -112,20 +142,22 @@ struct AppView: View {
         .padding(.horizontal, 16)
     }
 
-    // MARK: - Node Form Card（与 workflowInfoCard + ParameterFormView 样式一致）
+    // MARK: - Node Form Card
     private var nodeFormCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 6) {
-                RoundedRectangle(cornerRadius: 2).fill(Color.rhAccent).frame(width: 3, height: 14)
+                LiquidGlassShape(radius: 2)
+                    .fill(Color(hex: "#8B9CC8").opacity(0.5))
+                    .frame(width: 3, height: 14)
                 Text("节点参数")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.rhPrimary)
+                    .foregroundColor(Color(hex: "#F0F4FF"))
             }
 
             ForEach(vm.nodes.indices, id: \.self) { i in
                 AppNodeRow(node: $vm.nodes[i], selectedImages: $vm.selectedImages, selectedVideos: $vm.selectedVideos)
                 if i < vm.nodes.count - 1 {
-                    Divider().padding(.vertical, 4)
+                    Divider().background(Color.white.opacity(0.08)).padding(.vertical, 4)
                 }
             }
         }
@@ -133,7 +165,7 @@ struct AppView: View {
         .padding(.horizontal, 16)
     }
 
-    // MARK: - Submit Button（与 HomeView submitButton 完全一致）
+    // MARK: - Submit Button
     private var submitButton: some View {
         Button {
             Task { await vm.submit() }
@@ -149,12 +181,22 @@ struct AppView: View {
                     .foregroundColor(.white)
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 50)
-            .background(vm.isSubmitting ? Color.rhSecondary.opacity(0.35) : Color.rhAccent)
-            .cornerRadius(14)
+            .frame(height: 52)
+            .background(
+                LiquidGlassShape(radius: 14)
+                    .fill(vm.isSubmitting
+                        ? Color.white.opacity(0.06)
+                        : LinearGradient(
+                            colors: [Color(hex: "#6C8EFF"), Color(hex: "#4A6FE8")],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        )
+                    )
+            )
+            .overlay(LiquidGlassShape(radius: 14).stroke(Color.white.opacity(vm.isSubmitting ? 0.06 : 0.2), lineWidth: 1))
+            .shadow(color: vm.isSubmitting ? .clear : Color(hex: "#6C8EFF").opacity(0.45), radius: 16, x: 0, y: 4)
         }
         .disabled(vm.isSubmitting)
-        .buttonStyle(ScaleButtonStyle())
+        .buttonStyle(LiquidButtonStyle())
     }
 }
 
@@ -176,15 +218,15 @@ struct AppNodeRow: View {
             HStack(spacing: 6) {
                 Text(node.description ?? node.fieldName)
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.rhPrimary)
+                    .foregroundColor(Color(hex: "#F0F4FF"))
                 Spacer()
                 Text(isLora ? "LORA" : ft)
                     .font(.system(size: 10, weight: .medium))
-                    .foregroundColor(.rhAccent)
+                    .foregroundColor(Color(hex: "#6C8EFF"))
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(Color.rhAccentSoft)
-                    .cornerRadius(5)
+                    .background(LiquidGlassShape(radius: 5).fill(Color(hex: "#6C8EFF").opacity(0.12)))
+                    .overlay(LiquidGlassShape(radius: 5).stroke(Color(hex: "#6C8EFF").opacity(0.2), lineWidth: 0.6))
             }
 
             if isLora {
@@ -200,24 +242,23 @@ struct AppNodeRow: View {
                     get: { node.fieldValue.lowercased() == "true" },
                     set: { node.fieldValue = $0 ? "true" : "false" }
                 )) { EmptyView() }
-                .tint(.rhAccent)
+                .tint(Color(hex: "#6C8EFF"))
                 .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 TextField(node.fieldValue.isEmpty ? "输入值..." : node.fieldValue,
                           text: $node.fieldValue)
                     .font(.system(size: 14))
-                    .foregroundColor(.rhPrimary)
+                    .foregroundColor(Color(hex: "#F0F4FF"))
+                    .tint(Color(hex: "#6C8EFF"))
                     .padding(10)
-                    .background(Color.rhBackground)
-                    .cornerRadius(10)
-                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.rhBorder, lineWidth: 1))
+                    .background(LiquidGlassShape(radius: 10).fill(Color.white.opacity(0.05)))
+                    .overlay(LiquidGlassShape(radius: 10).stroke(Color.white.opacity(0.1), lineWidth: 0.8))
             }
         }
         .sheet(isPresented: $showLoraPicker) {
             LoRAPickerView { resource in
                 let modelName = resource.nodeModelName ?? resource.resourceName ?? ""
                 node.fieldValue = modelName
-                // 触发词：通知 AppViewModel 插入到第一个 STRING 字段前面
                 if let tw = resource.firstTriggerWords, !tw.isEmpty {
                     NotificationCenter.default.post(
                         name: .loraDidSelect,
@@ -233,35 +274,34 @@ struct AppNodeRow: View {
         Button { showLoraPicker = true } label: {
             HStack(spacing: 10) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.rhAccentSoft)
+                    LiquidGlassShape(radius: 10)
+                        .fill(Color(hex: "#6C8EFF").opacity(0.12))
                         .frame(width: 36, height: 36)
                     Image(systemName: "wand.and.stars")
                         .font(.system(size: 16))
-                        .foregroundColor(.rhAccent)
+                        .foregroundColor(Color(hex: "#6C8EFF"))
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     if node.fieldValue.isEmpty {
                         Text("点击选择 LoRA 模型")
                             .font(.system(size: 14))
-                            .foregroundColor(.rhSecondary)
+                            .foregroundColor(Color(hex: "#8B9CC8"))
                     } else {
                         Text(node.fieldValue)
                             .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(.rhPrimary)
+                            .foregroundColor(Color(hex: "#F0F4FF"))
                             .lineLimit(1)
-                        Text("LoRA 模型").font(.system(size: 11)).foregroundColor(.rhSecondary)
+                        Text("LoRA 模型").font(.system(size: 11)).foregroundColor(Color(hex: "#8B9CC8"))
                     }
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
                     .font(.system(size: 13))
-                    .foregroundColor(.rhBorder)
+                    .foregroundColor(Color(hex: "#8B9CC8").opacity(0.5))
             }
             .padding(10)
-            .background(Color.rhBackground)
-            .cornerRadius(12)
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.rhBorder, lineWidth: 1))
+            .background(LiquidGlassShape(radius: 12).fill(Color.white.opacity(0.04)))
+            .overlay(LiquidGlassShape(radius: 12).stroke(Color.white.opacity(0.08), lineWidth: 0.8))
         }
         .buttonStyle(.plain)
     }
@@ -273,22 +313,27 @@ struct AppNodeRow: View {
                     Image(uiImage: img)
                         .resizable().scaledToFill()
                         .frame(width: 52, height: 52)
-                        .cornerRadius(10).clipped()
+                        .clipShape(LiquidGlassShape(radius: 10))
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("已选择图片").font(.system(size: 13, weight: .medium)).foregroundColor(.rhPrimary)
-                        Text("点击重新选择").font(.system(size: 11)).foregroundColor(.rhSecondary)
+                        Text("已选择图片").font(.system(size: 13, weight: .medium)).foregroundColor(Color(hex: "#F0F4FF"))
+                        Text("点击重新选择").font(.system(size: 11)).foregroundColor(Color(hex: "#8B9CC8"))
                     }
                 } else {
-                    Image(systemName: "photo.on.rectangle.angled")
-                        .font(.system(size: 22)).foregroundColor(.rhAccent.opacity(0.7))
-                        .frame(width: 52, height: 52).background(Color.rhAccentSoft).cornerRadius(10)
-                    Text("从相册选择图片").font(.system(size: 14)).foregroundColor(.rhSecondary)
+                    ZStack {
+                        LiquidGlassShape(radius: 10)
+                            .fill(Color(hex: "#6C8EFF").opacity(0.1))
+                            .frame(width: 52, height: 52)
+                        Image(systemName: "photo.on.rectangle.angled")
+                            .font(.system(size: 22)).foregroundColor(Color(hex: "#6C8EFF").opacity(0.7))
+                    }
+                    Text("从相册选择图片").font(.system(size: 14)).foregroundColor(Color(hex: "#8B9CC8"))
                 }
                 Spacer()
-                Image(systemName: "chevron.right").font(.system(size: 13)).foregroundColor(.rhBorder)
+                Image(systemName: "chevron.right").font(.system(size: 13)).foregroundColor(Color(hex: "#8B9CC8").opacity(0.5))
             }
-            .padding(10).background(Color.rhBackground).cornerRadius(12)
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.rhBorder, lineWidth: 1))
+            .padding(10)
+            .background(LiquidGlassShape(radius: 12).fill(Color.white.opacity(0.04)))
+            .overlay(LiquidGlassShape(radius: 12).stroke(Color.white.opacity(0.08), lineWidth: 0.8))
         }
         .onChange(of: photoItem) { newItem in
             guard let newItem else { return }
@@ -306,30 +351,31 @@ struct AppNodeRow: View {
         PhotosPicker(selection: $videoItem, matching: .videos) {
             HStack(spacing: 10) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(Color.rhAccentSoft)
+                    LiquidGlassShape(radius: 10)
+                        .fill(Color(hex: "#6C8EFF").opacity(0.1))
                         .frame(width: 52, height: 52)
                     Image(systemName: selectedVideos[key] != nil ? "video.fill" : "video.badge.plus")
                         .font(.system(size: 22))
-                        .foregroundColor(.rhAccent)
+                        .foregroundColor(Color(hex: "#6C8EFF"))
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     if let videoURL = selectedVideos[key] {
                         Text(videoURL.lastPathComponent)
                             .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(.rhPrimary)
+                            .foregroundColor(Color(hex: "#F0F4FF"))
                             .lineLimit(1)
-                        Text("点击重新选择").font(.system(size: 11)).foregroundColor(.rhSecondary)
+                        Text("点击重新选择").font(.system(size: 11)).foregroundColor(Color(hex: "#8B9CC8"))
                     } else {
                         Text("从相册选择视频")
-                            .font(.system(size: 14)).foregroundColor(.rhSecondary)
+                            .font(.system(size: 14)).foregroundColor(Color(hex: "#8B9CC8"))
                     }
                 }
                 Spacer()
-                Image(systemName: "chevron.right").font(.system(size: 13)).foregroundColor(.rhBorder)
+                Image(systemName: "chevron.right").font(.system(size: 13)).foregroundColor(Color(hex: "#8B9CC8").opacity(0.5))
             }
-            .padding(10).background(Color.rhBackground).cornerRadius(12)
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.rhBorder, lineWidth: 1))
+            .padding(10)
+            .background(LiquidGlassShape(radius: 12).fill(Color.white.opacity(0.04)))
+            .overlay(LiquidGlassShape(radius: 12).stroke(Color.white.opacity(0.08), lineWidth: 0.8))
         }
         .onChange(of: videoItem) { newItem in
             guard let newItem else { return }
@@ -351,9 +397,11 @@ struct AppNodeRow: View {
         return Group {
             if options.isEmpty {
                 TextField("输入值...", text: $node.fieldValue)
-                    .font(.system(size: 14)).foregroundColor(.rhPrimary)
-                    .padding(10).background(Color.rhBackground).cornerRadius(10)
-                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.rhBorder, lineWidth: 1))
+                    .font(.system(size: 14)).foregroundColor(Color(hex: "#F0F4FF"))
+                    .tint(Color(hex: "#6C8EFF"))
+                    .padding(10)
+                    .background(LiquidGlassShape(radius: 10).fill(Color.white.opacity(0.05)))
+                    .overlay(LiquidGlassShape(radius: 10).stroke(Color.white.opacity(0.1), lineWidth: 0.8))
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
@@ -362,12 +410,23 @@ struct AppNodeRow: View {
                             Button { node.fieldValue = opt } label: {
                                 Text(opt)
                                     .font(.system(size: 12, weight: selected ? .semibold : .regular))
-                                    .foregroundColor(selected ? .white : .rhPrimary)
+                                    .foregroundColor(selected ? .white : Color(hex: "#8B9CC8"))
                                     .padding(.horizontal, 12).padding(.vertical, 7)
-                                    .background(selected ? Color.rhAccent : Color.rhBackground)
-                                    .cornerRadius(8)
-                                    .overlay(RoundedRectangle(cornerRadius: 8)
-                                        .stroke(selected ? Color.clear : Color.rhBorder, lineWidth: 1))
+                                    .background(
+                                        LiquidGlassShape(radius: 8)
+                                            .fill(selected
+                                                ? LinearGradient(
+                                                    colors: [Color(hex: "#6C8EFF"), Color(hex: "#4A6FE8")],
+                                                    startPoint: .topLeading, endPoint: .bottomTrailing
+                                                )
+                                                : LinearGradient(colors: [Color.white.opacity(0.05), Color.white.opacity(0.05)], startPoint: .leading, endPoint: .trailing)
+                                            )
+                                    )
+                                    .overlay(
+                                        LiquidGlassShape(radius: 8)
+                                            .stroke(selected ? Color.white.opacity(0.2) : Color.white.opacity(0.08), lineWidth: 0.8)
+                                    )
+                                    .shadow(color: selected ? Color(hex: "#6C8EFF").opacity(0.3) : .clear, radius: 6)
                             }
                             .buttonStyle(.plain)
                         }

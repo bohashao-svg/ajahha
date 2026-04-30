@@ -1,416 +1,375 @@
 import SwiftUI
-import PhotosUI
 
 // MARK: - Gacha View
 struct GachaView: View {
     @StateObject private var vm = GachaViewModel()
     @Environment(\.dismiss) private var dismiss
-    @FocusState private var promptFocused: Bool
 
     var body: some View {
         NavigationView {
             ZStack {
-                Color.rhBackground.ignoresSafeArea()
+                AnimatedMeshBackground()
+
                 ScrollView {
-                    VStack(spacing: 14) {
-                        apiKeyCard
-                        targetCard
-                        if !vm.extraFields.isEmpty { extraFieldsCard }
-                        promptCard
-                        concurrencyCard
-                        startButton
-                        if !vm.gachaTasks.isEmpty { progressCard }
-                        if vm.gachaTasks.contains(where: { $0.decodedData != nil || !$0.outputUrls.isEmpty }) {
-                            resultsGrid
-                        }
+                    VStack(spacing: 16) {
+                        warningBanner
+                        workflowInputCard
+                        if !vm.prompts.isEmpty { promptListCard }
+                        addPromptCard
+                        if !vm.prompts.isEmpty { submitButton }
+                        if !vm.tasks.isEmpty { taskListCard }
                         Spacer(minLength: 24)
                     }
                     .padding(.horizontal, 16)
                     .padding(.top, 12)
+                    .animation(.spring(response: 0.38, dampingFraction: 0.82), value: vm.prompts.count)
+                    .animation(.spring(response: 0.38, dampingFraction: 0.82), value: vm.tasks.count)
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Text("抽卡批量生成")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundColor(.rhPrimary)
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button { dismiss() } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.rhPrimary)
-                            .frame(width: 30, height: 30)
-                            .background(Color.rhCard)
-                            .clipShape(SketchRoundedRect(radius: 8))
-                            .overlay(SketchRoundedRect(radius: 8).stroke(Color.rhInk.opacity(0.18), lineWidth: 1.2))
-                    }
-                }
-            }
-        }
-    }
-
-    // MARK: - API Key Card
-    private var apiKeyCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            sectionLabel("独立 API Key", icon: "key.fill")
-            HStack(spacing: 8) {
-                SecureField("输入专用 API Key（与主程序隔离）", text: $vm.gachaApiKey)
-                    .font(.system(size: 14)).foregroundColor(.rhPrimary)
-                    .autocapitalization(.none).disableAutocorrection(true)
-                    .padding(.horizontal, 10).padding(.vertical, 9)
-                    .background(Color.rhBackground)
-                    .clipShape(SketchRoundedRect(radius: 9))
-                    .overlay(SketchRoundedRect(radius: 9).stroke(Color.rhInk.opacity(0.15), lineWidth: 1.2))
-                Button { vm.saveApiKey() } label: {
-                    Text("保存")
-                        .font(.system(size: 13, weight: .medium)).foregroundColor(.white)
-                        .padding(.horizontal, 12).padding(.vertical, 9)
-                        .background(Color.rhAccent)
-                        .clipShape(SketchRoundedRect(radius: 9))
-                        .shadow(color: Color.rhInk.opacity(0.12), radius: 0, x: 1, y: 2)
-                }
-                .buttonStyle(ScaleButtonStyle())
-            }
-            Text("该 Key 仅在抽卡功能内使用，不影响主程序设置")
-                .font(.system(size: 11)).foregroundColor(.rhSecondary)
-        }
-        .sketchCard()
-    }
-
-    // MARK: - Target Card
-    private var targetCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            sectionLabel("目标工作流 / AI 应用", icon: "target")
-            HStack(spacing: 8) {
-                TextField("输入工作流或 AI 应用 ID", text: $vm.targetId)
-                    .font(.system(size: 14)).foregroundColor(.rhPrimary)
-                    .autocapitalization(.none).disableAutocorrection(true)
-                    .padding(.horizontal, 10).padding(.vertical, 9)
-                    .background(Color.rhBackground)
-                    .clipShape(SketchRoundedRect(radius: 9))
-                    .overlay(SketchRoundedRect(radius: 9).stroke(Color.rhInk.opacity(0.15), lineWidth: 1.2))
-                    .onSubmit { Task { await vm.fetchTarget() } }
-                Button {
-                    Task { await vm.fetchTarget() }
-                } label: {
-                    if vm.isLoadingTarget {
-                        ProgressView().frame(width: 36, height: 36)
-                    } else {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 15, weight: .medium)).foregroundColor(.white)
-                            .frame(width: 36, height: 36)
-                            .background(Color.rhAccent)
-                            .clipShape(SketchRoundedRect(radius: 9))
-                            .shadow(color: Color.rhInk.opacity(0.12), radius: 0, x: 1, y: 2)
-                    }
-                }
-                .disabled(vm.isLoadingTarget || vm.targetId.isBlank)
-                .buttonStyle(ScaleButtonStyle())
-            }
-
-            if let err = vm.errorMessage {
-                Text(err).font(.system(size: 12)).foregroundColor(.rhError)
-            }
-
-            if vm.targetLoaded {
-                HStack(spacing: 6) {
-                    Circle().fill(Color.rhSuccess).frame(width: 7, height: 7)
-                    Text(vm.isWebApp ? "AI 应用已识别" : "工作流已识别 · \(vm.workflowType.displayName)")
-                        .font(.system(size: 12)).foregroundColor(.rhSecondary)
-                    if vm.duckNodeInfo != nil {
-                        Text("· 鸭鸭编码").font(.system(size: 12)).foregroundColor(.rhWarning)
-                    }
-                    if vm.isTTEncoded {
-                        Text("· TT编码").font(.system(size: 12)).foregroundColor(.rhWarning)
-                    }
-                }
-                if !vm.promptNodeLabels.isEmpty {
                     HStack(spacing: 6) {
-                        Image(systemName: "arrow.right.circle.fill")
-                            .font(.system(size: 11)).foregroundColor(.rhAccent)
-                        Text("提示词将注入：")
-                            .font(.system(size: 11)).foregroundColor(.rhSecondary)
-                        ForEach(vm.promptNodeLabels, id: \.self) { label in
-                            Text(label)
-                                .font(.system(size: 11, weight: .medium)).foregroundColor(.rhAccent)
-                                .padding(.horizontal, 6).padding(.vertical, 2)
-                                .background(Color.rhAccentSoft)
-                                .clipShape(SketchRoundedRect(radius: 5))
-                        }
+                        Image(systemName: "rectangle.stack.fill")
+                            .font(.system(size: 14))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [Color(hex: "#FF6B6B"), Color(hex: "#FFD166")],
+                                    startPoint: .topLeading, endPoint: .bottomTrailing
+                                )
+                            )
+                        Text("抽卡批量生成")
+                            .font(.system(size: 17, weight: .bold, design: .rounded))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [Color(hex: "#F0F4FF"), Color(hex: "#8B9CC8")],
+                                    startPoint: .leading, endPoint: .trailing
+                                )
+                            )
+                    }
+                }
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button { dismiss() } label: {
+                        GlassIconButton(icon: .close, size: 18, color: Color(hex: "#8B9CC8"))
                     }
                 }
             }
         }
-        .sketchCard()
     }
 
-    // MARK: - Extra Fields Card
-    private var extraFieldsCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            sectionLabel("附加参数（一次性配置）", icon: "slider.horizontal.3")
-            Text("图片/LoRA 等参数只需配置一次，所有任务共用")
-                .font(.system(size: 11)).foregroundColor(.rhSecondary)
-            ParameterFormView(fields: $vm.extraFields)
-        }
-        .sketchCard()
-    }
-
-    // MARK: - Prompt Card
-    private var promptCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            sectionLabel("提示词列表", icon: "text.alignleft")
-            Text("每行一条提示词，每行对应一个生成任务")
-                .font(.system(size: 11)).foregroundColor(.rhSecondary)
-
-            ZStack(alignment: .topLeading) {
-                if vm.promptsText.isEmpty {
-                    Text("一行一条提示词，例如：\na beautiful sunset\na cute cat")
-                        .font(.system(size: 13)).foregroundColor(.rhSecondary.opacity(0.5))
-                        .padding(.top, 9).padding(.leading, 5)
-                        .allowsHitTesting(false)
-                }
-                TextEditor(text: $vm.promptsText)
-                    .font(.system(size: 13)).foregroundColor(.rhPrimary)
-                    .frame(minHeight: 120, maxHeight: 240)
-                    .focused($promptFocused)
+    // MARK: - Warning Banner
+    private var warningBanner: some View {
+        HStack(spacing: 10) {
+            ZStack {
+                LiquidGlassShape(radius: 10)
+                    .fill(Color(hex: "#FFD166").opacity(0.15))
+                    .frame(width: 36, height: 36)
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 16))
+                    .foregroundColor(Color(hex: "#FFD166"))
             }
-            .padding(10)
-            .background(Color.rhBackground)
-            .clipShape(SketchRoundedRect(radius: 10))
-            .overlay(SketchRoundedRect(radius: 10).stroke(
-                promptFocused ? Color.rhAccent.opacity(0.5) : Color.rhInk.opacity(0.15), lineWidth: 1.2))
-            .onTapGesture { promptFocused = true }
-
-            HStack {
-                Spacer()
-                if vm.promptCount > 0 {
-                    Text("共 \(vm.promptCount) 条")
-                        .font(.system(size: 12, weight: .medium)).foregroundColor(.rhAccent)
-                        .padding(.horizontal, 8).padding(.vertical, 3)
-                        .background(Color.rhAccentSoft)
-                        .clipShape(SketchRoundedRect(radius: 6))
-                }
-            }
-        }
-        .sketchCard()
-    }
-
-    // MARK: - Concurrency Card
-    private var concurrencyCard: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 3) {
-                sectionLabel("并发数", icon: "arrow.triangle.branch")
-                Text("同时执行的任务数量，建议 2-5")
-                    .font(.system(size: 11)).foregroundColor(.rhSecondary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("注意：批量消耗")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(Color(hex: "#FFD166"))
+                Text("该功能会并发提交多个任务，可能快速消耗余额")
+                    .font(.system(size: 11))
+                    .foregroundColor(Color(hex: "#FFD166").opacity(0.7))
             }
             Spacer()
-            HStack(spacing: 12) {
-                Button {
-                    if vm.concurrency > 1 { vm.concurrency -= 1 }
-                } label: {
-                    Image(systemName: "minus")
-                        .font(.system(size: 14, weight: .semibold)).foregroundColor(.rhPrimary)
-                        .frame(width: 30, height: 30)
-                        .background(Color.rhBackground)
-                        .clipShape(SketchRoundedRect(radius: 8))
-                        .overlay(SketchRoundedRect(radius: 8).stroke(Color.rhInk.opacity(0.18), lineWidth: 1.2))
-                }
-                .buttonStyle(ScaleButtonStyle())
-
-                Text("\(vm.concurrency)")
-                    .font(.system(size: 17, weight: .bold)).foregroundColor(.rhPrimary)
-                    .frame(minWidth: 28)
-
-                Button {
-                    if vm.concurrency < 10 { vm.concurrency += 1 }
-                } label: {
-                    Image(systemName: "plus")
-                        .font(.system(size: 14, weight: .semibold)).foregroundColor(.rhPrimary)
-                        .frame(width: 30, height: 30)
-                        .background(Color.rhBackground)
-                        .clipShape(SketchRoundedRect(radius: 8))
-                        .overlay(SketchRoundedRect(radius: 8).stroke(Color.rhInk.opacity(0.18), lineWidth: 1.2))
-                }
-                .buttonStyle(ScaleButtonStyle())
-            }
         }
-        .sketchCard(padding: 14)
+        .padding(12)
+        .background(
+            ZStack {
+                LiquidGlassShape(radius: 14)
+                    .fill(Color(hex: "#FFD166").opacity(0.06))
+                LiquidGlassShape(radius: 14)
+                    .fill(LinearGradient(
+                        colors: [Color.white.opacity(0.04), Color.clear],
+                        startPoint: .topLeading, endPoint: .bottomTrailing
+                    ))
+            }
+        )
+        .overlay(LiquidGlassShape(radius: 14).stroke(Color(hex: "#FFD166").opacity(0.2), lineWidth: 0.8))
     }
 
-    // MARK: - Start Button
-    private var startButton: some View {
-        Button {
-            Task { await vm.startBatch() }
-        } label: {
-            HStack(spacing: 8) {
-                if vm.isRunning {
-                    ProgressView().tint(.white)
-                    Text("生成中...").font(.system(size: 16, weight: .semibold)).foregroundColor(.white)
-                } else {
-                    Image(systemName: "play.fill")
-                        .font(.system(size: 14)).foregroundColor(.white)
-                    Text(vm.promptCount > 0 ? "开始抽卡（\(vm.promptCount) 条）" : "开始抽卡")
-                        .font(.system(size: 16, weight: .semibold)).foregroundColor(.white)
+    // MARK: - Workflow Input Card
+    private var workflowInputCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 6) {
+                LiquidGlassShape(radius: 2)
+                    .fill(LinearGradient(
+                        colors: [Color(hex: "#6C8EFF"), Color(hex: "#A78BFA")],
+                        startPoint: .top, endPoint: .bottom
+                    ))
+                    .frame(width: 3, height: 14)
+                    .shadow(color: Color(hex: "#6C8EFF").opacity(0.6), radius: 4)
+                Text("工作流配置")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(Color(hex: "#F0F4FF"))
+            }
+
+            HStack(spacing: 10) {
+                TextField("工作流 ID", text: $vm.workflowId)
+                    .font(.system(size: 14))
+                    .foregroundColor(Color(hex: "#F0F4FF"))
+                    .tint(Color(hex: "#6C8EFF"))
+                    .autocapitalization(.none)
+                    .disableAutocorrection(true)
+                    .padding(.horizontal, 12).padding(.vertical, 10)
+                    .background(LiquidGlassShape(radius: 10).fill(Color.white.opacity(0.05)))
+                    .overlay(LiquidGlassShape(radius: 10).stroke(Color.white.opacity(0.1), lineWidth: 0.8))
+
+                Button { Task { await vm.fetchWorkflow() } } label: {
+                    if vm.isLoadingWorkflow {
+                        ProgressView().frame(width: 40, height: 40)
+                    } else {
+                        RHIcon(name: .refresh, size: 18, color: .white)
+                            .frame(width: 40, height: 40)
+                            .background(
+                                LiquidGlassShape(radius: 10)
+                                    .fill(LinearGradient(
+                                        colors: [Color(hex: "#6C8EFF"), Color(hex: "#4A6FE8")],
+                                        startPoint: .topLeading, endPoint: .bottomTrailing
+                                    ))
+                            )
+                            .overlay(LiquidGlassShape(radius: 10).stroke(Color.white.opacity(0.2), lineWidth: 0.8))
+                            .shadow(color: Color(hex: "#6C8EFF").opacity(0.4), radius: 10)
+                    }
+                }
+                .disabled(vm.isLoadingWorkflow || vm.workflowId.isBlank)
+                .buttonStyle(LiquidButtonStyle())
+            }
+
+            if let err = vm.workflowError {
+                Text(err).font(.system(size: 12)).foregroundColor(Color(hex: "#FF6B6B")).transition(.opacity)
+            }
+
+            if vm.workflowLoaded {
+                HStack(spacing: 6) {
+                    Circle().fill(Color(hex: "#4ECDC4")).frame(width: 7, height: 7)
+                        .shadow(color: Color(hex: "#4ECDC4").opacity(0.6), radius: 4)
+                    Text("工作流已加载 · \(vm.workflowType)")
+                        .font(.system(size: 12)).foregroundColor(Color(hex: "#8B9CC8"))
+                    Spacer()
+                }
+                .transition(.opacity)
+            }
+
+            if vm.workflowLoaded {
+                Divider().background(Color.white.opacity(0.08))
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("固定参数（所有任务共用）")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(Color(hex: "#8B9CC8"))
+                    ParameterFormView(fields: $vm.sharedFields)
                 }
             }
-            .frame(maxWidth: .infinity).frame(height: 50)
-            .background(vm.canStart ? Color.rhAccent : Color.rhSecondary.opacity(0.35))
-            .clipShape(SketchRoundedRect(radius: 12))
-            .overlay(SketchRoundedRect(radius: 12).stroke(Color.rhInk.opacity(vm.canStart ? 0.2 : 0), lineWidth: 1.5))
-            .shadow(color: Color.rhInk.opacity(vm.canStart ? 0.18 : 0), radius: 0, x: 2, y: 3)
         }
-        .disabled(!vm.canStart)
-        .buttonStyle(ScaleButtonStyle())
+        .sketchCard()
     }
 
-    // MARK: - Progress Card
-    private var progressCard: some View {
+    // MARK: - Prompt List Card
+    private var promptListCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            let total = vm.gachaTasks.count
-            let done = vm.gachaTasks.filter { $0.status == .completed || $0.status == .failed }.count
-            let running = vm.gachaTasks.filter { $0.status == .running }.count
-
-            HStack {
-                sectionLabel("执行进度", icon: "chart.bar.fill")
+            HStack(spacing: 6) {
+                LiquidGlassShape(radius: 2)
+                    .fill(Color(hex: "#8B9CC8").opacity(0.5))
+                    .frame(width: 3, height: 14)
+                Text("提示词列表")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(Color(hex: "#F0F4FF"))
                 Spacer()
-                Text("\(done)/\(total)")
-                    .font(.system(size: 13, weight: .semibold)).foregroundColor(.rhAccent)
+                Text("\(vm.prompts.count) 条")
+                    .font(.system(size: 12)).foregroundColor(Color(hex: "#8B9CC8"))
             }
 
-            // Progress bar
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 4).fill(Color.rhBorder.opacity(0.4))
-                        .frame(height: 6)
-                    RoundedRectangle(cornerRadius: 4).fill(Color.rhAccent)
-                        .frame(width: total > 0 ? geo.size.width * CGFloat(done) / CGFloat(total) : 0, height: 6)
-                        .animation(.easeInOut(duration: 0.3), value: done)
-                }
-            }
-            .frame(height: 6)
+            ForEach(vm.prompts.indices, id: \.self) { i in
+                HStack(spacing: 10) {
+                    ZStack {
+                        LiquidGlassShape(radius: 8)
+                            .fill(Color(hex: "#6C8EFF").opacity(0.1))
+                            .frame(width: 28, height: 28)
+                        Text("\(i + 1)")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(Color(hex: "#6C8EFF"))
+                    }
 
-            HStack(spacing: 12) {
-                statusPill(count: vm.gachaTasks.filter { $0.status == .queued }.count, label: "排队", color: .rhSecondary)
-                statusPill(count: running, label: "生成中", color: .rhAccent)
-                statusPill(count: vm.gachaTasks.filter { $0.status == .completed }.count, label: "完成", color: .rhSuccess)
-                statusPill(count: vm.gachaTasks.filter { $0.status == .failed }.count, label: "失败", color: .rhError)
-            }
+                    Text(vm.prompts[i])
+                        .font(.system(size: 13))
+                        .foregroundColor(Color(hex: "#F0F4FF"))
+                        .lineLimit(2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
-            // 失败任务错误详情
-            let failedTasks = vm.gachaTasks.filter { $0.status == .failed }
-            if !failedTasks.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(failedTasks) { task in
-                        HStack(alignment: .top, spacing: 6) {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 11)).foregroundColor(.rhError)
-                                .padding(.top, 1)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(task.prompt)
-                                    .font(.system(size: 11, weight: .medium)).foregroundColor(.rhPrimary)
-                                    .lineLimit(1)
-                                Text(task.errorMsg ?? "未知错误")
-                                    .font(.system(size: 11)).foregroundColor(.rhError)
-                                    .lineLimit(3)
-                            }
+                    Button {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                            vm.prompts.remove(at: i)
                         }
-                        .padding(8)
-                        .background(Color.rhError.opacity(0.06))
-                        .clipShape(SketchRoundedRect(radius: 8))
+                    } label: {
+                        RHIcon(name: .close, size: 12, color: Color(hex: "#FF6B6B").opacity(0.7))
+                            .frame(width: 28, height: 28)
+                            .background(LiquidGlassShape(radius: 7).fill(Color(hex: "#FF6B6B").opacity(0.08)))
                     }
+                    .buttonStyle(LiquidButtonStyle())
+                }
+                .padding(.vertical, 4)
+
+                if i < vm.prompts.count - 1 {
+                    Divider().background(Color.white.opacity(0.06))
                 }
             }
         }
         .sketchCard()
     }
 
-    private func statusPill(count: Int, label: String, color: Color) -> some View {
-        HStack(spacing: 4) {
-            Circle().fill(color).frame(width: 6, height: 6)
-            Text("\(label) \(count)")
-                .font(.system(size: 11)).foregroundColor(.rhSecondary)
-        }
-    }
-
-    // MARK: - Results Grid
-    private var resultsGrid: some View {
+    // MARK: - Add Prompt Card
+    private var addPromptCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            sectionLabel("生成结果", icon: "photo.stack")
-            let completed = vm.gachaTasks.filter { $0.decodedData != nil || !$0.outputUrls.isEmpty }
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                ForEach(completed) { task in
-                    GachaResultCell(task: task)
-                }
+            HStack(spacing: 6) {
+                LiquidGlassShape(radius: 2)
+                    .fill(Color(hex: "#4ECDC4").opacity(0.7))
+                    .frame(width: 3, height: 14)
+                Text("添加提示词")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(Color(hex: "#F0F4FF"))
             }
+
+            ZStack(alignment: .topLeading) {
+                if vm.newPrompt.isEmpty {
+                    Text("输入提示词...")
+                        .font(.system(size: 14))
+                        .foregroundColor(Color(hex: "#8B9CC8").opacity(0.6))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                }
+                TextEditor(text: $vm.newPrompt)
+                    .font(.system(size: 14))
+                    .foregroundColor(Color(hex: "#F0F4FF"))
+                    .tint(Color(hex: "#6C8EFF"))
+                    .scrollContentBackground(.hidden)
+                    .frame(minHeight: 80)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
+            }
+            .background(LiquidGlassShape(radius: 12).fill(Color.white.opacity(0.05)))
+            .overlay(LiquidGlassShape(radius: 12).stroke(Color.white.opacity(0.1), lineWidth: 0.8))
+
+            Button {
+                let trimmed = vm.newPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty else { return }
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                    vm.prompts.append(trimmed)
+                    vm.newPrompt = ""
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    RHIcon(name: .plus, size: 14, color: .white)
+                    Text("添加").font(.system(size: 14, weight: .semibold)).foregroundColor(.white)
+                }
+                .frame(maxWidth: .infinity).frame(height: 40)
+                .background(
+                    LiquidGlassShape(radius: 10)
+                        .fill(vm.newPrompt.isBlank
+                            ? Color.white.opacity(0.05)
+                            : LinearGradient(
+                                colors: [Color(hex: "#4ECDC4"), Color(hex: "#2BA8A0")],
+                                startPoint: .topLeading, endPoint: .bottomTrailing
+                            )
+                        )
+                )
+                .overlay(LiquidGlassShape(radius: 10).stroke(Color.white.opacity(vm.newPrompt.isBlank ? 0.06 : 0.2), lineWidth: 0.8))
+                .shadow(color: vm.newPrompt.isBlank ? .clear : Color(hex: "#4ECDC4").opacity(0.35), radius: 8)
+            }
+            .disabled(vm.newPrompt.isBlank)
+            .buttonStyle(LiquidButtonStyle())
         }
         .sketchCard()
     }
 
-    // MARK: - Section Label
-    private func sectionLabel(_ title: String, icon: String) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: icon)
-                .font(.system(size: 11)).foregroundColor(.rhAccent)
-            Text(title)
-                .font(.system(size: 13, weight: .semibold)).foregroundColor(.rhPrimary)
-        }
-    }
-}
-
-// MARK: - Result Cell
-struct GachaResultCell: View {
-    let task: GachaTask
-    @State private var showSaveAlert = false
-
-    var body: some View {
-        ZStack(alignment: .bottomLeading) {
-            if let data = task.decodedData, let img = UIImage(data: data) {
-                Image(uiImage: img)
-                    .resizable().scaledToFill()
-                    .frame(minWidth: 0, maxWidth: .infinity)
-                    .aspectRatio(1, contentMode: .fill)
-                    .clipped()
-            } else if let urlStr = task.outputUrls.first, let url = URL(string: urlStr) {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let img):
-                        img.resizable().scaledToFill()
-                            .frame(minWidth: 0, maxWidth: .infinity)
-                            .aspectRatio(1, contentMode: .fill).clipped()
-                    case .failure:
-                        Color.rhBorder.overlay(Image(systemName: "exclamationmark.triangle").foregroundColor(.rhError))
-                    default:
-                        Color.rhBorder.overlay(ProgressView().tint(.rhAccent))
-                    }
+    // MARK: - Submit Button
+    private var submitButton: some View {
+        Button { Task { await vm.submitAll() } } label: {
+            HStack(spacing: 8) {
+                if vm.isSubmitting {
+                    ProgressView().tint(.white)
+                    Text("提交中 \(vm.submittedCount)/\(vm.prompts.count)...")
+                        .font(.system(size: 15, weight: .semibold)).foregroundColor(.white)
+                } else {
+                    Image(systemName: "rectangle.stack.fill")
+                        .font(.system(size: 14)).foregroundColor(.white)
+                    Text("批量提交 \(vm.prompts.count) 个任务")
+                        .font(.system(size: 15, weight: .semibold)).foregroundColor(.white)
                 }
-            } else if task.status == .failed {
-                Color.rhRedMuted
-                    .overlay(Image(systemName: "xmark.circle").foregroundColor(.rhError))
-            } else {
-                Color.rhBorder.overlay(ProgressView().tint(.rhAccent))
+            }
+            .frame(maxWidth: .infinity).frame(height: 52)
+            .background(
+                LiquidGlassShape(radius: 14)
+                    .fill(vm.isSubmitting
+                        ? Color.white.opacity(0.06)
+                        : LinearGradient(
+                            colors: [Color(hex: "#FF6B6B"), Color(hex: "#E05555")],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        )
+                    )
+            )
+            .overlay(LiquidGlassShape(radius: 14).stroke(Color.white.opacity(vm.isSubmitting ? 0.06 : 0.2), lineWidth: 1))
+            .shadow(color: vm.isSubmitting ? .clear : Color(hex: "#FF6B6B").opacity(0.4), radius: 16, x: 0, y: 4)
+        }
+        .disabled(vm.isSubmitting || !vm.workflowLoaded)
+        .buttonStyle(LiquidButtonStyle())
+    }
+
+    // MARK: - Task List Card
+    private var taskListCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                LiquidGlassShape(radius: 2)
+                    .fill(LinearGradient(
+                        colors: [Color(hex: "#6C8EFF"), Color(hex: "#A78BFA")],
+                        startPoint: .top, endPoint: .bottom
+                    ))
+                    .frame(width: 3, height: 14)
+                    .shadow(color: Color(hex: "#6C8EFF").opacity(0.6), radius: 4)
+                Text("提交结果")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(Color(hex: "#F0F4FF"))
+                Spacer()
+                Text("\(vm.tasks.count) 个")
+                    .font(.system(size: 12)).foregroundColor(Color(hex: "#8B9CC8"))
             }
 
-            // Status badge
-            if task.status == .completed {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 12)).foregroundColor(.white)
-                    .padding(4)
-            }
-        }
-        .frame(minWidth: 0, maxWidth: .infinity)
-        .aspectRatio(1, contentMode: .fit)
-        .clipShape(SketchRoundedRect(radius: 10))
-        .overlay(SketchRoundedRect(radius: 10).stroke(Color.rhInk.opacity(0.12), lineWidth: 1))
-        .contextMenu {
-            if let data = task.decodedData {
-                Button {
-                    if let img = UIImage(data: data) {
-                        UIImageWriteToSavedPhotosAlbum(img, nil, nil, nil)
+            ForEach(vm.tasks) { task in
+                HStack(spacing: 10) {
+                    ZStack {
+                        LiquidGlassShape(radius: 10)
+                            .fill(task.status.color.opacity(0.1))
+                            .frame(width: 36, height: 36)
+                            .overlay(LiquidGlassShape(radius: 10).stroke(task.status.color.opacity(0.2), lineWidth: 0.6))
+                        if task.status == .running {
+                            ProgressView().scaleEffect(0.65).tint(task.status.color)
+                        } else {
+                            Circle().fill(task.status.color).frame(width: 8, height: 8)
+                                .shadow(color: task.status.color.opacity(0.6), radius: 4)
+                        }
                     }
-                } label: { Label("保存到相册", systemImage: "square.and.arrow.down") }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(task.workflowName).font(.system(size: 13, weight: .medium)).foregroundColor(Color(hex: "#F0F4FF")).lineLimit(1)
+                        Text(task.status.displayName).font(.system(size: 11)).foregroundColor(task.status.color)
+                    }
+
+                    Spacer()
+
+                    Text(task.createdAt.timeString())
+                        .font(.system(size: 11)).foregroundColor(Color(hex: "#8B9CC8"))
+                }
+                .padding(.vertical, 4)
+
+                if task.id != vm.tasks.last?.id {
+                    Divider().background(Color.white.opacity(0.06))
+                }
             }
         }
+        .sketchCard()
     }
 }

@@ -8,9 +8,7 @@ extension String {
         let digest = Insecure.MD5.hash(data: Data(utf8))
         return digest.map { String(format: "%02x", $0) }.joined()
     }
-    // Extract workflow ID from a URL or plain ID string
     func extractWorkflowId() -> String? {
-        // If it looks like a URL, try to extract the id param or last path component
         if let url = URL(string: self) {
             if let id = URLComponents(url: url, resolvingAgainstBaseURL: false)?
                 .queryItems?.first(where: { $0.name == "id" || $0.name == "workflowId" })?.value {
@@ -19,11 +17,9 @@ extension String {
             let last = url.lastPathComponent
             if !last.isEmpty && last != "/" { return last }
         }
-        // Otherwise treat the whole string as an ID (trimmed)
         let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
     }
-
     var isBlank: Bool { trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 }
 
@@ -34,7 +30,6 @@ extension Date {
         formatter.unitsStyle = .short
         return formatter.localizedString(for: self, relativeTo: Date())
     }
-
     func timeString() -> String {
         let f = DateFormatter()
         f.dateFormat = "HH:mm"
@@ -42,24 +37,30 @@ extension Date {
     }
 }
 
-// MARK: - Color
+// MARK: - Liquid Glass Color System
 extension Color {
-    static let rhBackground   = Color(hex: "#F5EDE4")
-    static let rhCard         = Color(hex: "#FFFCF9")
-    static let rhPrimary      = Color(hex: "#2D1A0E")
-    static let rhAccent       = Color(hex: "#C8392B")
-    static let rhGold         = Color(hex: "#C9920A")
-    static let rhSecondary    = Color(hex: "#8C7B6E")
-    static let rhSuccess      = Color(hex: "#4A8F5F")
-    static let rhError        = Color(hex: "#C0392B")
-    static let rhWarning      = Color(hex: "#C9920A")
-    static let rhBorder       = Color(hex: "#E8D5C4")
-    static let rhAccentSoft   = Color(hex: "#F7E4E2")
-    // Hand-drawn palette
-    static let rhInk          = Color(hex: "#2C1810")   // deep ink for borders/shadows
-    static let rhPaper        = Color(hex: "#F5EDE4")   // same as background
-    static let rhRedMuted     = Color(hex: "#F2D5D3")   // light red tint
-    static let rhGoldLight    = Color(hex: "#FDF3DC")   // light gold tint
+    // Core semantic colors — deep space palette
+    static let rhBackground   = Color(hex: "#0A0E1A")   // deep space navy
+    static let rhCard         = Color(hex: "#111827")   // glass card base
+    static let rhPrimary      = Color(hex: "#F0F4FF")   // near-white text
+    static let rhAccent       = Color(hex: "#6C8EFF")   // electric blue
+    static let rhGold         = Color(hex: "#FFD166")   // warm gold
+    static let rhSecondary    = Color(hex: "#8B9CC8")   // muted blue-grey
+    static let rhSuccess      = Color(hex: "#4ECDC4")   // teal
+    static let rhError        = Color(hex: "#FF6B6B")   // coral red
+    static let rhWarning      = Color(hex: "#FFD166")   // gold
+    static let rhBorder       = Color(hex: "#2A3550")   // subtle border
+    static let rhAccentSoft   = Color(hex: "#1A2340")   // accent tint bg
+    // Glass-specific
+    static let rhInk          = Color(hex: "#0A0E1A")
+    static let rhPaper        = Color(hex: "#0A0E1A")
+    static let rhRedMuted     = Color(hex: "#1F1520")
+    static let rhGoldLight    = Color(hex: "#1A1608")
+    // Glass surface tints
+    static let glassWhite     = Color.white.opacity(0.06)
+    static let glassBorder    = Color.white.opacity(0.12)
+    static let glassHighlight = Color.white.opacity(0.18)
+    static let glassDeep      = Color(hex: "#0D1220").opacity(0.85)
 
     init(hex: String) {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
@@ -85,26 +86,103 @@ extension UIColor {
     }
 }
 
-// MARK: - View
+// MARK: - Liquid Glass Shape
+struct LiquidGlassShape: Shape {
+    var radius: CGFloat
+    var smoothness: CGFloat = 0.55
+
+    func path(in rect: CGRect) -> Path {
+        let r = min(radius, min(rect.width, rect.height) / 2)
+        let k = r * smoothness
+        var p = Path()
+        p.move(to: CGPoint(x: rect.minX + r, y: rect.minY))
+        p.addLine(to: CGPoint(x: rect.maxX - r, y: rect.minY))
+        p.addCurve(to: CGPoint(x: rect.maxX, y: rect.minY + r),
+                   control1: CGPoint(x: rect.maxX - r + k, y: rect.minY),
+                   control2: CGPoint(x: rect.maxX, y: rect.minY + r - k))
+        p.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - r))
+        p.addCurve(to: CGPoint(x: rect.maxX - r, y: rect.maxY),
+                   control1: CGPoint(x: rect.maxX, y: rect.maxY - r + k),
+                   control2: CGPoint(x: rect.maxX - r + k, y: rect.maxY))
+        p.addLine(to: CGPoint(x: rect.minX + r, y: rect.maxY))
+        p.addCurve(to: CGPoint(x: rect.minX, y: rect.maxY - r),
+                   control1: CGPoint(x: rect.minX + r - k, y: rect.maxY),
+                   control2: CGPoint(x: rect.minX, y: rect.maxY - r + k))
+        p.addLine(to: CGPoint(x: rect.minX, y: rect.minY + r))
+        p.addCurve(to: CGPoint(x: rect.minX + r, y: rect.minY),
+                   control1: CGPoint(x: rect.minX, y: rect.minY + r - k),
+                   control2: CGPoint(x: rect.minX + r - k, y: rect.minY))
+        p.closeSubpath()
+        return p
+    }
+}
+
+// Legacy alias — keeps all existing call sites compiling
+typealias SketchRoundedRect = LiquidGlassShape
+
+// MARK: - Glass Background ViewModifier
+struct GlassBackground: ViewModifier {
+    var radius: CGFloat = 16
+    var intensity: Double = 1.0
+
+    func body(content: Content) -> some View {
+        content
+            .background(
+                ZStack {
+                    LiquidGlassShape(radius: radius)
+                        .fill(Color(hex: "#111827").opacity(0.72 * intensity))
+                    LiquidGlassShape(radius: radius)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(0.09 * intensity),
+                                    Color.white.opacity(0.02 * intensity)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                }
+                .compositingGroup()
+            )
+            .overlay(
+                LiquidGlassShape(radius: radius)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.22 * intensity),
+                                Color.white.opacity(0.05 * intensity)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            )
+    }
+}
+
+// MARK: - View Extensions
 extension View {
-    /// Legacy card style (kept for compatibility)
+    /// Primary liquid glass card
+    func glassCard(radius: CGFloat = 18, intensity: Double = 1.0) -> some View {
+        self.modifier(GlassBackground(radius: radius, intensity: intensity))
+            .shadow(color: Color.black.opacity(0.35), radius: 20, x: 0, y: 8)
+            .shadow(color: Color(hex: "#6C8EFF").opacity(0.08), radius: 40, x: 0, y: 0)
+    }
+
+    /// Legacy card style — now renders as glass
     func rhCard(padding: CGFloat = 16, cornerRadius: CGFloat = 16) -> some View {
         self
             .padding(padding)
-            .background(Color.rhCard)
-            .clipShape(SketchRoundedRect(radius: cornerRadius))
-            .overlay(SketchRoundedRect(radius: cornerRadius).stroke(Color.rhInk.opacity(0.18), lineWidth: 1.5))
-            .shadow(color: Color.rhInk.opacity(0.12), radius: 0, x: 2, y: 3)
+            .glassCard(radius: cornerRadius)
     }
 
-    /// Hand-drawn card style
+    /// Sketch card — now renders as glass
     func sketchCard(padding: CGFloat = 16) -> some View {
         self
             .padding(padding)
-            .background(Color.rhCard)
-            .clipShape(SketchRoundedRect(radius: 14))
-            .overlay(SketchRoundedRect(radius: 14).stroke(Color.rhInk.opacity(0.22), lineWidth: 1.8))
-            .shadow(color: Color.rhInk.opacity(0.15), radius: 0, x: 2, y: 3)
+            .glassCard(radius: 16)
     }
 
     func hideKeyboard() {
@@ -113,31 +191,107 @@ extension View {
     }
 }
 
-// MARK: - Sketch Rounded Rect (slightly irregular corners for hand-drawn feel)
-struct SketchRoundedRect: Shape {
-    var radius: CGFloat
-    func path(in rect: CGRect) -> Path {
-        // Slightly vary each corner radius for organic feel
-        let tl = radius * 0.7
-        let tr = radius * 1.1
-        let br = radius * 0.85
-        let bl = radius * 1.0
-        var p = Path()
-        p.move(to: CGPoint(x: rect.minX + tl, y: rect.minY))
-        p.addLine(to: CGPoint(x: rect.maxX - tr, y: rect.minY))
-        p.addQuadCurve(to: CGPoint(x: rect.maxX, y: rect.minY + tr),
-                       control: CGPoint(x: rect.maxX, y: rect.minY))
-        p.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - br))
-        p.addQuadCurve(to: CGPoint(x: rect.maxX - br, y: rect.maxY),
-                       control: CGPoint(x: rect.maxX, y: rect.maxY))
-        p.addLine(to: CGPoint(x: rect.minX + bl, y: rect.maxY))
-        p.addQuadCurve(to: CGPoint(x: rect.minX, y: rect.maxY - bl),
-                       control: CGPoint(x: rect.minX, y: rect.maxY))
-        p.addLine(to: CGPoint(x: rect.minX, y: rect.minY + tl))
-        p.addQuadCurve(to: CGPoint(x: rect.minX + tl, y: rect.minY),
-                       control: CGPoint(x: rect.minX, y: rect.minY))
-        p.closeSubpath()
-        return p
+// MARK: - Liquid Glass Button Style
+// Combines Material's spring press feedback with liquid glass visual
+struct LiquidButtonStyle: ButtonStyle {
+    var color: Color = .rhAccent
+    var isDestructive: Bool = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.94 : 1.0)
+            .brightness(configuration.isPressed ? -0.04 : 0)
+            .overlay(
+                // Material-style pulse ripple on press
+                GeometryReader { geo in
+                    if configuration.isPressed {
+                        Circle()
+                            .fill((isDestructive ? Color(hex: "#FF6B6B") : color).opacity(0.15))
+                            .frame(
+                                width: geo.size.width * 1.5,
+                                height: geo.size.width * 1.5
+                            )
+                            .position(x: geo.size.width / 2, y: geo.size.height / 2)
+                            .transition(.opacity.combined(with: .scale(scale: 0.2)))
+                    }
+                }
+                .allowsHitTesting(false)
+                .clipped()
+            )
+            .animation(.spring(response: 0.22, dampingFraction: 0.65), value: configuration.isPressed)
+    }
+}
+
+// Legacy alias
+typealias ScaleButtonStyle = LiquidButtonStyle
+
+// MARK: - Glow Modifier
+struct GlowModifier: ViewModifier {
+    var color: Color
+    var radius: CGFloat = 12
+
+    func body(content: Content) -> some View {
+        content
+            .shadow(color: color.opacity(0.6), radius: radius / 2, x: 0, y: 0)
+            .shadow(color: color.opacity(0.3), radius: radius, x: 0, y: 0)
+    }
+}
+
+extension View {
+    func glow(_ color: Color, radius: CGFloat = 12) -> some View {
+        modifier(GlowModifier(color: color, radius: radius))
+    }
+}
+
+// MARK: - Animated Gradient Background
+struct AnimatedMeshBackground: View {
+    @State private var phase: CGFloat = 0
+
+    var body: some View {
+        ZStack {
+            Color(hex: "#0A0E1A").ignoresSafeArea()
+
+            // Orb 1 — blue
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Color(hex: "#6C8EFF").opacity(0.25), .clear],
+                        center: .center, startRadius: 0, endRadius: 220
+                    )
+                )
+                .frame(width: 440, height: 440)
+                .offset(x: -80 + phase * 20, y: -160 + phase * 10)
+                .blur(radius: 40)
+
+            // Orb 2 — purple
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Color(hex: "#A78BFA").opacity(0.18), .clear],
+                        center: .center, startRadius: 0, endRadius: 180
+                    )
+                )
+                .frame(width: 360, height: 360)
+                .offset(x: 120 - phase * 15, y: 200 + phase * 8)
+                .blur(radius: 50)
+
+            // Orb 3 — teal
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Color(hex: "#4ECDC4").opacity(0.12), .clear],
+                        center: .center, startRadius: 0, endRadius: 150
+                    )
+                )
+                .frame(width: 300, height: 300)
+                .offset(x: 60 + phase * 12, y: -80 - phase * 18)
+                .blur(radius: 45)
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 8).repeatForever(autoreverses: true)) {
+                phase = 1
+            }
+        }
     }
 }
 
@@ -145,22 +299,22 @@ struct SketchRoundedRect: Shape {
 extension TaskStatus {
     var color: Color {
         switch self {
-        case .queued:    return Color(hex: "#C9920A")
-        case .pending:   return Color(hex: "#C9920A")
-        case .running:   return Color(hex: "#C8392B")
-        case .completed: return Color(hex: "#4A8F5F")
-        case .failed:    return Color(hex: "#C0392B")
-        case .cancelled: return Color(hex: "#8C7B6E")
+        case .queued:    return Color(hex: "#FFD166")
+        case .pending:   return Color(hex: "#FFD166")
+        case .running:   return Color(hex: "#6C8EFF")
+        case .completed: return Color(hex: "#4ECDC4")
+        case .failed:    return Color(hex: "#FF6B6B")
+        case .cancelled: return Color(hex: "#8B9CC8")
         }
     }
 
     var uiColor: UIColor {
         switch self {
-        case .queued, .pending: return UIColor(hex: "#C9920A")
-        case .running:          return UIColor(hex: "#C8392B")
-        case .completed:        return UIColor(hex: "#4A8F5F")
-        case .failed:           return UIColor(hex: "#C0392B")
-        case .cancelled:        return UIColor(hex: "#8C7B6E")
+        case .queued, .pending: return UIColor(hex: "#FFD166")
+        case .running:          return UIColor(hex: "#6C8EFF")
+        case .completed:        return UIColor(hex: "#4ECDC4")
+        case .failed:           return UIColor(hex: "#FF6B6B")
+        case .cancelled:        return UIColor(hex: "#8B9CC8")
         }
     }
 }
