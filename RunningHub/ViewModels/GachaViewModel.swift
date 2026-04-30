@@ -32,6 +32,7 @@ final class GachaViewModel: ObservableObject {
     @Published var extraFields: [FormField] = []   // image / lora fields only
     @Published var appNodes: [AppNodeInfo] = []
     @Published var appPromptNodes: [AppNodeInfo] = []  // STRING/TEXT nodes for prompt injection
+    @Published var promptNodeLabels: [String] = []     // display names of detected prompt nodes
     @Published var isWebApp: Bool = false
     @Published var targetLoaded: Bool = false
 
@@ -76,6 +77,7 @@ final class GachaViewModel: ObservableObject {
         extraFields = []
         appNodes = []
         appPromptNodes = []
+        promptNodeLabels = []
         isWebApp = false
 
         defer { isLoadingTarget = false }
@@ -102,6 +104,7 @@ final class GachaViewModel: ObservableObject {
             duckNodeInfo = DuckDecodeService.shared.detectDuckNode(in: nodes)
             isTTEncoded = TTDecodeService.shared.detectTTNode(in: nodes)
             extraFields = buildExtraFields(from: detail)
+            promptNodeLabels = buildPromptNodeLabels(from: detail)
             isWebApp = false
             resolvedId = workflowId
             targetLoaded = true
@@ -120,6 +123,7 @@ final class GachaViewModel: ObservableObject {
                 let ft = $0.fieldType.uppercased()
                 return ft != "STRING" && ft != "TEXT"
             }
+            promptNodeLabels = appPromptNodes.map { $0.fieldName.isEmpty ? "提示词" : $0.fieldName }
             isWebApp = true
             resolvedId = parsed
             targetLoaded = true
@@ -495,6 +499,18 @@ final class GachaViewModel: ObservableObject {
             // Skip text/prompt fields — those are filled per-prompt
         }
         return fields
+    }
+
+    private func buildPromptNodeLabels(from detail: WorkflowDetailResponse) -> [String] {
+        let nodeDict = detail.parsedNodes
+        return nodeDict
+            .filter { !($0.value.classType?.lowercased().contains("duck") ?? false) }
+            .sorted { (Int($0.key) ?? Int.max) < (Int($1.key) ?? Int.max) }
+            .compactMap { (_, node) -> String? in
+                let inputs = node.inputs?.dictValue ?? [:]
+                guard inputs.keys.contains("text") || inputs.keys.contains("prompt") else { return nil }
+                return node.meta?.title ?? node.classType ?? "提示词节点"
+            }
     }
 }
 

@@ -126,6 +126,21 @@ struct GachaView: View {
                         Text("· TT编码").font(.system(size: 12)).foregroundColor(.rhWarning)
                     }
                 }
+                if !vm.promptNodeLabels.isEmpty {
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.right.circle.fill")
+                            .font(.system(size: 11)).foregroundColor(.rhAccent)
+                        Text("提示词将注入：")
+                            .font(.system(size: 11)).foregroundColor(.rhSecondary)
+                        ForEach(vm.promptNodeLabels, id: \.self) { label in
+                            Text(label)
+                                .font(.system(size: 11, weight: .medium)).foregroundColor(.rhAccent)
+                                .padding(.horizontal, 6).padding(.vertical, 2)
+                                .background(Color.rhAccentSoft)
+                                .clipShape(SketchRoundedRect(radius: 5))
+                        }
+                    }
+                }
             }
         }
         .sketchCard()
