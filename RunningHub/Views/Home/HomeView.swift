@@ -516,6 +516,7 @@ struct HomeView: View {
                 await vm.fetchWorkflow()
                 // 如果工作流失败且输入看起来像 ID（纯数字或短字符串），再试 AI 应用
                 if vm.workflowDetail == nil && vm.errorMessage != nil {
+                    vm.errorMessage = nil   // 清掉工作流的报错，避免闪现
                     appVm.webappInput = input
                     await appVm.fetchNodes()
                     if !appVm.nodes.isEmpty { vm.errorMessage = nil }
