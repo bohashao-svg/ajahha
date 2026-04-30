@@ -29,6 +29,8 @@ targets:
       - path: RunningHub
         excludes:
           - "**/*.md"
+          - "Libraries/XLActionController/Info.plist"
+          - "Libraries/XLActionController/*.h"
     info:
       path: RunningHub/Info.plist
       properties:
