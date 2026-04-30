@@ -107,6 +107,8 @@ extension BasePageCollectionCell {
      */
     public func cellIsOpen(_ isOpen: Bool, animated: Bool = true) {
         if isOpen == isOpened { return }
+        guard let frontConstraintY, let backConstraintY,
+              let frontContainerView, let backContainerView else { return }
 
         if ySpacing == .greatestFiniteMagnitude {
             frontConstraintY.constant = isOpen == true ? -frontContainerView.bounds.size.height / 6 : 0
@@ -149,11 +151,17 @@ extension BasePageCollectionCell {
 extension BasePageCollectionCell {
 
     fileprivate func configurationViews() {
-        backContainerView.layer.masksToBounds = true
-        backContainerView.layer.cornerRadius = 5
-
-        frontContainerView.layer.masksToBounds = true
-        frontContainerView.layer.cornerRadius = 5
+        // Guard against nil outlets — subclasses that build views in code
+        // assign frontContainerView/backContainerView after super.init returns,
+        // so these may be nil during the first commonInit() call.
+        if let back = backContainerView {
+            back.layer.masksToBounds = true
+            back.layer.cornerRadius = 5
+        }
+        if let front = frontContainerView {
+            front.layer.masksToBounds = true
+            front.layer.cornerRadius = 5
+        }
 
         contentView.layer.masksToBounds = false
         layer.masksToBounds = false
@@ -206,7 +214,7 @@ extension BasePageCollectionCell {
     }
 
     func configureCellViewConstraintsWithSize(_ size: CGSize) {
-        guard isOpened == false && frontContainerView.getConstraint(.width)?.constant != size.width else { return }
+        guard isOpened == false && frontContainerView?.getConstraint(.width)?.constant != size.width else { return }
 
         [frontContainerView, backContainerView].forEach {
             let constraintWidth = $0?.getConstraint(.width)

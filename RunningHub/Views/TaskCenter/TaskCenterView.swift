@@ -104,7 +104,12 @@ struct TaskCenterView: View {
                     LazyVStack(spacing: 12) {
                         ForEach(tasks) { task in
                             NavigationLink {
-                                TaskDetailView(task: task, vm: vm, appState: appState)
+                                TaskDetailView(
+                                    task: task,
+                                    vm: vm,
+                                    appState: appState,
+                                    autoExpandInfo: task.status == .completed
+                                )
                             } label: {
                                 TaskCardView(task: task)
                             }

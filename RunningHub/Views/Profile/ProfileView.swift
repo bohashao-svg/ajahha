@@ -24,7 +24,8 @@ struct ProfileView: View {
                         destination: TaskDetailView(
                             task: selectedItem?.asRHTask() ?? RHTask.placeholder,
                             vm: TaskCenterViewModel(),
-                            appState: AppState.shared
+                            appState: AppState.shared,
+                            autoExpandInfo: true
                         ),
                         isActive: $isDetailActive
                     ) { EmptyView() }

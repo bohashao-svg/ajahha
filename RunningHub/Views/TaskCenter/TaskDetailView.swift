@@ -7,6 +7,8 @@ struct TaskDetailView: View {
     let task: RHTask
     let vm: TaskCenterViewModel
     var appState: AppState = AppState.shared
+    /// When true, the info sheet expands automatically on appear (e.g. from completed/profile entry)
+    var autoExpandInfo: Bool = false
     @Environment(\.dismiss) private var dismiss
 
     @State private var isDecoding = false
@@ -71,6 +73,16 @@ struct TaskDetailView: View {
                 showDecodeSheet = true
             }
             Button("取消", role: .cancel) {}
+        }
+        .onAppear {
+            if autoExpandInfo && !infoExpanded {
+                // Slight delay so the view has finished its initial layout
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                        infoExpanded = true
+                    }
+                }
+            }
         }
     }
 

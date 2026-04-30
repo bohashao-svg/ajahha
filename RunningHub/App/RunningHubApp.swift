@@ -20,6 +20,7 @@ struct ContentRootView: View {
     @EnvironmentObject private var appConfig: AppConfigService
     @EnvironmentObject private var appState: AppState
     @State private var isLoggedIn = StorageService.shared.isLoggedIn
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         ZStack {
@@ -35,8 +36,18 @@ struct ContentRootView: View {
             }
 
             if !appConfig.isLoaded {
-                Color.white.ignoresSafeArea()
-                ProgressView()
+                Color(hex: "#080C18").ignoresSafeArea()
+                ProgressView().tint(.white)
+            }
+
+            // App Switcher snapshot mask: prevents white flash, shows branded background
+            if scenePhase == .background {
+                Color(hex: "#080C18").ignoresSafeArea()
+                    .overlay(
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 48, weight: .ultraLight))
+                            .foregroundColor(Color(hex: "#6C8EFF").opacity(0.4))
+                    )
             }
         }
         .onAppear {
