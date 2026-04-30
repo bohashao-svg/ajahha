@@ -12,7 +12,7 @@ private func < <T: Comparable>(lhs: T?, rhs: T?) -> Bool {
   }
 }
 
-protocol ImageGalleryPanGestureDelegate: class {
+protocol ImageGalleryPanGestureDelegate: AnyObject {
 
   func panGestureDidStart()
   func panGestureDidChange(_ translation: CGPoint)

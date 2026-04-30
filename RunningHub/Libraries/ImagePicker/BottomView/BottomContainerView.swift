@@ -1,6 +1,6 @@
 import UIKit
 
-protocol BottomContainerViewDelegate: class {
+protocol BottomContainerViewDelegate: AnyObject {
 
   func pickerButtonDidPress()
   func doneButtonDidPress()

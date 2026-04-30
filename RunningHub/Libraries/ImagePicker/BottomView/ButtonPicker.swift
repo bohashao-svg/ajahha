@@ -1,6 +1,6 @@
 import UIKit
 
-protocol ButtonPickerDelegate: class {
+protocol ButtonPickerDelegate: AnyObject {
 
   func buttonDidPress()
 }

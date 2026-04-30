@@ -77,8 +77,8 @@ extension TransitionDriver {
             self.copyCell?.shadowView?.alpha = 0
             copyView.frontContainerView.subviewsForEach { if $0.tag == Constants.HideKey { $0.alpha = 0 } }
         }, completion: { _ in
-            let data = NSKeyedArchiver.archivedData(withRootObject: copyView.frontContainerView!)
-            guard case let headerView as UIView = NSKeyedUnarchiver.unarchiveObject(with: data) else {
+            let data = ((try? NSKeyedArchiver.archivedData(withRootObject: copyView.frontContainerView!, requiringSecureCoding: false)) ?? Data())
+            guard let headerView = (try? NSKeyedUnarchiver.unarchivedObject(ofClass: UIView.self, from: data)) else {
                 fatalError("must copy")
             }
             completion(headerView)

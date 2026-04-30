@@ -2,7 +2,7 @@ import UIKit
 import AVFoundation
 import PhotosUI
 
-protocol CameraViewDelegate: class {
+protocol CameraViewDelegate: AnyObject {
 
   func setFlashButtonHidden(_ hidden: Bool)
   func imageToLibrary()

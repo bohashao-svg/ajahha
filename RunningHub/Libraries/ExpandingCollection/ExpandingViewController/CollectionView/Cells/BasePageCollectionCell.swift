@@ -245,8 +245,8 @@ extension BasePageCollectionCell {
     func copyCell() -> BasePageCollectionCell? {
         highlightedImageFalseOnView(contentView)
 
-        let data = NSKeyedArchiver.archivedData(withRootObject: self)
-        guard case let copyView as BasePageCollectionCell = NSKeyedUnarchiver.unarchiveObject(with: data),
+        let data = ((try? NSKeyedArchiver.archivedData(withRootObject: self, requiringSecureCoding: false)) ?? Data())
+        guard let copyView = (try? NSKeyedUnarchiver.unarchivedObject(ofClass: BasePageCollectionCell.self, from: data)),
             let shadowView = self.shadowView else {
             return nil
         }

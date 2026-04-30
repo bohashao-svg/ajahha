@@ -1,6 +1,6 @@
 import UIKit
 
-protocol TopViewDelegate: class {
+protocol TopViewDelegate: AnyObject {
 
   func flashButtonDidPress(_ title: String)
   func rotateDeviceDidPress()

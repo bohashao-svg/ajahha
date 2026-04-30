@@ -124,7 +124,7 @@ extension ImagePickerController {
                                               relatedBy: .equal, toItem: view.safeAreaLayoutGuide,
                                               attribute: .top,
                                               multiplier: 1, constant: 0))
-        bottomHeightPadding = UIApplication.shared.keyWindow!.safeAreaInsets.bottom
+        bottomHeightPadding = (UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap { $0.windows }.first(where: { $0.isKeyWindow })?.safeAreaInsets.bottom ?? 0)
       } else {
         view.addConstraint(NSLayoutConstraint(item: galleryView, attribute: .top,
                                               relatedBy: .equal, toItem: view,
@@ -172,7 +172,7 @@ extension ImagePickerController {
     }
     
     if #available(iOS 11.0, *) {
-      let heightPadding = UIApplication.shared.keyWindow!.safeAreaInsets.bottom
+      let heightPadding = (UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap { $0.windows }.first(where: { $0.isKeyWindow })?.safeAreaInsets.bottom ?? 0)
       view.addConstraint(NSLayoutConstraint(item: bottomContainer, attribute: .height,
                                             relatedBy: .equal, toItem: nil,
                                             attribute: .notAnAttribute,

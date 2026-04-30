@@ -360,6 +360,34 @@ struct TaskDetailView: View {
         return false
     }
 
+    private func saveVideo(_ data: Data) {
+        let ext = isVideoData(data) ? "mp4" : "bin"
+        let tmp = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString + "." + ext)
+        do {
+            try data.write(to: tmp)
+        } catch {
+            showToast("保存失败：\(error.localizedDescription)")
+            return
+        }
+        PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
+            DispatchQueue.main.async {
+                guard status == .authorized || status == .limited else {
+                    self.showToast("请在设置中允许访问相册")
+                    return
+                }
+                PHPhotoLibrary.shared().performChanges({
+                    PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: tmp)
+                }) { success, _ in
+                    DispatchQueue.main.async {
+                        try? FileManager.default.removeItem(at: tmp)
+                        self.showToast(success ? "视频已保存到相册" : "保存失败")
+                    }
+                }
+            }
+        }
+    }
+
     private func saveRawData(_ data: Data) {
         let ext = "bin"
         let tmp = FileManager.default.temporaryDirectory
