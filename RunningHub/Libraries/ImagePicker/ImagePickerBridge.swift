@@ -9,7 +9,7 @@ struct ImagePickerSheet: UIViewControllerRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     func makeUIViewController(context: Context) -> ImagePickerController {
-        let config = Configuration()
+        let config = ImagePickerConfiguration()
         config.mainColor = UIColor(hex: "#6C8EFF")
         config.backgroundColor = UIColor(hex: "#0A0E1A")
         config.gallerySeparatorColor = UIColor(white: 1, alpha: 0.06)
@@ -54,7 +54,7 @@ struct MultiImagePickerSheet: UIViewControllerRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     func makeUIViewController(context: Context) -> ImagePickerController {
-        let config = Configuration()
+        let config = ImagePickerConfiguration()
         config.allowMultiplePhotoSelection = true
         config.recordLocation = false
         config.mainColor = UIColor(hex: "#6C8EFF")

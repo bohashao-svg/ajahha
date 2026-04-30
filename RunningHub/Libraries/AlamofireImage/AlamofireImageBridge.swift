@@ -76,7 +76,7 @@ extension UIImageView {
         if let prev = objc_getAssociatedObject(self, &_rhUrlKey) as? String, prev != urlString {
             RHImageDownloader.shared.cancel(url: prev)
         }
-        objc_setAssociatedObject(self, &_rhUrlKey, urlString, .OBJC_ASSOCIATION_RETAIN_NONATOMICALLY)
+        objc_setAssociatedObject(self, &_rhUrlKey, urlString, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
 
         if let cached = RHImageCache.shared.image(for: urlString) {
             image = cached

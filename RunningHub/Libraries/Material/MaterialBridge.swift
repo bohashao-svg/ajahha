@@ -20,13 +20,14 @@ public struct Pulse {
     public static func animate(layer: CALayer,
                                point: CGPoint,
                                width: CGFloat,
-                               color: UIColor = UIColor(hex: "#6C8EFF"),
+                               color: UIColor? = nil,
                                opacity: Float = 0.28,
                                duration: TimeInterval = 0.55) {
+        let resolvedColor = color ?? UIColor(red: 0.42, green: 0.56, blue: 1.0, alpha: 1) // #6C8EFF
         let pulseLayer = CAShapeLayer()
         let path = UIBezierPath(ovalIn: CGRect(x: -width / 2, y: -width / 2, width: width, height: width))
         pulseLayer.path = path.cgPath
-        pulseLayer.fillColor = color.withAlphaComponent(CGFloat(opacity)).cgColor
+        pulseLayer.fillColor = resolvedColor.withAlphaComponent(CGFloat(opacity)).cgColor
         pulseLayer.position = point
         pulseLayer.opacity = 0
         layer.addSublayer(pulseLayer)
@@ -125,11 +126,12 @@ struct PulseButtonStyle: ButtonStyle {
 // MARK: - UIView Pulse Extension
 extension UIView {
     func addPulse(at point: CGPoint? = nil,
-                  color: UIColor = UIColor(hex: "#6C8EFF"),
+                  color: UIColor? = nil,
                   opacity: Float = 0.25) {
+        let resolvedColor = color ?? UIColor(red: 0.42, green: 0.56, blue: 1.0, alpha: 1)
         let center = point ?? CGPoint(x: bounds.midX, y: bounds.midY)
         let width = max(bounds.width, bounds.height) * 1.4
-        Pulse.animate(layer: layer, point: center, width: width, color: color, opacity: opacity)
+        Pulse.animate(layer: layer, point: center, width: width, color: resolvedColor, opacity: opacity)
     }
 }
 

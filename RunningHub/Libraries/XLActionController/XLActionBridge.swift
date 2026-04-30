@@ -114,7 +114,7 @@ final class LiquidGlassActionController: ActionController<LiquidActionCell, Liqu
             withReuseIdentifier: String(describing: LiquidActionCell.self),
             for: indexPath) as! LiquidActionCell
 
-        let act = self.action(at: indexPath)
+        let act = self.actionForIndexPath(indexPath)
         cell.titleLabel.text = act?.data?.title
         if let iconName = act?.data?.subtitle, !iconName.isEmpty {
             cell.iconImageView.image = UIImage(systemName: iconName)
