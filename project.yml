@@ -37,7 +37,7 @@ targets:
         CFBundleDisplayName: 人民万岁
         CFBundleShortVersionString: "1.0.0"
         CFBundleVersion: "1"
-        UILaunchStoryboardName: LaunchScreen
+        UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         NSPhotoLibraryAddUsageDescription: "需要访问相册以保存图片"
