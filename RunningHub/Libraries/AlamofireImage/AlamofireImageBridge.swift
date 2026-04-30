@@ -3,36 +3,8 @@ import SwiftUI
 
 // MARK: - AlamofireImage Bridge
 // Mirrors AlamofireImage's ImageDownloader + ImageCache API.
-// Implemented natively with URLSession + NSCache — no Alamofire dependency required.
-
-// MARK: - Image Cache (mirrors AlamofireImage's AutoPurgingImageCache)
-
-public final class RHImageCache {
-    public static let shared = RHImageCache()
-    private let cache = NSCache<NSString, UIImage>()
-
-    private init() {
-        cache.countLimit = 200
-        cache.totalCostLimit = 100 * 1024 * 1024  // 100 MB
-    }
-
-    public func image(for url: String) -> UIImage? {
-        cache.object(forKey: url as NSString)
-    }
-
-    public func store(_ image: UIImage, for url: String) {
-        let cost = Int(image.size.width * image.size.height * image.scale * image.scale * 4)
-        cache.setObject(image, forKey: url as NSString, cost: cost)
-    }
-
-    public func removeImage(for url: String) {
-        cache.removeObject(forKey: url as NSString)
-    }
-
-    public func removeAllImages() {
-        cache.removeAllObjects()
-    }
-}
+// RHImageCache and RHRemoteImage are defined in Services/RHImageCache.swift.
+// This file adds: RHImageDownloader, UIImageView extension, RHImageFilter.
 
 // MARK: - Image Downloader (mirrors AlamofireImage's ImageDownloader)
 
@@ -55,7 +27,6 @@ public final class RHImageDownloader {
     public func download(url: String,
                          filter: ((UIImage) -> UIImage)? = nil,
                          completion: @escaping (UIImage?) -> Void) -> URLSessionDataTask? {
-        // Return cached immediately
         if let cached = RHImageCache.shared.image(for: url) {
             completion(cached)
             return nil
@@ -63,7 +34,6 @@ public final class RHImageDownloader {
         guard let urlObj = URL(string: url) else { completion(nil); return nil }
 
         lock.lock()
-        // Deduplicate in-flight requests
         if activeTasks[url] != nil { lock.unlock(); return nil }
 
         let task = session.dataTask(with: urlObj) { [weak self] data, _, _ in
@@ -96,19 +66,17 @@ public final class RHImageDownloader {
 
 // MARK: - UIImageView Extension (mirrors AlamofireImage's af.setImage)
 
-extension UIImageView {
-    private static var taskKey = "RHImageDownloaderTaskKey"
-    private static var urlKey  = "RHImageDownloaderURLKey"
+private var _rhUrlKey = "RHImageDownloaderURLKey"
 
+extension UIImageView {
     func rh_setImage(withURL urlString: String,
                      placeholder: UIImage? = nil,
                      filter: ((UIImage) -> UIImage)? = nil,
                      completion: ((UIImage?) -> Void)? = nil) {
-        // Cancel previous task for this view
-        if let prev = objc_getAssociatedObject(self, &UIImageView.urlKey) as? String, prev != urlString {
+        if let prev = objc_getAssociatedObject(self, &_rhUrlKey) as? String, prev != urlString {
             RHImageDownloader.shared.cancel(url: prev)
         }
-        objc_setAssociatedObject(self, &UIImageView.urlKey, urlString, .OBJC_ASSOCIATION_RETAIN_NONATOMICALLY)
+        objc_setAssociatedObject(self, &_rhUrlKey, urlString, .OBJC_ASSOCIATION_RETAIN_NONATOMICALLY)
 
         if let cached = RHImageCache.shared.image(for: urlString) {
             image = cached
@@ -118,62 +86,11 @@ extension UIImageView {
         image = placeholder
         RHImageDownloader.shared.download(url: urlString, filter: filter) { [weak self] img in
             guard let self,
-                  objc_getAssociatedObject(self, &UIImageView.urlKey) as? String == urlString else { return }
+                  objc_getAssociatedObject(self, &_rhUrlKey) as? String == urlString else { return }
             UIView.transition(with: self, duration: 0.22, options: .transitionCrossDissolve) {
                 self.image = img
             }
             completion?(img)
-        }
-    }
-}
-
-// MARK: - SwiftUI Remote Image (mirrors AlamofireImage usage pattern)
-
-struct RHRemoteImage: View {
-    let url: String
-    var contentMode: ContentMode = .fill
-    var cornerRadius: CGFloat = 0
-    var placeholder: Color = Color.white.opacity(0.05)
-
-    @State private var image: UIImage?
-    @State private var isLoading = true
-
-    var body: some View {
-        Group {
-            if let image {
-                Image(uiImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: contentMode)
-                    .transition(.opacity.animation(.easeIn(duration: 0.22)))
-            } else {
-                placeholder
-                    .overlay(
-                        Group {
-                            if isLoading {
-                                ProgressView()
-                                    .scaleEffect(0.7)
-                                    .tint(Color(hex: "#6C8EFF"))
-                            }
-                        }
-                    )
-                    .shimmer()
-            }
-        }
-        .clipShape(LiquidGlassShape(radius: cornerRadius))
-        .onAppear { loadImage() }
-        .onChange(of: url) { _ in loadImage() }
-    }
-
-    private func loadImage() {
-        if let cached = RHImageCache.shared.image(for: url) {
-            image = cached
-            isLoading = false
-            return
-        }
-        isLoading = true
-        RHImageDownloader.shared.download(url: url) { img in
-            image = img
-            isLoading = false
         }
     }
 }

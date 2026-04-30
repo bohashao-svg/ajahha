@@ -2,8 +2,6 @@ import SwiftUI
 import Photos
 
 // MARK: - ImagePickerSheet (Liquid Glass)
-// SwiftUI bridge for ImagePickerController with liquid glass theming.
-
 struct ImagePickerSheet: UIViewControllerRepresentable {
     @Binding var selectedImage: UIImage?
     var onDismiss: (() -> Void)?
@@ -11,21 +9,16 @@ struct ImagePickerSheet: UIViewControllerRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     func makeUIViewController(context: Context) -> ImagePickerController {
-        var config = ImagePickerConfiguration()
-        config.allowMultiplePhotoSelection = false
-        config.recordLocation = false
-
-        // Liquid glass color theme
+        let config = Configuration()
         config.mainColor = UIColor(hex: "#6C8EFF")
         config.backgroundColor = UIColor(hex: "#0A0E1A")
         config.gallerySeparatorColor = UIColor(white: 1, alpha: 0.06)
         config.settingsColor = UIColor(hex: "#F0F4FF")
         config.noImagesTitle = "暂无图片"
         config.noCameraTitle = "相机不可用"
-        config.okButtonTitle = "确认"
         config.cancelButtonTitle = "取消"
         config.doneButtonTitle = "完成"
-        config.cameraRollTitle = "相机胶卷"
+        config.allowMultiplePhotoSelection = false
         config.recordLocation = false
 
         let vc = ImagePickerController(configuration: config)
@@ -53,7 +46,6 @@ struct ImagePickerSheet: UIViewControllerRepresentable {
 }
 
 // MARK: - Multi-Image Picker Sheet
-
 struct MultiImagePickerSheet: UIViewControllerRepresentable {
     @Binding var selectedImages: [UIImage]
     var maxCount: Int = 9
@@ -62,7 +54,7 @@ struct MultiImagePickerSheet: UIViewControllerRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     func makeUIViewController(context: Context) -> ImagePickerController {
-        var config = ImagePickerConfiguration()
+        let config = Configuration()
         config.allowMultiplePhotoSelection = true
         config.recordLocation = false
         config.mainColor = UIColor(hex: "#6C8EFF")
@@ -70,10 +62,8 @@ struct MultiImagePickerSheet: UIViewControllerRepresentable {
         config.gallerySeparatorColor = UIColor(white: 1, alpha: 0.06)
         config.settingsColor = UIColor(hex: "#F0F4FF")
         config.noImagesTitle = "暂无图片"
-        config.okButtonTitle = "确认"
         config.cancelButtonTitle = "取消"
-        config.doneButtonTitle = "完成（\(maxCount) 张）"
-        config.cameraRollTitle = "相机胶卷"
+        config.doneButtonTitle = "完成"
 
         let vc = ImagePickerController(configuration: config)
         vc.delegate = context.coordinator
@@ -100,8 +90,6 @@ struct MultiImagePickerSheet: UIViewControllerRepresentable {
 }
 
 // MARK: - Liquid Glass Image Picker Button
-// Drop-in SwiftUI button that opens ImagePickerSheet
-
 struct LiquidImagePickerButton: View {
     @Binding var selectedImage: UIImage?
     @State private var showPicker = false

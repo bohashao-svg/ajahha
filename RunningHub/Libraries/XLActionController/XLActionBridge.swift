@@ -2,8 +2,6 @@ import UIKit
 import SwiftUI
 
 // MARK: - Liquid Glass Action Cell
-// Custom cell for XLActionController with liquid glass styling
-
 final class LiquidActionCell: UICollectionViewCell {
     let titleLabel = UILabel()
     let iconImageView = UIImageView()
@@ -18,7 +16,6 @@ final class LiquidActionCell: UICollectionViewCell {
     private func setupViews() {
         backgroundColor = .clear
 
-        // Glass background
         let glassBg = UIView()
         glassBg.backgroundColor = UIColor(white: 1, alpha: 0.06)
         glassBg.translatesAutoresizingMaskIntoConstraints = false
@@ -72,7 +69,6 @@ final class LiquidActionCell: UICollectionViewCell {
 }
 
 // MARK: - Liquid Glass Action Controller
-// Concrete subclass of XLActionController with liquid glass sheet design
 
 typealias LiquidActionData = ActionData
 
@@ -94,21 +90,18 @@ final class LiquidGlassActionController: ActionController<LiquidActionCell, Liqu
         settings.cancelView.showCancel = true
         settings.cancelView.title = "取消"
         settings.cancelView.height = 56
-        settings.cancelView.marginBottom = 8
     }
 
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .clear
 
-        // Blur + glass background
         let blur = UIBlurEffect(style: .systemUltraThinMaterialDark)
         let blurView = UIVisualEffectView(effect: blur)
         blurView.frame = view.bounds
         blurView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         view.insertSubview(blurView, at: 0)
 
-        // Dim overlay
         let dim = UIView(frame: view.bounds)
         dim.backgroundColor = UIColor(hex: "#0A0E1A").withAlphaComponent(0.55)
         dim.autoresizingMask = [.flexibleWidth, .flexibleHeight]
@@ -121,19 +114,18 @@ final class LiquidGlassActionController: ActionController<LiquidActionCell, Liqu
             withReuseIdentifier: String(describing: LiquidActionCell.self),
             for: indexPath) as! LiquidActionCell
 
-        let action = self.action(at: indexPath)
-        cell.titleLabel.text = action?.data?.title
-        if let iconName = action?.data?.subtitle, !iconName.isEmpty {
+        let act = self.action(at: indexPath)
+        cell.titleLabel.text = act?.data?.title
+        if let iconName = act?.data?.subtitle, !iconName.isEmpty {
             cell.iconImageView.image = UIImage(systemName: iconName)
         } else {
             cell.iconImageView.image = nil
         }
 
-        // Destructive style
-        if action?.style == .destructive {
+        if act?.style == .destructive {
             cell.titleLabel.textColor = UIColor(hex: "#FF6B6B")
             cell.iconImageView.tintColor = UIColor(hex: "#FF6B6B")
-        } else if action?.style == .cancel {
+        } else if act?.style == .cancel {
             cell.titleLabel.textColor = UIColor(hex: "#8B9CC8")
             cell.iconImageView.tintColor = UIColor(hex: "#8B9CC8")
         } else {
@@ -141,9 +133,9 @@ final class LiquidGlassActionController: ActionController<LiquidActionCell, Liqu
             cell.iconImageView.tintColor = UIColor(hex: "#6C8EFF")
         }
 
-        // Hide separator on last item
-        let isLast = indexPath.item == (self.numberOfActions(in: indexPath.section) - 1)
-        cell.separatorLine.isHidden = isLast
+        // Hide separator on last visible item
+        let total = collectionView.numberOfItems(inSection: indexPath.section)
+        cell.separatorLine.isHidden = indexPath.item == total - 1
         return cell
     }
 }
@@ -167,30 +159,24 @@ struct LiquidActionSheet: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {
-        if isPresented {
-            let controller = LiquidGlassActionController()
-            if let title = title {
-                controller.headerData = nil
-                _ = title
-            }
-            for action in actions {
-                let data = ActionData(title: action.title, subtitle: action.icon)
-                controller.addAction(Action(data, style: action.style) { [weak controller] _ in
-                    controller?.dismiss(animated: true)
-                    action.handler()
-                    DispatchQueue.main.async { isPresented = false }
-                })
-            }
-            controller.addAction(Action(ActionData(title: "取消", subtitle: "xmark"), style: .cancel) { [weak controller] _ in
+        guard isPresented, uiViewController.presentedViewController == nil else { return }
+        let controller = LiquidGlassActionController()
+        for action in actions {
+            let data = ActionData(title: action.title, subtitle: action.icon)
+            controller.addAction(Action(data, style: action.style) { [weak controller] _ in
                 controller?.dismiss(animated: true)
+                action.handler()
                 DispatchQueue.main.async { isPresented = false }
             })
-            uiViewController.present(controller, animated: true)
         }
+        controller.addAction(Action(ActionData(title: "取消", subtitle: "xmark"), style: .cancel) { [weak controller] _ in
+            controller?.dismiss(animated: true)
+            DispatchQueue.main.async { isPresented = false }
+        })
+        uiViewController.present(controller, animated: true)
     }
 }
 
-// MARK: - View Extension for easy use
 extension View {
     func liquidActionSheet(
         isPresented: Binding<Bool>,

@@ -14,7 +14,6 @@ struct SettingsView: View {
                 ScrollView {
                     VStack(spacing: 16) {
                         apiKeySection
-                        appearanceSection
                         accountSection
                         aboutSection
                         Spacer(minLength: 24)
@@ -45,6 +44,9 @@ struct SettingsView: View {
                 Button("退出", role: .destructive) { vm.logout() }
                 Button("取消", role: .cancel) {}
             }
+            .alert("已保存", isPresented: $vm.showSavedAlert) {
+                Button("好", role: .cancel) {}
+            }
         }
     }
 
@@ -56,15 +58,10 @@ struct SettingsView: View {
             VStack(spacing: 10) {
                 HStack(spacing: 10) {
                     Image(systemName: "key.fill")
-                        .font(.system(size: 14))
-                        .foregroundColor(Color(hex: "#FFD166"))
-                        .frame(width: 20)
-                    SecureField("输入 API Key", text: $vm.apiKey)
-                        .font(.system(size: 14))
-                        .foregroundColor(Color(hex: "#F0F4FF"))
-                        .tint(Color(hex: "#6C8EFF"))
-                        .autocapitalization(.none)
-                        .disableAutocorrection(true)
+                        .font(.system(size: 14)).foregroundColor(Color(hex: "#FFD166")).frame(width: 20)
+                    SecureField("输入 API Key", text: $vm.apiKeyInput)
+                        .font(.system(size: 14)).foregroundColor(Color(hex: "#F0F4FF"))
+                        .tint(Color(hex: "#6C8EFF")).autocapitalization(.none).disableAutocorrection(true)
                 }
                 .padding(.horizontal, 12).padding(.vertical, 11)
                 .background(LiquidGlassShape(radius: 12).fill(Color.white.opacity(0.05)))
@@ -88,47 +85,7 @@ struct SettingsView: View {
                     .shadow(color: Color(hex: "#6C8EFF").opacity(0.4), radius: 10)
                 }
                 .buttonStyle(LiquidButtonStyle())
-
-                if vm.apiKeySaved {
-                    HStack(spacing: 5) {
-                        Image(systemName: "checkmark.circle.fill").font(.system(size: 12)).foregroundColor(Color(hex: "#4ECDC4"))
-                        Text("密钥已保存").font(.system(size: 12)).foregroundColor(Color(hex: "#4ECDC4"))
-                    }
-                    .transition(.opacity.combined(with: .move(edge: .top)))
-                }
             }
-        }
-        .sketchCard()
-    }
-
-    // MARK: - Appearance Section
-    private var appearanceSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionHeader("外观", icon: "paintbrush.fill", color: Color(hex: "#A78BFA"))
-
-            settingsRow(
-                icon: "moon.stars.fill",
-                iconColor: Color(hex: "#A78BFA"),
-                title: "深色模式",
-                trailing: AnyView(
-                    Toggle("", isOn: $vm.isDarkMode)
-                        .labelsHidden()
-                        .tint(Color(hex: "#6C8EFF"))
-                )
-            )
-
-            glassDivider
-
-            settingsRow(
-                icon: "sparkles",
-                iconColor: Color(hex: "#6C8EFF"),
-                title: "液态玻璃效果",
-                trailing: AnyView(
-                    Toggle("", isOn: $vm.glassEffectEnabled)
-                        .labelsHidden()
-                        .tint(Color(hex: "#6C8EFF"))
-                )
-            )
         }
         .sketchCard()
     }
@@ -139,13 +96,27 @@ struct SettingsView: View {
             sectionHeader("账户", icon: "person.circle.fill", color: Color(hex: "#4ECDC4"))
 
             settingsRow(
-                icon: "person.fill",
+                icon: "key.horizontal.fill",
                 iconColor: Color(hex: "#4ECDC4"),
-                title: "用户名",
+                title: "Access Key",
                 trailing: AnyView(
-                    Text(vm.username)
-                        .font(.system(size: 13))
+                    Text(vm.maskedAccessKey)
+                        .font(.system(size: 12, design: .monospaced))
                         .foregroundColor(Color(hex: "#8B9CC8"))
+                )
+            )
+
+            glassDivider
+
+            settingsRow(
+                icon: "star.fill",
+                iconColor: Color(hex: "#FFD166"),
+                title: "Plus 默认模式",
+                trailing: AnyView(
+                    Toggle("", isOn: $vm.isPlusDefault)
+                        .labelsHidden()
+                        .tint(Color(hex: "#6C8EFF"))
+                        .onChange(of: vm.isPlusDefault) { _ in vm.savePlusDefault() }
                 )
             )
 
@@ -154,16 +125,12 @@ struct SettingsView: View {
             Button { showLogoutAlert = true } label: {
                 HStack(spacing: 10) {
                     ZStack {
-                        LiquidGlassShape(radius: 8)
-                            .fill(Color(hex: "#FF6B6B").opacity(0.12))
-                            .frame(width: 32, height: 32)
+                        LiquidGlassShape(radius: 8).fill(Color(hex: "#FF6B6B").opacity(0.12)).frame(width: 32, height: 32)
                         Image(systemName: "rectangle.portrait.and.arrow.right")
-                            .font(.system(size: 14))
-                            .foregroundColor(Color(hex: "#FF6B6B"))
+                            .font(.system(size: 14)).foregroundColor(Color(hex: "#FF6B6B"))
                     }
                     Text("退出登录")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(Color(hex: "#FF6B6B"))
+                        .font(.system(size: 14, weight: .medium)).foregroundColor(Color(hex: "#FF6B6B"))
                     Spacer()
                     RHIcon(name: .chevron, size: 12, color: Color(hex: "#FF6B6B").opacity(0.5))
                 }
@@ -184,8 +151,7 @@ struct SettingsView: View {
                 title: "版本",
                 trailing: AnyView(
                     Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
-                        .font(.system(size: 13))
-                        .foregroundColor(Color(hex: "#8B9CC8"))
+                        .font(.system(size: 13)).foregroundColor(Color(hex: "#8B9CC8"))
                 )
             )
 
@@ -197,8 +163,7 @@ struct SettingsView: View {
                 title: "开发者",
                 trailing: AnyView(
                     Text("iPhone83Plus")
-                        .font(.system(size: 13))
-                        .foregroundColor(Color(hex: "#8B9CC8"))
+                        .font(.system(size: 13)).foregroundColor(Color(hex: "#8B9CC8"))
                 )
             )
         }
@@ -209,41 +174,26 @@ struct SettingsView: View {
     private func sectionHeader(_ title: String, icon: String, color: Color) -> some View {
         HStack(spacing: 8) {
             ZStack {
-                LiquidGlassShape(radius: 8)
-                    .fill(color.opacity(0.15))
-                    .frame(width: 28, height: 28)
-                Image(systemName: icon)
-                    .font(.system(size: 13))
-                    .foregroundColor(color)
+                LiquidGlassShape(radius: 8).fill(color.opacity(0.15)).frame(width: 28, height: 28)
+                Image(systemName: icon).font(.system(size: 13)).foregroundColor(color)
             }
-            Text(title)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(Color(hex: "#F0F4FF"))
+            Text(title).font(.system(size: 14, weight: .semibold)).foregroundColor(Color(hex: "#F0F4FF"))
         }
     }
 
     private func settingsRow(icon: String, iconColor: Color, title: String, trailing: AnyView) -> some View {
         HStack(spacing: 10) {
             ZStack {
-                LiquidGlassShape(radius: 8)
-                    .fill(iconColor.opacity(0.12))
-                    .frame(width: 32, height: 32)
-                Image(systemName: icon)
-                    .font(.system(size: 14))
-                    .foregroundColor(iconColor)
+                LiquidGlassShape(radius: 8).fill(iconColor.opacity(0.12)).frame(width: 32, height: 32)
+                Image(systemName: icon).font(.system(size: 14)).foregroundColor(iconColor)
             }
-            Text(title)
-                .font(.system(size: 14))
-                .foregroundColor(Color(hex: "#F0F4FF"))
+            Text(title).font(.system(size: 14)).foregroundColor(Color(hex: "#F0F4FF"))
             Spacer()
             trailing
         }
     }
 
     private var glassDivider: some View {
-        Rectangle()
-            .fill(Color.white.opacity(0.06))
-            .frame(height: 0.5)
-            .padding(.leading, 42)
+        Rectangle().fill(Color.white.opacity(0.06)).frame(height: 0.5).padding(.leading, 42)
     }
 }

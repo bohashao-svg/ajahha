@@ -268,11 +268,11 @@ struct HomeView: View {
             .background(
                 LiquidGlassShape(radius: 14)
                     .fill(appVm.isSubmitting
-                        ? Color.white.opacity(0.06)
-                        : LinearGradient(
+                        ? AnyShapeStyle(Color.white.opacity(0.06))
+                        : AnyShapeStyle(LinearGradient(
                             colors: [Color(hex: "#6C8EFF"), Color(hex: "#4A6FE8")],
                             startPoint: .topLeading, endPoint: .bottomTrailing
-                        )
+                        ))
                     )
             )
             .overlay(LiquidGlassShape(radius: 14).stroke(Color.white.opacity(appVm.isSubmitting ? 0.06 : 0.2), lineWidth: 1))
