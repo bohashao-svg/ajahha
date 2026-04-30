@@ -1,6 +1,7 @@
 import SwiftUI
 
 // MARK: - Task Center View
+// Layout: segmented pill tabs → full-width card list
 struct TaskCenterView: View {
     @StateObject private var vm = TaskCenterViewModel()
     @EnvironmentObject private var appState: AppState
@@ -11,7 +12,12 @@ struct TaskCenterView: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
-                tabBar
+                // ── Tab pills ────────────────────────────────────────────
+                tabPills.padding(.horizontal, 16).padding(.vertical, 12)
+
+                Divider().background(Color.white.opacity(0.06))
+
+                // ── Task list ────────────────────────────────────────────
                 taskList
             }
             .background(AnimatedMeshBackground().ignoresSafeArea())
@@ -19,97 +25,54 @@ struct TaskCenterView: View {
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     Text("任务中心")
-                        .font(.system(size: 17, weight: .bold, design: .rounded))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [Color(hex: "#F0F4FF"), Color(hex: "#8B9CC8")],
-                                startPoint: .leading, endPoint: .trailing
-                            )
-                        )
+                        .font(.system(size: 17, weight: .black, design: .rounded))
+                        .foregroundColor(.white)
                 }
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button { dismiss() } label: {
-                        GlassIconButton(icon: .close, size: 18, color: Color(hex: "#8B9CC8"))
+                        Image(systemName: "xmark")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(Color.white.opacity(0.6))
                     }
                 }
             }
         }
     }
 
-    // MARK: - Tab Bar
-    private var tabBar: some View {
+    // MARK: - Tab Pills
+    private var tabPills: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ForEach(tabs, id: \.self) { tab in
                     let count = vm.tasks(for: tab).count
-                    let isSelected = vm.selectedTab == tab
+                    let selected = vm.selectedTab == tab
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.75)) {
                             vm.selectedTab = tab
                         }
                     } label: {
                         HStack(spacing: 5) {
                             Text(tab.displayName)
-                                .font(.system(size: 13, weight: isSelected ? .bold : .regular))
+                                .font(.system(size: 13, weight: selected ? .bold : .medium))
                             if count > 0 {
                                 Text("\(count)")
-                                    .font(.system(size: 11, weight: .bold))
-                                    .foregroundColor(isSelected ? .white : tab.color)
+                                    .font(.system(size: 11, weight: .black))
+                                    .foregroundColor(selected ? .white : tab.color)
                                     .padding(.horizontal, 5).padding(.vertical, 1)
-                                    .background(
-                                        LiquidGlassShape(radius: 6)
-                                            .fill(isSelected ? tab.color.opacity(0.7) : tab.color.opacity(0.15))
-                                    )
+                                    .background(selected ? tab.color.opacity(0.5) : tab.color.opacity(0.15))
+                                    .clipShape(Capsule())
                             }
                         }
-                        .foregroundColor(isSelected ? .white : Color(hex: "#8B9CC8"))
+                        .foregroundColor(selected ? .white : Color.white.opacity(0.45))
                         .padding(.horizontal, 14).padding(.vertical, 9)
-                        .background(
-                            Group {
-                                if isSelected {
-                                    LiquidGlassShape(radius: 10)
-                                        .fill(
-                                            LinearGradient(
-                                                colors: [tab.color, tab.color.opacity(0.7)],
-                                                startPoint: .topLeading, endPoint: .bottomTrailing
-                                            )
-                                        )
-                                } else {
-                                    LiquidGlassShape(radius: 10)
-                                        .fill(Color.white.opacity(0.04))
-                                }
-                            }
-                        )
-                        .overlay(
-                            LiquidGlassShape(radius: 10)
-                                .stroke(
-                                    isSelected ? Color.white.opacity(0.2) : Color.white.opacity(0.08),
-                                    lineWidth: 0.8
-                                )
-                        )
-                        .shadow(color: isSelected ? tab.color.opacity(0.35) : .clear, radius: 8, x: 0, y: 0)
+                        .background(selected ? tab.color : Color.white.opacity(0.07))
+                        .clipShape(Capsule())
+                        .shadow(color: selected ? tab.color.opacity(0.4) : .clear, radius: 8)
                     }
                     .buttonStyle(LiquidButtonStyle())
                 }
             }
-            .padding(.horizontal, 14).padding(.vertical, 10)
-            .frame(minWidth: UIScreen.main.bounds.width)
         }
-        .background(
-            ZStack {
-                Color(hex: "#0D1220").opacity(0.8)
-                LinearGradient(
-                    colors: [Color.white.opacity(0.05), Color.clear],
-                    startPoint: .top, endPoint: .bottom
-                )
-            }
-        )
-        .overlay(
-            Rectangle()
-                .fill(Color.white.opacity(0.06))
-                .frame(height: 0.5),
-            alignment: .bottom
-        )
     }
 
     // MARK: - Task List
@@ -119,49 +82,38 @@ struct TaskCenterView: View {
             if tasks.isEmpty {
                 emptyState
             } else {
-                ScrollView {
+                ScrollView(showsIndicators: false) {
+                    // Completed tasks: show expanding collection at top
+                    if vm.selectedTab == .completed && tasks.count > 1 {
+                        ExpandingTasksView(tasks: tasks)
+                            .frame(height: 300)
+                            .padding(.horizontal, 16)
+                            .padding(.top, 12)
+                    }
+
                     LazyVStack(spacing: 10) {
-                        if vm.selectedTab == .completed && tasks.count > 1 {
-                            ExpandingTasksView(tasks: tasks)
-                                .frame(height: 320)
-                                .padding(.horizontal, 0)
-                                .padding(.bottom, 4)
-                        }
-
                         ForEach(tasks) { task in
-                            HStack(spacing: 8) {
-                                NavigationLink {
-                                    TaskDetailView(task: task, vm: vm, appState: appState)
-                                } label: {
-                                    TaskCardView(task: task)
-                                }
-                                .buttonStyle(LiquidButtonStyle())
-
+                            NavigationLink {
+                                TaskDetailView(task: task, vm: vm, appState: appState)
+                            } label: {
+                                TaskCardView(task: task)
+                            }
+                            .buttonStyle(LiquidButtonStyle())
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                 if task.isFinished {
-                                    Button {
-                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                                            appState.removeTask(id: task.id)
-                                        }
+                                    Button(role: .destructive) {
+                                        withAnimation { appState.removeTask(id: task.id) }
                                     } label: {
-                                        RHIcon(name: .trash, size: 15, color: Color(hex: "#FF6B6B"))
-                                            .frame(width: 40, height: 40)
-                                            .background(
-                                                LiquidGlassShape(radius: 10)
-                                                    .fill(Color(hex: "#FF6B6B").opacity(0.1))
-                                            )
-                                            .overlay(
-                                                LiquidGlassShape(radius: 10)
-                                                    .stroke(Color(hex: "#FF6B6B").opacity(0.25), lineWidth: 0.8)
-                                            )
+                                        Label("删除", systemImage: "trash")
                                     }
-                                    .buttonStyle(LiquidButtonStyle())
                                 }
                             }
-                            .transition(.opacity.combined(with: .move(edge: .top)))
                         }
                     }
-                    .padding(16)
-                    .animation(.spring(response: 0.3, dampingFraction: 0.75), value: tasks.count)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+                    .padding(.bottom, 24)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.8), value: tasks.count)
                 }
             }
         }
@@ -170,20 +122,104 @@ struct TaskCenterView: View {
 
     private var emptyState: some View {
         VStack(spacing: 16) {
-            ZStack {
-                Circle()
-                    .fill(Color(hex: "#6C8EFF").opacity(0.08))
-                    .frame(width: 80, height: 80)
-                    .blur(radius: 12)
-                Circle()
-                    .fill(Color.white.opacity(0.04))
-                    .frame(width: 72, height: 72)
-                    .overlay(Circle().stroke(Color.white.opacity(0.1), lineWidth: 0.8))
-                RHIcon(name: .tasks, size: 30, color: Color(hex: "#6C8EFF").opacity(0.5))
-            }
+            Image(systemName: "tray")
+                .font(.system(size: 44, weight: .ultraLight))
+                .foregroundColor(Color.white.opacity(0.2))
             Text("暂无\(vm.selectedTab.displayName)任务")
-                .font(.system(size: 15)).foregroundColor(Color(hex: "#8B9CC8"))
+                .font(.system(size: 15))
+                .foregroundColor(Color.white.opacity(0.3))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+// MARK: - Task Card View
+// Layout: left status strip + content + right chevron
+struct TaskCardView: View {
+    let task: RHTask
+
+    var body: some View {
+        HStack(spacing: 0) {
+            // Status strip
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .fill(task.status.color)
+                .frame(width: 4)
+                .padding(.vertical, 12)
+                .padding(.leading, 14)
+                .shadow(color: task.status.color.opacity(0.6), radius: 4)
+
+            // Content
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .top) {
+                    Text(task.workflowName.isEmpty ? task.workflowType : task.workflowName)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+                    Spacer()
+                    Text(task.createdAt.timeString())
+                        .font(.system(size: 11))
+                        .foregroundColor(Color.white.opacity(0.3))
+                }
+
+                HStack(spacing: 6) {
+                    // Type badge
+                    Text(task.workflowType)
+                        .font(.system(size: 11))
+                        .foregroundColor(Color.white.opacity(0.45))
+                        .padding(.horizontal, 7).padding(.vertical, 3)
+                        .background(Color.white.opacity(0.07))
+                        .clipShape(Capsule())
+
+                    // Plus badge
+                    if task.isPlusMode {
+                        Text("✦ Plus")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(Color(hex: "#FFD166"))
+                            .padding(.horizontal, 7).padding(.vertical, 3)
+                            .background(Color(hex: "#FFD166").opacity(0.1))
+                            .clipShape(Capsule())
+                    }
+
+                    Spacer()
+
+                    // Status label with morphing animation
+                    MorphingText(
+                        task.status.displayName,
+                        effect: .evaporate,
+                        font: .systemFont(ofSize: 11, weight: .semibold),
+                        textColor: task.status.uiColor
+                    )
+                    .frame(height: 18)
+                }
+
+                // Progress bar (running only)
+                if task.status == .running {
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(Color.white.opacity(0.08)).frame(height: 3)
+                            Capsule()
+                                .fill(LinearGradient(
+                                    colors: [Color(hex: "#6C8EFF"), Color(hex: "#4ECDC4")],
+                                    startPoint: .leading, endPoint: .trailing
+                                ))
+                                .frame(width: geo.size.width * task.progress, height: 3)
+                                .shadow(color: Color(hex: "#6C8EFF").opacity(0.6), radius: 3)
+                                .animation(.easeInOut(duration: 0.4), value: task.progress)
+                        }
+                    }
+                    .frame(height: 3)
+                }
+            }
+            .padding(.horizontal, 12).padding(.vertical, 14)
+
+            // Chevron
+            Image(systemName: "chevron.right")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(Color.white.opacity(0.2))
+                .padding(.trailing, 14)
+        }
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.white.opacity(0.08), lineWidth: 1))
     }
 }

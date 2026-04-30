@@ -1,6 +1,7 @@
 import SwiftUI
 
 // MARK: - Settings View
+// Layout: account card at top → grouped list rows
 struct SettingsView: View {
     @StateObject private var vm = SettingsViewModel()
     @Environment(\.dismiss) private var dismiss
@@ -8,32 +9,84 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationView {
-            ScrollView {
-                VStack(spacing: 16) {
-                    apiKeySection
-                    accountSection
-                    aboutSection
-                    Spacer(minLength: 24)
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 20) {
+                    // ── Account card ─────────────────────────────────────
+                    accountCard
+
+                    // ── API Key ──────────────────────────────────────────
+                    settingsGroup("API 密钥", icon: "key.fill", iconColor: Color(hex: "#FFD166")) {
+                        VStack(spacing: 10) {
+                            HStack(spacing: 10) {
+                                Image(systemName: "key.fill")
+                                    .font(.system(size: 14)).foregroundColor(Color(hex: "#FFD166")).frame(width: 20)
+                                SecureField("输入 API Key", text: $vm.apiKeyInput)
+                                    .font(.system(size: 15)).foregroundColor(.white)
+                                    .tint(Color(hex: "#6C8EFF")).autocapitalization(.none).disableAutocorrection(true)
+                            }
+                            .padding(.horizontal, 14).padding(.vertical, 13)
+                            .background(Color.white.opacity(0.07))
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                            Button { vm.saveAPIKey() } label: {
+                                Text("保存密钥")
+                                    .font(.system(size: 15, weight: .bold)).foregroundColor(.white)
+                                    .frame(maxWidth: .infinity).frame(height: 46)
+                                    .background(LinearGradient(
+                                        colors: [Color(hex: "#6C8EFF"), Color(hex: "#4A6FE8")],
+                                        startPoint: .leading, endPoint: .trailing
+                                    ))
+                                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                    .shadow(color: Color(hex: "#6C8EFF").opacity(0.4), radius: 10, y: 4)
+                            }
+                            .buttonStyle(LiquidButtonStyle())
+                        }
+                    }
+
+                    // ── Preferences ──────────────────────────────────────
+                    settingsGroup("偏好设置", icon: "slider.horizontal.3", iconColor: Color(hex: "#4ECDC4")) {
+                        VStack(spacing: 0) {
+                            toggleRow("Plus 默认模式", icon: "star.fill", iconColor: Color(hex: "#FFD166"),
+                                      isOn: $vm.isPlusDefault) { vm.savePlusDefault() }
+                        }
+                    }
+
+                    // ── Danger zone ──────────────────────────────────────
+                    settingsGroup("账户操作", icon: "person.crop.circle", iconColor: Color(hex: "#FF6B6B")) {
+                        VStack(spacing: 0) {
+                            actionRow("清除任务历史", icon: "trash", iconColor: Color(hex: "#FF6B6B")) {
+                                vm.clearHistory()
+                            }
+                            Divider().background(Color.white.opacity(0.07)).padding(.leading, 52)
+                            actionRow("退出登录", icon: "rectangle.portrait.and.arrow.right",
+                                      iconColor: Color(hex: "#FF6B6B")) {
+                                showLogoutAlert = true
+                            }
+                        }
+                    }
+
+                    // ── About ────────────────────────────────────────────
+                    settingsGroup("关于", icon: "info.circle", iconColor: Color(hex: "#8B9CC8")) {
+                        VStack(spacing: 0) {
+                            infoRow("版本", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
+                            Divider().background(Color.white.opacity(0.07)).padding(.leading, 52)
+                            infoRow("开发者", value: "iPhone83Plus")
+                        }
+                    }
+
+                    Spacer(minLength: 30)
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 12)
+                .padding(.horizontal, 16).padding(.top, 12)
             }
             .background(AnimatedMeshBackground().ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Text("设置")
-                        .font(.system(size: 17, weight: .bold, design: .rounded))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [Color(hex: "#F0F4FF"), Color(hex: "#8B9CC8")],
-                                startPoint: .leading, endPoint: .trailing
-                            )
-                        )
+                    Text("设置").font(.system(size: 17, weight: .black, design: .rounded)).foregroundColor(.white)
                 }
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button { dismiss() } label: {
-                        GlassIconButton(icon: .close, size: 18, color: Color(hex: "#8B9CC8"))
+                        Image(systemName: "xmark").font(.system(size: 15, weight: .semibold)).foregroundColor(Color.white.opacity(0.6))
                     }
                 }
             }
@@ -47,148 +100,91 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - API Key Section
-    private var apiKeySection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionHeader("API 密钥", icon: "key.fill", color: Color(hex: "#FFD166"))
-
-            VStack(spacing: 10) {
-                HStack(spacing: 10) {
-                    Image(systemName: "key.fill")
-                        .font(.system(size: 14)).foregroundColor(Color(hex: "#FFD166")).frame(width: 20)
-                    SecureField("输入 API Key", text: $vm.apiKeyInput)
-                        .font(.system(size: 14))
-                        .tint(Color(hex: "#6C8EFF")).autocapitalization(.none).disableAutocorrection(true)
-                }
-                .nativeInput()
-
-                Button { vm.saveAPIKey() } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "checkmark.circle.fill").font(.system(size: 14))
-                        Text("保存密钥").font(.system(size: 14, weight: .semibold))
-                    }
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity).frame(height: 44)
-                    .background(
-                        LiquidGlassShape(radius: 12)
-                            .fill(LinearGradient(
-                                colors: [Color(hex: "#6C8EFF"), Color(hex: "#4A6FE8")],
-                                startPoint: .topLeading, endPoint: .bottomTrailing
-                            ))
-                    )
-                    .overlay(LiquidGlassShape(radius: 12).stroke(Color.white.opacity(0.2), lineWidth: 0.8))
+    // MARK: - Account Card
+    private var accountCard: some View {
+        HStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(LinearGradient(
+                        colors: [Color(hex: "#6C8EFF"), Color(hex: "#A78BFA")],
+                        startPoint: .topLeading, endPoint: .bottomTrailing
+                    ))
+                    .frame(width: 52, height: 52)
                     .shadow(color: Color(hex: "#6C8EFF").opacity(0.4), radius: 10)
-                }
-                .buttonStyle(LiquidButtonStyle())
+                Image(systemName: "person.fill").font(.system(size: 22)).foregroundColor(.white)
             }
-        }
-        .sketchCard()
-    }
-
-    // MARK: - Account Section
-    private var accountSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionHeader("账户", icon: "person.circle.fill", color: Color(hex: "#4ECDC4"))
-
-            settingsRow(
-                icon: "key.horizontal.fill",
-                iconColor: Color(hex: "#4ECDC4"),
-                title: "Access Key",
-                trailing: AnyView(
-                    Text(vm.maskedAccessKey)
-                        .font(.system(size: 12, design: .monospaced))
-                        .foregroundColor(Color(hex: "#8B9CC8"))
-                )
-            )
-
-            glassDivider
-
-            settingsRow(
-                icon: "star.fill",
-                iconColor: Color(hex: "#FFD166"),
-                title: "Plus 默认模式",
-                trailing: AnyView(
-                    Toggle("", isOn: $vm.isPlusDefault)
-                        .labelsHidden()
-                        .tint(Color(hex: "#6C8EFF"))
-                        .onChange(of: vm.isPlusDefault) { _ in vm.savePlusDefault() }
-                )
-            )
-
-            glassDivider
-
-            Button { showLogoutAlert = true } label: {
-                HStack(spacing: 10) {
-                    ZStack {
-                        LiquidGlassShape(radius: 8).fill(Color(hex: "#FF6B6B").opacity(0.12)).frame(width: 32, height: 32)
-                        Image(systemName: "rectangle.portrait.and.arrow.right")
-                            .font(.system(size: 14)).foregroundColor(Color(hex: "#FF6B6B"))
-                    }
-                    Text("退出登录")
-                        .font(.system(size: 14, weight: .medium)).foregroundColor(Color(hex: "#FF6B6B"))
-                    Spacer()
-                    RHIcon(name: .chevron, size: 12, color: Color(hex: "#FF6B6B").opacity(0.5))
-                }
+            VStack(alignment: .leading, spacing: 4) {
+                Text("已登录").font(.system(size: 16, weight: .bold)).foregroundColor(.white)
+                Text(vm.maskedAccessKey)
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundColor(Color.white.opacity(0.4))
             }
-            .buttonStyle(LiquidButtonStyle())
-        }
-        .sketchCard()
-    }
-
-    // MARK: - About Section
-    private var aboutSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionHeader("关于", icon: "info.circle.fill", color: Color(hex: "#8B9CC8"))
-
-            settingsRow(
-                icon: "app.badge",
-                iconColor: Color(hex: "#6C8EFF"),
-                title: "版本",
-                trailing: AnyView(
-                    Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
-                        .font(.system(size: 13)).foregroundColor(Color(hex: "#8B9CC8"))
-                )
-            )
-
-            glassDivider
-
-            settingsRow(
-                icon: "person.2.fill",
-                iconColor: Color(hex: "#8B9CC8"),
-                title: "开发者",
-                trailing: AnyView(
-                    Text("iPhone83Plus")
-                        .font(.system(size: 13)).foregroundColor(Color(hex: "#8B9CC8"))
-                )
-            )
-        }
-        .sketchCard()
-    }
-
-    // MARK: - Helpers
-    private func sectionHeader(_ title: String, icon: String, color: Color) -> some View {
-        HStack(spacing: 8) {
-            ZStack {
-                LiquidGlassShape(radius: 8).fill(color.opacity(0.15)).frame(width: 28, height: 28)
-                Image(systemName: icon).font(.system(size: 13)).foregroundColor(color)
-            }
-            Text(title).font(.system(size: 14, weight: .semibold)).foregroundColor(Color(hex: "#F0F4FF"))
-        }
-    }
-
-    private func settingsRow(icon: String, iconColor: Color, title: String, trailing: AnyView) -> some View {
-        HStack(spacing: 10) {
-            ZStack {
-                LiquidGlassShape(radius: 8).fill(iconColor.opacity(0.12)).frame(width: 32, height: 32)
-                Image(systemName: icon).font(.system(size: 14)).foregroundColor(iconColor)
-            }
-            Text(title).font(.system(size: 14)).foregroundColor(Color(hex: "#F0F4FF"))
             Spacer()
-            trailing
+            // Plus badge
+            if vm.isPlusDefault {
+                Text("✦ Plus")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(Color(hex: "#FFD166"))
+                    .padding(.horizontal, 10).padding(.vertical, 5)
+                    .background(Color(hex: "#FFD166").opacity(0.12))
+                    .clipShape(Capsule())
+            }
+        }
+        .padding(18)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Color.white.opacity(0.1), lineWidth: 1))
+    }
+
+    // MARK: - Group Container
+    private func settingsGroup<Content: View>(_ title: String, icon: String, iconColor: Color, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label(title, systemImage: icon)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(iconColor.opacity(0.8))
+                .textCase(.uppercase).tracking(0.5)
+            content()
+                .background(.ultraThinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.white.opacity(0.08), lineWidth: 1))
         }
     }
 
-    private var glassDivider: some View {
-        Rectangle().fill(Color.white.opacity(0.06)).frame(height: 0.5).padding(.leading, 42)
+    // MARK: - Row Types
+    private func toggleRow(_ title: String, icon: String, iconColor: Color, isOn: Binding<Bool>, onChange: @escaping () -> Void) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon).font(.system(size: 15)).foregroundColor(iconColor)
+                .frame(width: 32, height: 32).background(iconColor.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            Text(title).font(.system(size: 15)).foregroundColor(.white)
+            Spacer()
+            Toggle("", isOn: isOn).labelsHidden().tint(Color(hex: "#6C8EFF"))
+                .onChange(of: isOn.wrappedValue) { _ in onChange() }
+        }
+        .padding(.horizontal, 14).padding(.vertical, 12)
+    }
+
+    private func actionRow(_ title: String, icon: String, iconColor: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: icon).font(.system(size: 15)).foregroundColor(iconColor)
+                    .frame(width: 32, height: 32).background(iconColor.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                Text(title).font(.system(size: 15)).foregroundColor(iconColor)
+                Spacer()
+                Image(systemName: "chevron.right").font(.system(size: 12)).foregroundColor(Color.white.opacity(0.2))
+            }
+            .padding(.horizontal, 14).padding(.vertical, 12)
+        }
+        .buttonStyle(LiquidButtonStyle())
+    }
+
+    private func infoRow(_ label: String, value: String) -> some View {
+        HStack(spacing: 12) {
+            Text(label).font(.system(size: 15)).foregroundColor(Color.white.opacity(0.5))
+            Spacer()
+            Text(value).font(.system(size: 14)).foregroundColor(Color.white.opacity(0.7))
+        }
+        .padding(.horizontal, 14).padding(.vertical, 12)
     }
 }

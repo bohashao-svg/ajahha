@@ -2,20 +2,20 @@ import SwiftUI
 import Photos
 
 // MARK: - Task Detail View
+// Layout: large output image hero → collapsible info sheet → action buttons
 struct TaskDetailView: View {
     let task: RHTask
     let vm: TaskCenterViewModel
-    // Use direct reference instead of @EnvironmentObject to avoid
-    // crash when presented from a sheet (sheet breaks env chain).
     var appState: AppState = AppState.shared
     @Environment(\.dismiss) private var dismiss
 
     @State private var isDecoding = false
     @State private var decodeError: String?
-    @State private var showDecodeToolSheet = false
+    @State private var showDecodeSheet = false
+    @State private var showActionSheet = false
     @State private var decodePassword = ""
     @State private var saveToast: String?
-    @State private var showActionSheet = false
+    @State private var infoExpanded = false
 
     enum DecodeTool { case duck, ttV2 }
 
@@ -24,356 +24,369 @@ struct TaskDetailView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                infoCard
-                if !liveTask.outputUrls.isEmpty { outputSection }
-                if liveTask.status == .running || liveTask.status == .pending || liveTask.status == .queued {
-                    cancelButton
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 0) {
+                // ── Output hero ──────────────────────────────────────────
+                outputHero
+
+                // ── Info + actions ───────────────────────────────────────
+                VStack(spacing: 14) {
+                    statusBar
+                    if infoExpanded { infoGrid }
+                    actionRow
+                    if let err = decodeError {
+                        Text(err).font(.system(size: 12)).foregroundColor(Color(hex: "#FF6B6B"))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    if liveTask.status == .running || liveTask.status == .queued {
+                        cancelButton
+                    }
                 }
+                .padding(16)
             }
-            .padding(16)
         }
         .background(AnimatedMeshBackground().ignoresSafeArea())
-        .overlay(alignment: .bottom) {
-            if let toast = saveToast {
-                HStack(spacing: 8) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 14))
-                        .foregroundColor(Color(hex: "#4ECDC4"))
-                    Text(toast)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(Color(hex: "#F0F4FF"))
-                }
-                .padding(.horizontal, 18)
-                .padding(.vertical, 12)
-                .background(LiquidGlassShape(radius: 22).fill(Color(hex: "#111827").opacity(0.9)))
-                .overlay(LiquidGlassShape(radius: 22).stroke(Color.white.opacity(0.15), lineWidth: 0.8))
-                .shadow(color: Color.black.opacity(0.3), radius: 16, x: 0, y: 6)
-                .padding(.bottom, 44)
-                .transition(.opacity.combined(with: .move(edge: .bottom)))
-                .animation(.spring(response: 0.3, dampingFraction: 0.8), value: saveToast)
-            }
-        }
+        .overlay(toastOverlay, alignment: .bottom)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
                 Text("任务详情")
-                    .font(.system(size: 17, weight: .semibold, design: .rounded))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [Color(hex: "#F0F4FF"), Color(hex: "#8B9CC8")],
-                            startPoint: .leading, endPoint: .trailing
-                        )
-                    )
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(.white)
             }
         }
-        .sheet(isPresented: $showDecodeToolSheet) {
-            decodeToolSheet
-        }
+        .sheet(isPresented: $showDecodeSheet) { decodeSheet }
         .liquidActionSheet(
             isPresented: $showActionSheet,
             title: "选择解码工具",
             actions: [
-                LiquidActionSheet.SheetAction(title: "鸭鸭图 (LSB)", icon: "tortoise.fill", style: .default) {
-                    showDecodeToolSheet = true
-                },
-                LiquidActionSheet.SheetAction(title: "TT Tool V2", icon: "wand.and.stars", style: .default) {
-                    showDecodeToolSheet = true
-                },
+                .init(title: "鸭鸭图 (LSB)", icon: "tortoise.fill", style: .default) { showDecodeSheet = true },
+                .init(title: "TT Tool V2",   icon: "wand.and.stars", style: .default) { showDecodeSheet = true },
             ]
         )
     }
 
-    // MARK: - Info Card
-    private var infoCard: some View {
-        VStack(spacing: 0) {
-            infoRow(label: "任务 ID", value: liveTask.id)
-            glassDivider
-            infoRow(label: "工作流", value: liveTask.workflowName)
-            glassDivider
-            infoRow(label: "类型", value: liveTask.workflowType)
-            glassDivider
-            infoRow(label: "模式", value: liveTask.isPlusMode ? "✦ Plus" : "标准",
-                    valueColor: liveTask.isPlusMode ? Color(hex: "#FFD166") : Color(hex: "#F0F4FF"))
-            glassDivider
-            infoRow(label: "状态", value: liveTask.status.displayName, valueColor: liveTask.status.color)
-            if liveTask.status == .running {
-                glassDivider
-                progressRow
-            }
-            if let err = liveTask.errorMsg, !err.isEmpty {
-                glassDivider
-                infoRow(label: "错误", value: err, valueColor: Color(hex: "#FF6B6B"))
-            }
-            glassDivider
-            infoRow(label: "创建时间", value: liveTask.createdAt.relativeString())
+    // MARK: - Output Hero
+    @ViewBuilder
+    private var outputHero: some View {
+        let imageUrls = liveTask.outputUrls.filter {
+            !["mp4","mov","webm"].contains($0.split(separator:".").last?.lowercased() ?? "")
         }
-        .glassCard(radius: 20)
+        let videoUrls = liveTask.outputUrls.filter {
+            ["mp4","mov","webm"].contains($0.split(separator:".").last?.lowercased() ?? "")
+        }
+
+        if imageUrls.isEmpty && videoUrls.isEmpty {
+            // Placeholder while running
+            ZStack {
+                Rectangle()
+                    .fill(Color.white.opacity(0.04))
+                    .frame(height: 280)
+                if liveTask.status == .running {
+                    VStack(spacing: 12) {
+                        ProgressView().tint(Color(hex: "#6C8EFF")).scaleEffect(1.4)
+                        Text("生成中 \(Int(liveTask.progress * 100))%")
+                            .font(.system(size: 14))
+                            .foregroundColor(Color.white.opacity(0.5))
+                    }
+                } else {
+                    Image(systemName: "photo")
+                        .font(.system(size: 44, weight: .ultraLight))
+                        .foregroundColor(Color.white.opacity(0.15))
+                }
+            }
+        } else if imageUrls.count == 1 {
+            // Single image — full width hero
+            ZStack(alignment: .bottomTrailing) {
+                RHRemoteImage(url: imageUrls[0], contentMode: .fill, cornerRadius: 0)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 320)
+                    .clipped()
+
+                // Decode + save overlay
+                HStack(spacing: 8) {
+                    if liveTask.status == .completed && liveTask.decodedImageData == nil && liveTask.ttDecodedData == nil {
+                        Button { handleDecodeTap() } label: {
+                            Label(isDecoding ? "解码中" : "解码", systemImage: "lock.open.fill")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 12).padding(.vertical, 8)
+                                .background(.ultraThinMaterial)
+                                .clipShape(Capsule())
+                        }
+                        .disabled(isDecoding)
+                        .buttonStyle(LiquidButtonStyle())
+                    }
+                    Button { saveImageFromURL(imageUrls[0]) } label: {
+                        Image(systemName: "square.and.arrow.down")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(width: 36, height: 36)
+                            .background(.ultraThinMaterial)
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(LiquidButtonStyle())
+                }
+                .padding(14)
+            }
+        } else if imageUrls.count > 1 {
+            // Multiple images — horizontal scroll
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(imageUrls, id: \.self) { url in
+                        OutputCardView(
+                            imageURL: url,
+                            title: liveTask.workflowName.isEmpty ? "生成结果" : liveTask.workflowName,
+                            subtitle: liveTask.workflowType
+                        )
+                        .frame(width: 200, height: 260)
+                    }
+                }
+                .padding(.horizontal, 16).padding(.vertical, 12)
+            }
+        }
+
+        // Decoded result
+        if let data = liveTask.decodedImageData ?? liveTask.ttDecodedData {
+            decodedResultView(data: data, isDuck: liveTask.decodedImageData != nil)
+        }
+
+        // Video items
+        ForEach(videoUrls, id: \.self) { url in
+            videoRow(url: url)
+        }
     }
 
-    private var glassDivider: some View {
-        Rectangle()
-            .fill(Color.white.opacity(0.06))
-            .frame(height: 0.5)
-            .padding(.leading, 16)
+    // MARK: - Status Bar
+    private var statusBar: some View {
+        HStack(spacing: 12) {
+            // Status indicator
+            HStack(spacing: 6) {
+                if liveTask.status == .running {
+                    ProgressView().scaleEffect(0.7).tint(liveTask.status.color)
+                } else {
+                    Circle().fill(liveTask.status.color).frame(width: 8, height: 8)
+                        .shadow(color: liveTask.status.color.opacity(0.7), radius: 4)
+                }
+                Text(liveTask.status.displayName)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(liveTask.status.color)
+            }
+            .padding(.horizontal, 12).padding(.vertical, 7)
+            .background(liveTask.status.color.opacity(0.1))
+            .clipShape(Capsule())
+
+            if liveTask.status == .running {
+                // Progress bar
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Color.white.opacity(0.08)).frame(height: 4)
+                        Capsule()
+                            .fill(LinearGradient(
+                                colors: [Color(hex: "#6C8EFF"), Color(hex: "#4ECDC4")],
+                                startPoint: .leading, endPoint: .trailing
+                            ))
+                            .frame(width: geo.size.width * liveTask.progress, height: 4)
+                            .animation(.easeInOut(duration: 0.4), value: liveTask.progress)
+                    }
+                }
+                .frame(height: 4)
+            }
+
+            Spacer()
+
+            // Expand info toggle
+            Button {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    infoExpanded.toggle()
+                }
+            } label: {
+                Image(systemName: infoExpanded ? "chevron.up" : "info.circle")
+                    .font(.system(size: 15))
+                    .foregroundColor(Color.white.opacity(0.4))
+            }
+        }
     }
 
-    private func infoRow(label: String, value: String, valueColor: Color = Color(hex: "#F0F4FF")) -> some View {
+    // MARK: - Info Grid (collapsible)
+    private var infoGrid: some View {
+        VStack(spacing: 0) {
+            infoRow("任务 ID", liveTask.id)
+            infoRow("工作流", liveTask.workflowName)
+            infoRow("类型", liveTask.workflowType)
+            infoRow("模式", liveTask.isPlusMode ? "✦ Plus" : "标准")
+            infoRow("创建", liveTask.createdAt.relativeString())
+            if let err = liveTask.errorMsg, !err.isEmpty {
+                infoRow("错误", err, valueColor: Color(hex: "#FF6B6B"))
+            }
+        }
+        .background(Color.white.opacity(0.04))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.white.opacity(0.08), lineWidth: 1))
+        .transition(.opacity.combined(with: .move(edge: .top)))
+    }
+
+    private func infoRow(_ label: String, _ value: String, valueColor: Color = Color.white.opacity(0.7)) -> some View {
         HStack {
-            Text(label)
-                .font(.system(size: 13))
-                .foregroundColor(Color(hex: "#8B9CC8"))
-                .frame(width: 72, alignment: .leading)
-            Text(value)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundColor(valueColor)
-                .lineLimit(2)
+            Text(label).font(.system(size: 12)).foregroundColor(Color.white.opacity(0.35)).frame(width: 56, alignment: .leading)
+            Text(value).font(.system(size: 12, weight: .medium)).foregroundColor(valueColor).lineLimit(1)
             Spacer()
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 13)
+        .padding(.horizontal, 14).padding(.vertical, 10)
     }
 
-    private var progressRow: some View {
-        HStack {
-            Text("进度")
-                .font(.system(size: 13))
-                .foregroundColor(Color(hex: "#8B9CC8"))
-                .frame(width: 72, alignment: .leading)
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    LiquidGlassShape(radius: 4).fill(Color.white.opacity(0.06)).frame(height: 7)
-                    LiquidGlassShape(radius: 4)
-                        .fill(LinearGradient(
-                            colors: [Color(hex: "#6C8EFF"), Color(hex: "#4ECDC4")],
-                            startPoint: .leading, endPoint: .trailing
-                        ))
-                        .frame(width: geo.size.width * liveTask.progress, height: 7)
-                        .shadow(color: Color(hex: "#6C8EFF").opacity(0.5), radius: 4)
-                        .animation(.easeInOut(duration: 0.4), value: liveTask.progress)
-                }
-            }
-            .frame(height: 7)
-            Text("\(Int(liveTask.progress * 100))%")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundColor(Color(hex: "#6C8EFF"))
-                .frame(width: 38, alignment: .trailing)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 13)
-    }
-
-    // MARK: - Output Section
-    private var outputSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 6) {
-                LiquidGlassShape(radius: 2)
-                    .fill(LinearGradient(
-                        colors: [Color(hex: "#6C8EFF"), Color(hex: "#A78BFA")],
-                        startPoint: .top, endPoint: .bottom
-                    ))
-                    .frame(width: 3, height: 14)
-                    .shadow(color: Color(hex: "#6C8EFF").opacity(0.6), radius: 4)
-                Text("生成结果")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(Color(hex: "#F0F4FF"))
-            }
-
-            let imageUrls = liveTask.outputUrls.filter {
-                !["mp4", "mov", "webm"].contains($0.split(separator: ".").last?.lowercased() ?? "")
-            }
-            let videoUrls = liveTask.outputUrls.filter {
-                ["mp4", "mov", "webm"].contains($0.split(separator: ".").last?.lowercased() ?? "")
-            }
-
-            if imageUrls.count > 1 {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
-                        ForEach(imageUrls, id: \.self) { url in
-                            OutputCardView(
-                                imageURL: url,
-                                title: liveTask.workflowName.isEmpty ? "生成结果" : liveTask.workflowName,
-                                subtitle: liveTask.workflowType
-                            )
-                            .frame(width: 220, height: 280)
-                        }
-                    }
-                    .padding(.horizontal, 2)
-                }
-            } else {
-                ForEach(imageUrls, id: \.self) { url in
-                    OutputItemView(
-                        url: url,
-                        showDecodeButton: liveTask.status == .completed
-                            && liveTask.decodedImageData == nil
-                            && liveTask.ttDecodedData == nil,
-                        isDecoding: isDecoding,
-                        onDecode: { handleDecodeButtonTap() },
-                        onToast: { showToast($0) }
-                    )
-                }
-            }
-
-            ForEach(videoUrls, id: \.self) { url in
-                OutputItemView(url: url, onToast: { showToast($0) })
-            }
-
-            if liveTask.status == .completed { decodeResultBlock }
-
-            if let err = decodeError {
-                Text(err)
-                    .font(.system(size: 11))
-                    .foregroundColor(Color(hex: "#FF6B6B"))
-                    .padding(.horizontal, 4)
-            }
-        }
-        .rhCard()
-    }
-
-    private func handleDecodeButtonTap() {
-        decodePassword = ""
-        if liveTask.isDuckEncoded || liveTask.isTTEncoded {
-            showDecodeToolSheet = true
-        } else {
-            showActionSheet = true
-        }
-    }
-
-    @ViewBuilder
-    private var decodeResultBlock: some View {
-        let duckData = liveTask.decodedImageData
-        let ttData   = liveTask.ttDecodedData
-        if let data = duckData ?? ttData {
-            Divider().background(Color.white.opacity(0.08))
-            HStack(spacing: 6) {
-                Image(systemName: duckData != nil ? "tortoise.fill" : "wand.and.stars")
-                    .font(.system(size: 13))
-                    .foregroundColor(duckData != nil ? Color(hex: "#FFD166") : Color(hex: "#6C8EFF"))
-                Text(duckData != nil ? "鸭鸭图解码结果" : "TT Tool 解码结果")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(Color(hex: "#F0F4FF"))
-                Spacer()
-            }
-            if let uiImage = UIImage(data: data) {
-                Image(uiImage: uiImage)
-                    .resizable().scaledToFit()
-                    .clipShape(LiquidGlassShape(radius: 14))
-                    .overlay(
-                        Button { saveImage(uiImage) } label: {
-                            HStack(spacing: 4) {
-                                Image(systemName: "square.and.arrow.down").font(.system(size: 12, weight: .semibold))
-                                Text("保存").font(.system(size: 12, weight: .semibold))
-                            }
+    // MARK: - Action Row
+    private var actionRow: some View {
+        HStack(spacing: 10) {
+            if liveTask.status == .completed && !liveTask.outputUrls.isEmpty {
+                // Share
+                if let urlStr = liveTask.primaryOutputUrl, let url = URL(string: urlStr) {
+                    ShareLink(item: url) {
+                        Label("分享", systemImage: "square.and.arrow.up")
+                            .font(.system(size: 13, weight: .medium))
                             .foregroundColor(.white)
-                            .padding(.horizontal, 10).padding(.vertical, 7)
-                            .background(LiquidGlassShape(radius: 10).fill(Color.black.opacity(0.55)))
-                            .overlay(LiquidGlassShape(radius: 10).stroke(Color.white.opacity(0.15), lineWidth: 0.6))
-                        }.padding(10),
-                        alignment: .bottomTrailing
-                    )
-            } else {
-                HStack(spacing: 10) {
-                    ZStack {
-                        LiquidGlassShape(radius: 8).fill(Color(hex: "#6C8EFF").opacity(0.1)).frame(width: 38, height: 38)
-                        RHIcon(name: .video, size: 18, color: Color(hex: "#6C8EFF"))
+                            .frame(maxWidth: .infinity).frame(height: 42)
+                            .background(Color.white.opacity(0.08))
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
-                    Text("解码成功（视频）").font(.system(size: 13, weight: .medium)).foregroundColor(Color(hex: "#F0F4FF"))
-                    Spacer()
-                    Button { saveVideo(data) } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "square.and.arrow.down").font(.system(size: 12))
-                            Text("保存").font(.system(size: 12, weight: .semibold))
-                        }
-                        .foregroundColor(.white).padding(.horizontal, 10).padding(.vertical, 7)
-                        .background(LiquidGlassShape(radius: 10).fill(LinearGradient(
-                            colors: [Color(hex: "#6C8EFF"), Color(hex: "#4A6FE8")],
-                            startPoint: .leading, endPoint: .trailing
-                        )))
-                    }
+                    .buttonStyle(LiquidButtonStyle())
                 }
-                .padding(10)
-                .glassCard(radius: 12)
             }
         }
-    }
-
-    private func triggerDecode(tool: DecodeTool, password: String) {
-        guard let url = liveTask.primaryOutputUrl else { return }
-        isDecoding = true
-        decodeError = nil
-        Task {
-            do {
-                switch tool {
-                case .duck:
-                    let duckFile = try await DuckDecodeService.shared.decode(imageUrl: url, password: password)
-                    var updated = liveTask
-                    updated.decodedImageData = duckFile.data
-                    await MainActor.run { appState.updateTask(updated) }
-                case .ttV2:
-                    let file = try await TTDecodeService.shared.decode(imageUrl: url, password: password)
-                    var updated = liveTask
-                    updated.ttDecodedData = file.data
-                    await MainActor.run { appState.updateTask(updated) }
-                }
-            } catch {
-                await MainActor.run { decodeError = error.localizedDescription }
-            }
-            await MainActor.run { isDecoding = false }
-        }
-    }
-
-    private var decodeToolSheet: some View {
-        DecodeToolSheetView(
-            password: $decodePassword,
-            isDuckEncoded: liveTask.isDuckEncoded,
-            isTTEncoded: liveTask.isTTEncoded,
-            onDismiss: { showDecodeToolSheet = false },
-            onConfirm: { tool in
-                showDecodeToolSheet = false
-                triggerDecode(tool: tool, password: decodePassword)
-            }
-        )
     }
 
     // MARK: - Cancel Button
     private var cancelButton: some View {
         Button { vm.cancelTask(liveTask) } label: {
-            HStack(spacing: 8) {
-                RHIcon(name: .close, size: 14, color: Color(hex: "#FF6B6B"))
-                Text("取消任务")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(Color(hex: "#FF6B6B"))
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 52)
-            .background(LiquidGlassShape(radius: 18).fill(Color(hex: "#FF6B6B").opacity(0.08)))
-            .overlay(LiquidGlassShape(radius: 18).stroke(Color(hex: "#FF6B6B").opacity(0.2), lineWidth: 0.8))
+            Label("取消任务", systemImage: "xmark.circle")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(Color(hex: "#FF6B6B"))
+                .frame(maxWidth: .infinity).frame(height: 48)
+                .background(Color(hex: "#FF6B6B").opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color(hex: "#FF6B6B").opacity(0.2), lineWidth: 1))
         }
         .buttonStyle(LiquidButtonStyle())
     }
 
-    private func saveVideo(_ data: Data) {
-        let tmpURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString)
-            .appendingPathExtension("mp4")
-        do { try data.write(to: tmpURL) } catch {
-            showToast("保存失败：\(error.localizedDescription)"); return
-        }
-        PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
-            DispatchQueue.main.async {
-                if status == .authorized || status == .limited {
-                    PHPhotoLibrary.shared().performChanges({
-                        PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: tmpURL)
-                    }) { success, _ in
-                        DispatchQueue.main.async {
-                            try? FileManager.default.removeItem(at: tmpURL)
-                            showToast(success ? "视频已保存到相册" : "保存失败")
-                        }
+    // MARK: - Decoded Result
+    private func decodedResultView(data: Data, isDuck: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label(isDuck ? "鸭鸭图解码结果" : "TT Tool 解码结果",
+                  systemImage: isDuck ? "tortoise.fill" : "wand.and.stars")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(isDuck ? Color(hex: "#FFD166") : Color(hex: "#6C8EFF"))
+                .padding(.horizontal, 16).padding(.top, 14)
+
+            if let img = UIImage(data: data) {
+                ZStack(alignment: .bottomTrailing) {
+                    Image(uiImage: img).resizable().scaledToFit()
+                    Button { saveImage(img) } label: {
+                        Image(systemName: "square.and.arrow.down")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(width: 36, height: 36)
+                            .background(.ultraThinMaterial)
+                            .clipShape(Circle())
                     }
-                } else { showToast("请在设置中允许访问相册") }
+                    .buttonStyle(LiquidButtonStyle())
+                    .padding(12)
+                }
             }
         }
+        .background(Color.white.opacity(0.04))
+        .clipShape(RoundedRectangle(cornerRadius: 0, style: .continuous))
+    }
+
+    private func videoRow(url: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "video.fill")
+                .font(.system(size: 18))
+                .foregroundColor(Color(hex: "#6C8EFF"))
+                .frame(width: 44, height: 44)
+                .background(Color(hex: "#6C8EFF").opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            Text("视频已生成").font(.system(size: 14, weight: .medium)).foregroundColor(.white)
+            Spacer()
+            if let urlObj = URL(string: url) {
+                Link(destination: urlObj) {
+                    Label("下载", systemImage: "arrow.down.circle.fill")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(Color(hex: "#6C8EFF"))
+                }
+            }
+        }
+        .padding(14)
+        .background(Color.white.opacity(0.05))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .padding(.horizontal, 16).padding(.top, 8)
+    }
+
+    // MARK: - Toast
+    private var toastOverlay: some View {
+        Group {
+            if let msg = saveToast {
+                Label(msg, systemImage: "checkmark.circle.fill")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 18).padding(.vertical, 12)
+                    .background(.ultraThinMaterial)
+                    .clipShape(Capsule())
+                    .shadow(color: .black.opacity(0.25), radius: 12, y: 4)
+                    .padding(.bottom, 40)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    .animation(.spring(response: 0.3, dampingFraction: 0.8), value: saveToast)
+            }
+        }
+    }
+
+    // MARK: - Decode Sheet
+    private var decodeSheet: some View {
+        DecodeToolSheetView(
+            password: $decodePassword,
+            isDuckEncoded: liveTask.isDuckEncoded,
+            isTTEncoded: liveTask.isTTEncoded,
+            onDismiss: { showDecodeSheet = false },
+            onConfirm: { tool in
+                showDecodeSheet = false
+                triggerDecode(tool: tool, password: decodePassword)
+            }
+        )
+    }
+
+    // MARK: - Helpers
+    private func handleDecodeTap() {
+        decodePassword = ""
+        if liveTask.isDuckEncoded || liveTask.isTTEncoded { showDecodeSheet = true }
+        else { showActionSheet = true }
+    }
+
+    private func triggerDecode(tool: DecodeTool, password: String) {
+        guard let url = liveTask.primaryOutputUrl else { return }
+        isDecoding = true; decodeError = nil
+        Task {
+            do {
+                switch tool {
+                case .duck:
+                    let f = try await DuckDecodeService.shared.decode(imageUrl: url, password: password)
+                    var u = liveTask; u.decodedImageData = f.data
+                    await MainActor.run { appState.updateTask(u) }
+                case .ttV2:
+                    let f = try await TTDecodeService.shared.decode(imageUrl: url, password: password)
+                    var u = liveTask; u.ttDecodedData = f.data
+                    await MainActor.run { appState.updateTask(u) }
+                }
+            } catch { await MainActor.run { decodeError = error.localizedDescription } }
+            await MainActor.run { isDecoding = false }
+        }
+    }
+
+    private func saveImageFromURL(_ urlStr: String) {
+        guard let url = URL(string: urlStr) else { return }
+        URLSession.shared.dataTask(with: url) { data, _, _ in
+            guard let data, let img = UIImage(data: data) else { return }
+            DispatchQueue.main.async { saveImage(img) }
+        }.resume()
     }
 
     private func saveImage(_ image: UIImage) {
@@ -383,10 +396,7 @@ struct TaskDetailView: View {
                     UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
                     RHBanner.success("已保存到相册")
                     showToast("已保存到相册")
-                } else {
-                    RHBanner.warning("请在设置中允许访问相册")
-                    showToast("请在设置中允许访问相册")
-                }
+                } else { showToast("请在设置中允许访问相册") }
             }
         }
     }
@@ -397,102 +407,7 @@ struct TaskDetailView: View {
     }
 }
 
-// MARK: - Output Item View
-private struct OutputItemView: View {
-    let url: String
-    var showDecodeButton: Bool = false
-    var isDecoding: Bool = false
-    var onDecode: (() -> Void)? = nil
-    let onToast: (String) -> Void
-
-    var isVideo: Bool {
-        ["mp4", "mov", "webm"].contains(url.split(separator: ".").last?.lowercased() ?? "")
-    }
-
-    var body: some View {
-        if isVideo { videoItem } else { imageItem }
-    }
-
-    private var imageItem: some View {
-        RHRemoteImage(url: url, contentMode: .fit, cornerRadius: 16)
-            .overlay(saveButton, alignment: .bottomTrailing)
-            .overlay(decodeOverlay, alignment: .bottomLeading)
-    }
-
-    @ViewBuilder
-    private var decodeOverlay: some View {
-        if showDecodeButton {
-            Button { onDecode?() } label: {
-                HStack(spacing: 4) {
-                    if isDecoding {
-                        ProgressView().scaleEffect(0.7).tint(.white)
-                    } else {
-                        Image(systemName: "lock.open.fill").font(.system(size: 11, weight: .semibold))
-                    }
-                    Text(isDecoding ? "解码中" : "解码")
-                        .font(.system(size: 12, weight: .semibold))
-                }
-                .foregroundColor(.white)
-                .padding(.horizontal, 10).padding(.vertical, 7)
-                .background(LiquidGlassShape(radius: 10).fill(Color(hex: "#6C8EFF").opacity(0.85)))
-                .overlay(LiquidGlassShape(radius: 10).stroke(Color.white.opacity(0.2), lineWidth: 0.6))
-            }
-            .disabled(isDecoding)
-            .padding(10)
-        }
-    }
-
-    private var saveButton: some View {
-        Button {
-            guard let urlObj = URL(string: url) else { return }
-            URLSession.shared.dataTask(with: urlObj) { data, _, _ in
-                guard let data, let img = UIImage(data: data) else { return }
-                PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
-                    DispatchQueue.main.async {
-                        if status == .authorized || status == .limited {
-                            UIImageWriteToSavedPhotosAlbum(img, nil, nil, nil)
-                            onToast("已保存到相册")
-                        } else { onToast("请在设置中允许访问相册") }
-                    }
-                }
-            }.resume()
-        } label: {
-            HStack(spacing: 5) {
-                Image(systemName: "square.and.arrow.down").font(.system(size: 13, weight: .semibold))
-                Text("保存").font(.system(size: 12, weight: .semibold))
-            }
-            .foregroundColor(.white)
-            .padding(.horizontal, 12).padding(.vertical, 8)
-            .background(LiquidGlassShape(radius: 12).fill(Color.black.opacity(0.55)))
-            .overlay(LiquidGlassShape(radius: 12).stroke(Color.white.opacity(0.15), lineWidth: 0.6))
-        }
-        .padding(10)
-    }
-
-    private var videoItem: some View {
-        HStack(spacing: 12) {
-            ZStack {
-                LiquidGlassShape(radius: 10).fill(Color(hex: "#6C8EFF").opacity(0.1)).frame(width: 40, height: 40)
-                RHIcon(name: .video, size: 18, color: Color(hex: "#6C8EFF"))
-            }
-            Text("视频已生成").font(.system(size: 14, weight: .medium)).foregroundColor(Color(hex: "#F0F4FF"))
-            Spacer()
-            if let urlObj = URL(string: url) {
-                Link(destination: urlObj) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "arrow.down.circle.fill").font(.system(size: 18))
-                        Text("下载").font(.system(size: 13, weight: .medium))
-                    }
-                    .foregroundColor(Color(hex: "#6C8EFF"))
-                }
-            }
-        }
-        .padding(12)
-        .glassCard(radius: 14)
-    }
-}
-
-// MARK: - Decode Tool Sheet View
+// MARK: - Decode Tool Sheet
 private struct DecodeToolSheetView: View {
     @Binding var password: String
     let isDuckEncoded: Bool
@@ -507,81 +422,93 @@ private struct DecodeToolSheetView: View {
     }
 
     var body: some View {
-        ZStack {
-            AnimatedMeshBackground()
-            VStack(spacing: 0) {
-                LiquidGlassShape(radius: 3)
-                    .fill(Color.white.opacity(0.2))
-                    .frame(width: 36, height: 5)
-                    .padding(.top, 12).padding(.bottom, 20)
-
-                Text("解码").font(.system(size: 16, weight: .semibold)).foregroundColor(Color(hex: "#F0F4FF")).padding(.bottom, 6)
-
-                if let tool = knownTool {
-                    HStack(spacing: 6) {
-                        Image(systemName: tool == .duck ? "tortoise.fill" : "wand.and.stars")
-                            .font(.system(size: 12))
-                            .foregroundColor(tool == .duck ? Color(hex: "#FFD166") : Color(hex: "#6C8EFF"))
-                        Text(tool == .duck ? "鸭鸭图" : "TT Tool V2")
-                            .font(.system(size: 12)).foregroundColor(Color(hex: "#8B9CC8"))
-                    }.padding(.bottom, 24)
+        NavigationView {
+            VStack(spacing: 20) {
+                // Tool selector (if unknown)
+                if knownTool == nil {
+                    VStack(spacing: 10) {
+                        toolButton("鸭鸭图", subtitle: "LSB 隐写解码", icon: "tortoise.fill",
+                                   color: Color(hex: "#FFD166"), tool: .duck)
+                        toolButton("TT Tool V2", subtitle: "彩色图解码", icon: "wand.and.stars",
+                                   color: Color(hex: "#6C8EFF"), tool: .ttV2)
+                    }
                 } else {
-                    Text("请选择解码工具").font(.system(size: 12)).foregroundColor(Color(hex: "#8B9CC8")).padding(.bottom, 24)
+                    HStack(spacing: 8) {
+                        Image(systemName: knownTool == .duck ? "tortoise.fill" : "wand.and.stars")
+                            .foregroundColor(knownTool == .duck ? Color(hex: "#FFD166") : Color(hex: "#6C8EFF"))
+                        Text(knownTool == .duck ? "鸭鸭图解码" : "TT Tool V2 解码")
+                            .font(.system(size: 15, weight: .semibold)).foregroundColor(.white)
+                    }
+                    .padding(14)
+                    .frame(maxWidth: .infinity)
+                    .background(Color.white.opacity(0.06))
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
 
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("密码（留空则无密码）").font(.system(size: 12)).foregroundColor(Color(hex: "#8B9CC8"))
-                    SecureField("无密码请留空", text: $password)
-                        .font(.system(size: 14)).foregroundColor(Color(hex: "#F0F4FF"))
+                // Password field
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("解码密码（无密码留空）")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(Color.white.opacity(0.4))
+                    SecureField("留空表示无密码", text: $password)
+                        .font(.system(size: 15))
+                        .foregroundColor(.white)
                         .tint(Color(hex: "#6C8EFF"))
-                        .nativeInput()
+                        .padding(.horizontal, 14).padding(.vertical, 13)
+                        .background(Color.white.opacity(0.07))
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
-                .padding(.horizontal, 20).padding(.bottom, 20)
 
                 if let tool = knownTool {
                     Button { onConfirm(tool) } label: {
-                        Text("确认解码").font(.system(size: 15, weight: .semibold)).foregroundColor(.white)
-                            .frame(maxWidth: .infinity).padding(.vertical, 14)
-                            .background(LiquidGlassShape(radius: 14).fill(LinearGradient(
+                        Text("确认解码")
+                            .font(.system(size: 16, weight: .bold)).foregroundColor(.white)
+                            .frame(maxWidth: .infinity).frame(height: 52)
+                            .background(LinearGradient(
                                 colors: [Color(hex: "#6C8EFF"), Color(hex: "#4A6FE8")],
-                                startPoint: .topLeading, endPoint: .bottomTrailing
-                            )))
-                            .overlay(LiquidGlassShape(radius: 14).stroke(Color.white.opacity(0.2), lineWidth: 0.8))
-                            .shadow(color: Color(hex: "#6C8EFF").opacity(0.4), radius: 12)
+                                startPoint: .leading, endPoint: .trailing
+                            ))
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .shadow(color: Color(hex: "#6C8EFF").opacity(0.4), radius: 12, y: 4)
                     }
-                    .buttonStyle(.plain).padding(.horizontal, 20)
-                } else {
-                    VStack(spacing: 10) {
-                        toolButton(title: "鸭鸭图", subtitle: "LSB 隐写解码", icon: "tortoise.fill",
-                                   color: Color(hex: "#FFD166"), tool: .duck)
-                        toolButton(title: "TT Tool", subtitle: "V2 彩色图解码", icon: "wand.and.stars",
-                                   color: Color(hex: "#6C8EFF"), tool: .ttV2)
-                    }.padding(.horizontal, 20)
+                    .buttonStyle(LiquidButtonStyle())
                 }
 
-                Button("取消") { onDismiss() }
-                    .font(.system(size: 14)).foregroundColor(Color(hex: "#8B9CC8")).padding(.top, 20)
                 Spacer()
+            }
+            .padding(20)
+            .background(AnimatedMeshBackground().ignoresSafeArea())
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("解码").font(.system(size: 16, weight: .bold)).foregroundColor(.white)
+                }
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("取消") { onDismiss() }
+                        .foregroundColor(Color.white.opacity(0.5))
+                }
             }
         }
     }
 
-    private func toolButton(title: String, subtitle: String, icon: String, color: Color, tool: TaskDetailView.DecodeTool) -> some View {
+    private func toolButton(_ title: String, subtitle: String, icon: String, color: Color, tool: TaskDetailView.DecodeTool) -> some View {
         Button { onConfirm(tool) } label: {
-            HStack(spacing: 10) {
-                ZStack {
-                    Circle().fill(color.opacity(0.12)).frame(width: 36, height: 36)
-                    Image(systemName: icon).font(.system(size: 16)).foregroundColor(color)
-                }
+            HStack(spacing: 14) {
+                Image(systemName: icon).font(.system(size: 20)).foregroundColor(color)
+                    .frame(width: 44, height: 44).background(color.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.system(size: 14, weight: .semibold)).foregroundColor(Color(hex: "#F0F4FF"))
-                    Text(subtitle).font(.system(size: 11)).foregroundColor(Color(hex: "#8B9CC8"))
+                    Text(title).font(.system(size: 15, weight: .semibold)).foregroundColor(.white)
+                    Text(subtitle).font(.system(size: 12)).foregroundColor(Color.white.opacity(0.4))
                 }
                 Spacer()
-                Image(systemName: "chevron.right").font(.system(size: 13)).foregroundColor(Color(hex: "#8B9CC8").opacity(0.5))
+                Image(systemName: "chevron.right").font(.system(size: 13)).foregroundColor(Color.white.opacity(0.2))
             }
-            .padding(14).glassCard(radius: 14)
+            .padding(14)
+            .background(Color.white.opacity(0.07))
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.white.opacity(0.08), lineWidth: 1))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(LiquidButtonStyle())
     }
 }
