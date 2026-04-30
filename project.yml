@@ -51,7 +51,7 @@ targets:
             CFBundleIconFiles:
               - AppIcon
             CFBundleIconName: AppIcon
-            UIPrerenderedIcon: false
+            UIPrerenderedIcon: true
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
     settings:

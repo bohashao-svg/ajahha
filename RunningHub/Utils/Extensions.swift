@@ -230,11 +230,10 @@ extension View {
     }
 }
 
-// MARK: - Animated Spotlight Background
-// TimelineView 驱动，Canvas 直接从 date 计算 t，零 @State 变化，
-// 不触发任何 SwiftUI 布局 invalidation，ScrollView 完全静止。
+// MARK: - Animated Dual-Orb Background
+// 两个光晕球体在屏幕内自由游走浮动，使用 TimelineView + Canvas。
+// 零 @State，零 SwiftUI invalidation，ScrollView 完全静止。
 struct AnimatedMeshBackground: View {
-    // 记录启动时间，用于计算相对时间 t
     private let startDate = Date()
 
     var body: some View {
@@ -247,33 +246,22 @@ struct AnimatedMeshBackground: View {
                         let w = size.width
                         let h = size.height
 
-                        // 光束1：蓝色，左右扫
-                        let b1x = w * (0.15 + 0.55 * (0.5 + 0.5 * sin(t * 0.7)))
-                        drawBeam(&ctx, tipX: b1x, tipY: 0,
-                                 spreadAngle: 0.38, length: h * 1.1,
-                                 color: Color(hex: "#6C8EFF"),
-                                 opacity: 0.13 + 0.06 * sin(t * 1.1))
+                        // 光晕1：蓝色，椭圆轨迹游走
+                        let o1x = w * (0.5 + 0.38 * cos(t * 0.31))
+                        let o1y = h * (0.38 + 0.28 * sin(t * 0.23))
+                        drawOrb(&ctx, cx: o1x, cy: o1y,
+                                rx: w * 0.55, ry: h * 0.38,
+                                color: Color(hex: "#6C8EFF"),
+                                opacity: 0.18 + 0.06 * sin(t * 0.7))
 
-                        // 光束2：紫色，右左扫，相位偏移
-                        let b2x = w * (0.85 - 0.55 * (0.5 + 0.5 * sin(t * 0.55 + 2.1)))
-                        drawBeam(&ctx, tipX: b2x, tipY: 0,
-                                 spreadAngle: 0.32, length: h * 1.05,
-                                 color: Color(hex: "#A78BFA"),
-                                 opacity: 0.10 + 0.05 * sin(t * 0.9 + 1.3))
-
-                        // 地面环境光晕
-                        var fc = ctx
-                        fc.opacity = 0.06
-                        fc.fill(
-                            Path(ellipseIn: CGRect(x: 0, y: h * 0.7, width: w, height: h * 0.3)),
-                            with: .linearGradient(
-                                Gradient(colors: [Color(hex: "#6C8EFF").opacity(0.4), .clear]),
-                                startPoint: CGPoint(x: w / 2, y: h * 0.7),
-                                endPoint:   CGPoint(x: w / 2, y: h)
-                            )
-                        )
+                        // 光晕2：紫色，反向椭圆轨迹，相位偏移
+                        let o2x = w * (0.5 - 0.35 * cos(t * 0.19 + 1.8))
+                        let o2y = h * (0.62 - 0.25 * sin(t * 0.27 + 0.9))
+                        drawOrb(&ctx, cx: o2x, cy: o2y,
+                                rx: w * 0.50, ry: h * 0.35,
+                                color: Color(hex: "#A78BFA"),
+                                opacity: 0.14 + 0.05 * sin(t * 0.55 + 1.2))
                     }
-                    // drawingGroup 把三层合并为一张 Metal 纹理，单次 GPU 提交
                     .drawingGroup()
                 }
                 .ignoresSafeArea()
@@ -281,32 +269,26 @@ struct AnimatedMeshBackground: View {
             )
     }
 
-    private func drawBeam(_ ctx: inout GraphicsContext,
-                          tipX: CGFloat, tipY: CGFloat,
-                          spreadAngle: CGFloat, length: CGFloat,
-                          color: Color, opacity: CGFloat) {
-        let half   = spreadAngle / 2
-        let leftX  = tipX - length * tan(half)
-        let rightX = tipX + length * tan(half)
-        let baseY  = tipY + length
-
-        var beam = Path()
-        beam.move(to:    CGPoint(x: tipX,   y: tipY))
-        beam.addLine(to: CGPoint(x: leftX,  y: baseY))
-        beam.addLine(to: CGPoint(x: rightX, y: baseY))
-        beam.closeSubpath()
-
-        var bc = ctx
-        bc.opacity = opacity
-        bc.fill(beam, with: .linearGradient(
-            Gradient(stops: [
-                .init(color: color.opacity(0.9), location: 0),
-                .init(color: color.opacity(0.3), location: 0.5),
-                .init(color: color.opacity(0),   location: 1)
-            ]),
-            startPoint: CGPoint(x: tipX, y: tipY),
-            endPoint:   CGPoint(x: tipX, y: baseY)
-        ))
+    private func drawOrb(_ ctx: inout GraphicsContext,
+                         cx: CGFloat, cy: CGFloat,
+                         rx: CGFloat, ry: CGFloat,
+                         color: Color, opacity: CGFloat) {
+        let rect = CGRect(x: cx - rx / 2, y: cy - ry / 2, width: rx, height: ry)
+        var c = ctx
+        c.opacity = opacity
+        c.fill(
+            Path(ellipseIn: rect),
+            with: .radialGradient(
+                Gradient(stops: [
+                    .init(color: color.opacity(0.85), location: 0),
+                    .init(color: color.opacity(0.35), location: 0.45),
+                    .init(color: color.opacity(0),    location: 1)
+                ]),
+                center: CGPoint(x: rect.midX, y: rect.midY),
+                startRadius: 0,
+                endRadius: max(rx, ry) / 2
+            )
+        )
     }
 }
 
