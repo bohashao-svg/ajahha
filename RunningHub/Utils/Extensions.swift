@@ -220,26 +220,9 @@ struct LiquidButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.94 : 1.0)
-            .brightness(configuration.isPressed ? -0.04 : 0)
-            .overlay(
-                // Material-style pulse ripple on press
-                GeometryReader { geo in
-                    if configuration.isPressed {
-                        Circle()
-                            .fill((isDestructive ? Color(hex: "#FF6B6B") : color).opacity(0.15))
-                            .frame(
-                                width: geo.size.width * 1.5,
-                                height: geo.size.width * 1.5
-                            )
-                            .position(x: geo.size.width / 2, y: geo.size.height / 2)
-                            .transition(.opacity.combined(with: .scale(scale: 0.2)))
-                    }
-                }
-                .allowsHitTesting(false)
-                .clipped()
-            )
-            .animation(.spring(response: 0.22, dampingFraction: 0.65), value: configuration.isPressed)
+            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
+            .opacity(configuration.isPressed ? 0.85 : 1.0)
+            .animation(.spring(response: 0.2, dampingFraction: 0.7), value: configuration.isPressed)
     }
 }
 

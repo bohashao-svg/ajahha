@@ -42,6 +42,9 @@ struct ProfileView: View {
             }
             .task { await vm.loadPage(1) }
         }
+        // Inject AppState so TaskDetailView's @EnvironmentObject doesn't crash
+        // when ProfileView is presented as a sheet (sheet breaks the env chain)
+        .environmentObject(AppState.shared)
     }
 
     // MARK: - Profile Header Card
