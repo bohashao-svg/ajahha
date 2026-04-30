@@ -56,7 +56,6 @@ final class TaskPollingService {
                 await MainActor.run { self.onTaskUpdated?(snapshot) }
 
             } catch {
-                print("[POLL] error for task \(taskId): \(error)")
                 try? await Task.sleep(nanoseconds: 5_000_000_000)
             }
         }

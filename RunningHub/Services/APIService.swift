@@ -180,7 +180,7 @@ final class APIService {
     }
     /// Response is wrapped in APIResponse<TaskQueryResponse>
     func queryTask(taskId: String) async throws -> TaskQueryResponse {
-        guard !authToken.isEmpty else { throw APIError.noAPIKey }
+        guard !apiKey.isEmpty else { throw APIError.noAPIKey }
         guard let url = URL(string: baseURL + "/openapi/v2/query") else { throw APIError.invalidURL }
 
         var req = URLRequest(url: url)
@@ -189,15 +189,9 @@ final class APIService {
         req.timeoutInterval = 30
 
         struct Body: Encodable { let apiKey: String; let taskId: String }
-        req.httpBody = try JSONEncoder().encode(Body(apiKey: authToken, taskId: taskId))
+        req.httpBody = try JSONEncoder().encode(Body(apiKey: apiKey, taskId: taskId))
 
         let (data, _) = try await URLSession.shared.data(for: req)
-        #if DEBUG
-        if let str = String(data: data, encoding: .utf8) {
-            print("[API] /openapi/v2/query → \(str.prefix(800))")
-        }
-        #endif
-
         let decoder = JSONDecoder()
         let wrapper = try decoder.decode(APIResponse<TaskQueryResponse>.self, from: data)
         guard wrapper.isSuccess, let result = wrapper.data else {
@@ -209,7 +203,7 @@ final class APIService {
     /// POST /task/openapi/outputs — polymorphic poll used by Python SDK
     /// data = dict (still running) OR array (completed with file URLs)
     func pollTaskOutputs(taskId: String) async throws -> TaskOutputsPollResult {
-        guard !authToken.isEmpty else { throw APIError.noAPIKey }
+        guard !apiKey.isEmpty else { throw APIError.noAPIKey }
         guard let url = URL(string: baseURL + "/task/openapi/outputs") else { throw APIError.invalidURL }
 
         var req = URLRequest(url: url)
@@ -217,12 +211,9 @@ final class APIService {
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.timeoutInterval = 30
         struct Body: Encodable { let apiKey: String; let taskId: String }
-        req.httpBody = try JSONEncoder().encode(Body(apiKey: authToken, taskId: taskId))
+        req.httpBody = try JSONEncoder().encode(Body(apiKey: apiKey, taskId: taskId))
 
         let (data, _) = try await URLSession.shared.data(for: req)
-        if let str = String(data: data, encoding: .utf8) {
-            print("[POLL] /task/openapi/outputs → \(str.prefix(1000))")
-        }
 
         // Parse outer wrapper manually to handle polymorphic data
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
@@ -232,11 +223,6 @@ final class APIService {
         let msg = json["msg"] as? String
 
         guard code == 0 else {
-            print("[POLL] non-zero code=\(code) msg=\(msg ?? "nil") — treating as queued")
-            // 认证失败或任务不存在才算真正错误，其余继续等待
-            if code == 401 || code == 403 {
-                throw APIError.serverError(msg ?? "认证失败")
-            }
             return TaskOutputsPollResult(status: .queued, outputUrls: [], errorMessage: nil)
         }
 
