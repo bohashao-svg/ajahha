@@ -39,7 +39,10 @@ struct ContentRootView: View {
                 ProgressView()
             }
         }
-        .onAppear { appConfig.load() }
+        .onAppear {
+            appConfig.load()
+            NotificationService.shared.requestPermission()
+        }
         .onReceive(NotificationCenter.default.publisher(for: .authStateChanged)) { _ in
             isLoggedIn = StorageService.shared.isLoggedIn
         }

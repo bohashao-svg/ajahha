@@ -25,7 +25,15 @@ final class AppState: ObservableObject {
 
     func updateTask(_ task: RHTask) {
         if let idx = tasks.firstIndex(where: { $0.id == task.id }) {
+            let previous = tasks[idx]
             tasks[idx] = task
+            // Fire notification when task transitions into a terminal state
+            if !previous.isFinished && task.isFinished &&
+               (task.status == .completed || task.status == .failed) {
+                NotificationService.shared.notify(task: task)
+            }
+        } else {
+            tasks.insert(task, at: 0)
         }
         StorageService.shared.upsertTask(task)
     }

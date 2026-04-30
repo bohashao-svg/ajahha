@@ -151,14 +151,44 @@ struct TaskDetailView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(.rhPrimary)
             }
-            ForEach(liveTask.outputUrls, id: \.self) { url in
-                OutputItemView(
-                    url: url,
-                    showDecodeButton: liveTask.status == .completed && liveTask.decodedImageData == nil && liveTask.ttDecodedData == nil,
-                    isDecoding: isDecoding,
-                    onDecode: { handleDecodeButtonTap() },
-                    onToast: { showToast($0) }
-                )
+
+            let imageUrls = liveTask.outputUrls.filter { url in
+                !["mp4", "mov", "webm"].contains(url.split(separator: ".").last?.lowercased() ?? "")
+            }
+            let videoUrls = liveTask.outputUrls.filter { url in
+                ["mp4", "mov", "webm"].contains(url.split(separator: ".").last?.lowercased() ?? "")
+            }
+
+            // Image outputs: card style when multiple, single item style otherwise
+            if imageUrls.count > 1 {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(imageUrls, id: \.self) { url in
+                            OutputCardView(
+                                imageURL: url,
+                                title: liveTask.workflowName.isEmpty ? "生成结果" : liveTask.workflowName,
+                                subtitle: liveTask.workflowType
+                            )
+                            .frame(width: 220, height: 280)
+                        }
+                    }
+                    .padding(.horizontal, 2)
+                }
+            } else {
+                ForEach(imageUrls, id: \.self) { url in
+                    OutputItemView(
+                        url: url,
+                        showDecodeButton: liveTask.status == .completed && liveTask.decodedImageData == nil && liveTask.ttDecodedData == nil,
+                        isDecoding: isDecoding,
+                        onDecode: { handleDecodeButtonTap() },
+                        onToast: { showToast($0) }
+                    )
+                }
+            }
+
+            // Video outputs
+            ForEach(videoUrls, id: \.self) { url in
+                OutputItemView(url: url, onToast: { showToast($0) })
             }
 
             // 解码结果展示
@@ -359,20 +389,9 @@ private struct OutputItemView: View {
     }
 
     private var imageItem: some View {
-        AsyncImage(url: URL(string: url)) { phase in
-            switch phase {
-            case .success(let img):
-                img.resizable().scaledToFit().cornerRadius(16)
-                    .overlay(saveButton, alignment: .bottomTrailing)
-                    .overlay(decodeOverlay, alignment: .bottomLeading)
-            case .failure:
-                failPlaceholder
-            case .empty:
-                ProgressView().frame(height: 120)
-            @unknown default:
-                EmptyView()
-            }
-        }
+        RHRemoteImage(url: url, contentMode: .fit, cornerRadius: 16)
+            .overlay(saveButton, alignment: .bottomTrailing)
+            .overlay(decodeOverlay, alignment: .bottomLeading)
     }
 
     @ViewBuilder

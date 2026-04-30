@@ -72,6 +72,19 @@ extension Color {
     }
 }
 
+// MARK: - UIColor
+extension UIColor {
+    convenience init(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let r = CGFloat((int >> 16) & 0xFF) / 255
+        let g = CGFloat((int >> 8)  & 0xFF) / 255
+        let b = CGFloat(int         & 0xFF) / 255
+        self.init(red: r, green: g, blue: b, alpha: 1)
+    }
+}
+
 // MARK: - View
 extension View {
     /// Legacy card style (kept for compatibility)
@@ -138,6 +151,16 @@ extension TaskStatus {
         case .completed: return Color(hex: "#4A8F5F")
         case .failed:    return Color(hex: "#C0392B")
         case .cancelled: return Color(hex: "#8C7B6E")
+        }
+    }
+
+    var uiColor: UIColor {
+        switch self {
+        case .queued, .pending: return UIColor(hex: "#C9920A")
+        case .running:          return UIColor(hex: "#C8392B")
+        case .completed:        return UIColor(hex: "#4A8F5F")
+        case .failed:           return UIColor(hex: "#C0392B")
+        case .cancelled:        return UIColor(hex: "#8C7B6E")
         }
     }
 }

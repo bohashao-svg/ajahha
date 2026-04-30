@@ -40,6 +40,9 @@ targets:
           - UIInterfaceOrientationPortrait
         NSPhotoLibraryAddUsageDescription: "需要访问相册以保存图片"
         NSPhotoLibraryUsageDescription: "需要访问相册以保存图片"
+        NSCameraUsageDescription: "需要访问相机以拍摄照片"
+        NSMicrophoneUsageDescription: "需要访问麦克风以录制视频"
+        NSLocationWhenInUseUsageDescription: "需要访问位置以标记照片"
         CFBundleIconName: AppIcon
         CFBundleIcons:
           CFBundlePrimaryIcon:

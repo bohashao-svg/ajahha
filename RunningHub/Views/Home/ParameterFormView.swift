@@ -1,5 +1,4 @@
 import SwiftUI
-import PhotosUI
 
 // MARK: - Parameter Form View
 struct ParameterFormView: View {
@@ -28,7 +27,7 @@ struct ParameterFormView: View {
 private struct FieldRow: View {
     @Binding var field: FormField
     @FocusState private var isFocused: Bool
-    @State private var photoItem: PhotosPickerItem?
+    @State private var showImagePicker = false
     @State private var showLoraPicker = false
 
     var body: some View {
@@ -70,9 +69,7 @@ private struct FieldRow: View {
                 let tw = resource.firstTriggerWords ?? ""
                 let modelName = resource.nodeModelName ?? resource.resourceName ?? ""
                 field.value = modelName
-                // 找到同一 nodeId 的 text/prompt 字段，把触发词插到最前面
                 if !tw.isEmpty {
-                    // 通过 notification 通知 ParameterFormView 更新提示词字段
                     NotificationCenter.default.post(
                         name: .loraDidSelect,
                         object: nil,
@@ -80,6 +77,12 @@ private struct FieldRow: View {
                     )
                 }
             }
+        }
+        .sheet(isPresented: $showImagePicker) {
+            ImagePickerSheet(selectedImage: Binding(
+                get: { field.selectedImage },
+                set: { field.selectedImage = $0; if $0 != nil { field.value = "pending_upload" } }
+            ))
         }
     }
 
@@ -193,7 +196,7 @@ private struct FieldRow: View {
                 .focused($isFocused)
 
         case .imageInput:
-            PhotosPicker(selection: $photoItem, matching: .images) {
+            Button { showImagePicker = true } label: {
                 HStack(spacing: 10) {
                     if let img = field.selectedImage {
                         Image(uiImage: img)
@@ -234,16 +237,7 @@ private struct FieldRow: View {
                         .stroke(Color.rhBorder, lineWidth: 1)
                 )
             }
-            .onChange(of: photoItem) { newItem in
-                guard let newItem else { return }
-                Task {
-                    if let data = try? await newItem.loadTransferable(type: Data.self),
-                       let img = UIImage(data: data) {
-                        field.selectedImage = img
-                        field.value = "pending_upload"
-                    }
-                }
-            }
+            .buttonStyle(.plain)
 
         case .text:
             TextField(field.placeholder, text: $field.value)

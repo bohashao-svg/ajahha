@@ -47,12 +47,16 @@ struct TaskCardView: View {
 
                     Spacer()
 
-                    Text(task.status.displayName)
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(task.status.color)
-                        .padding(.horizontal, 7).padding(.vertical, 3)
-                        .background(task.status.color.opacity(0.1))
-                        .clipShape(SketchRoundedRect(radius: 7))
+                    MorphingText(
+                        task.status.displayName,
+                        effect: .evaporate,
+                        font: .systemFont(ofSize: 11, weight: .semibold),
+                        textColor: task.status.uiColor
+                    )
+                    .frame(height: 20)
+                    .padding(.horizontal, 7).padding(.vertical, 3)
+                    .background(task.status.color.opacity(0.1))
+                    .clipShape(SketchRoundedRect(radius: 7))
                 }
 
                 if task.status == .running {

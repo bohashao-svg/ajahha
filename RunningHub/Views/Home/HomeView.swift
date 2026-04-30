@@ -273,7 +273,7 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 12) {
             sketchSectionLabel("节点参数", star: false)
             ForEach(appVm.nodes.indices, id: \.self) { i in
-                AppNodeRow(node: $appVm.nodes[i], selectedImages: $appVm.selectedImages)
+                AppNodeRow(node: $appVm.nodes[i], selectedImages: $appVm.selectedImages, selectedVideos: $appVm.selectedVideos)
                 if i < appVm.nodes.count - 1 { Divider().padding(.vertical, 4) }
             }
         }

@@ -86,6 +86,14 @@ struct TaskCenterView: View {
             } else {
                 ScrollView {
                     LazyVStack(spacing: 10) {
+                        // Expanding card strip for completed tasks
+                        if vm.selectedTab == .completed && tasks.count > 1 {
+                            ExpandingTasksView(tasks: tasks)
+                                .frame(height: 320)
+                                .padding(.horizontal, 0)
+                                .padding(.bottom, 4)
+                        }
+
                         ForEach(tasks) { task in
                             HStack(spacing: 8) {
                                 NavigationLink {
