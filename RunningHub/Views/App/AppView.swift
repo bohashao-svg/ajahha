@@ -137,24 +137,34 @@ struct AppView: View {
 
     // MARK: - Node Form Card
     private var nodeFormCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 6) {
-                LiquidGlassShape(radius: 2)
-                    .fill(Color(hex: "#8B9CC8").opacity(0.5))
-                    .frame(width: 3, height: 14)
+                Image(systemName: "slider.horizontal.3")
+                    .font(.system(size: 13)).foregroundColor(Color(hex: "#6C8EFF"))
                 Text("节点参数")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(Color(hex: "#F0F4FF"))
             }
+            .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 10)
+
+            Divider().background(Color.white.opacity(0.08))
 
             ForEach(vm.nodes.indices, id: \.self) { i in
-                AppNodeRow(node: $vm.nodes[i], selectedImages: $vm.selectedImages, selectedVideos: $vm.selectedVideos)
+                AppNodeRow(node: $vm.nodes[i],
+                           selectedImages: $vm.selectedImages,
+                           selectedVideos: $vm.selectedVideos)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
                 if i < vm.nodes.count - 1 {
-                    Divider().background(Color.white.opacity(0.08)).padding(.vertical, 4)
+                    Divider().background(Color.white.opacity(0.06)).padding(.leading, 16)
                 }
             }
+
+            Spacer(minLength: 4)
         }
-        .rhCard()
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color.white.opacity(0.1), lineWidth: 1))
         .padding(.horizontal, 16)
     }
 

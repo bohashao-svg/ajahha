@@ -276,6 +276,8 @@ struct HomeView: View {
                     AppNodeRow(node: $appVm.nodes[i],
                                selectedImages: $appVm.selectedImages,
                                selectedVideos: $appVm.selectedVideos)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
                     if i < appVm.nodes.count - 1 {
                         Divider().background(Color.white.opacity(0.07)).padding(.leading, 16)
                     }

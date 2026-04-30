@@ -39,32 +39,39 @@ final class TaskPollingService {
     private func pollLoop(taskId: String, originalTask: RHTask) async {
         var localTask = originalTask
         var lastNotifiedStatus: TaskStatus = originalTask.status
+        var isFirstPoll = true
 
         while !Task.isCancelled && !localTask.isFinished {
-            // Poll faster when running, slower when queued
-            let interval: TimeInterval = localTask.status == .running ? 3.0 : 5.0
-            do {
-                try await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
-                guard !Task.isCancelled else { break }
+            // First poll fires immediately (no sleep) so RUNNING shows up right away.
+            // Subsequent polls: 3s when running, 5s when queued.
+            if isFirstPoll {
+                isFirstPoll = false
+            } else {
+                let interval: TimeInterval = localTask.status == .running ? 3.0 : 5.0
+                do {
+                    try await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
+                } catch { break }
+            }
 
+            guard !Task.isCancelled else { break }
+
+            do {
                 let result = try await APIService.shared.pollTaskOutputs(taskId: taskId)
 
-                let prevStatus = localTask.status
-                localTask.status   = result.status
-                localTask.errorMsg = result.errorMessage
+                localTask.status    = result.status
+                localTask.errorMsg  = result.errorMessage
                 localTask.updatedAt = Date()
                 if !result.outputUrls.isEmpty { localTask.outputUrls = result.outputUrls }
 
                 let snapshot = localTask
                 await MainActor.run { self.onTaskUpdated?(snapshot) }
 
-                // Fire notification on every status transition
                 if localTask.status != lastNotifiedStatus {
                     lastNotifiedStatus = localTask.status
                     NotificationService.shared.notify(task: snapshot)
                 }
-
             } catch {
+                // On network error wait 5s before retry
                 try? await Task.sleep(nanoseconds: 5_000_000_000)
             }
         }

@@ -41,36 +41,37 @@ struct TaskCenterView: View {
 
     // MARK: - Tab Pills
     private var tabPills: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(tabs, id: \.self) { tab in
-                    let count = vm.tasks(for: tab).count
-                    let selected = vm.selectedTab == tab
-                    Button {
-                        withAnimation(.spring(response: 0.28, dampingFraction: 0.75)) {
-                            vm.selectedTab = tab
-                        }
-                    } label: {
-                        HStack(spacing: 5) {
-                            Text(tab.displayName)
-                                .font(.system(size: 13, weight: selected ? .bold : .medium))
-                            if count > 0 {
-                                Text("\(count)")
-                                    .font(.system(size: 11, weight: .black))
-                                    .foregroundColor(selected ? .white : tab.color)
-                                    .padding(.horizontal, 5).padding(.vertical, 1)
-                                    .background(selected ? tab.color.opacity(0.5) : tab.color.opacity(0.15))
-                                    .clipShape(Capsule())
-                            }
-                        }
-                        .foregroundColor(selected ? .white : Color.white.opacity(0.45))
-                        .padding(.horizontal, 14).padding(.vertical, 9)
-                        .background(selected ? tab.color : Color.white.opacity(0.07))
-                        .clipShape(Capsule())
-                        .shadow(color: selected ? tab.color.opacity(0.4) : .clear, radius: 8)
+        // Use HStack with equal spacing so pills fill the full width evenly
+        HStack(spacing: 8) {
+            ForEach(tabs, id: \.self) { tab in
+                let count = vm.tasks(for: tab).count
+                let selected = vm.selectedTab == tab
+                Button {
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.75)) {
+                        vm.selectedTab = tab
                     }
-                    .buttonStyle(LiquidButtonStyle())
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(tab.displayName)
+                            .font(.system(size: 12, weight: selected ? .bold : .medium))
+                            .lineLimit(1)
+                        if count > 0 {
+                            Text("\(count)")
+                                .font(.system(size: 10, weight: .black))
+                                .foregroundColor(selected ? .white : tab.color)
+                                .padding(.horizontal, 4).padding(.vertical, 1)
+                                .background(selected ? tab.color.opacity(0.5) : tab.color.opacity(0.15))
+                                .clipShape(Capsule())
+                        }
+                    }
+                    .foregroundColor(selected ? .white : Color.white.opacity(0.45))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 9)
+                    .background(selected ? tab.color : Color.white.opacity(0.07))
+                    .clipShape(Capsule())
+                    .shadow(color: selected ? tab.color.opacity(0.4) : .clear, radius: 8)
                 }
+                .buttonStyle(LiquidButtonStyle())
             }
         }
     }

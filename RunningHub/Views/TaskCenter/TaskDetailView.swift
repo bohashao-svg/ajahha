@@ -12,7 +12,8 @@ struct TaskDetailView: View {
     @State private var isDecoding = false
     @State private var decodeError: String?
     @State private var showDecodeSheet = false
-    @State private var showActionSheet = false
+    @State private var showToolPicker = false   // native confirmationDialog — no UIKit present
+    @State private var pendingTool: DecodeTool? = nil
     @State private var decodePassword = ""
     @State private var saveToast: String?
     @State private var infoExpanded = false
@@ -56,14 +57,18 @@ struct TaskDetailView: View {
             }
         }
         .sheet(isPresented: $showDecodeSheet) { decodeSheet }
-        .liquidActionSheet(
-            isPresented: $showActionSheet,
-            title: "选择解码工具",
-            actions: [
-                .init(title: "鸭鸭图 (LSB)", icon: "tortoise.fill", style: .default) { showDecodeSheet = true },
-                .init(title: "TT Tool V2",   icon: "wand.and.stars", style: .default) { showDecodeSheet = true },
-            ]
-        )
+        // Native confirmationDialog — zero UIKit, zero crash risk
+        .confirmationDialog("选择解码工具", isPresented: $showToolPicker, titleVisibility: .visible) {
+            Button("鸭鸭图 (LSB 隐写)") {
+                pendingTool = .duck
+                showDecodeSheet = true
+            }
+            Button("TT Tool V2 (彩色图)") {
+                pendingTool = .ttV2
+                showDecodeSheet = true
+            }
+            Button("取消", role: .cancel) {}
+        }
     }
 
     // MARK: - Output Hero
@@ -344,8 +349,9 @@ struct TaskDetailView: View {
     private var decodeSheet: some View {
         DecodeToolSheetView(
             password: $decodePassword,
-            isDuckEncoded: liveTask.isDuckEncoded,
-            isTTEncoded: liveTask.isTTEncoded,
+            // Use pendingTool set by handleDecodeTap so the sheet always
+            // knows which tool was selected (even when coming from confirmationDialog)
+            forcedTool: pendingTool,
             onDismiss: { showDecodeSheet = false },
             onConfirm: { tool in
                 showDecodeSheet = false
@@ -357,8 +363,14 @@ struct TaskDetailView: View {
     // MARK: - Helpers
     private func handleDecodeTap() {
         decodePassword = ""
-        if liveTask.isDuckEncoded || liveTask.isTTEncoded { showDecodeSheet = true }
-        else { showActionSheet = true }
+        pendingTool = nil
+        if liveTask.isDuckEncoded {
+            pendingTool = .duck; showDecodeSheet = true
+        } else if liveTask.isTTEncoded {
+            pendingTool = .ttV2; showDecodeSheet = true
+        } else {
+            showToolPicker = true
+        }
     }
 
     private func triggerDecode(tool: DecodeTool, password: String) {
@@ -410,22 +422,17 @@ struct TaskDetailView: View {
 // MARK: - Decode Tool Sheet
 private struct DecodeToolSheetView: View {
     @Binding var password: String
-    let isDuckEncoded: Bool
-    let isTTEncoded: Bool
+    // forcedTool: set when the tool is already known (duck/TT flag on task,
+    // or selected via confirmationDialog). nil = show both options.
+    let forcedTool: TaskDetailView.DecodeTool?
     let onDismiss: () -> Void
     let onConfirm: (TaskDetailView.DecodeTool) -> Void
-
-    private var knownTool: TaskDetailView.DecodeTool? {
-        if isDuckEncoded { return .duck }
-        if isTTEncoded   { return .ttV2 }
-        return nil
-    }
 
     var body: some View {
         NavigationView {
             VStack(spacing: 20) {
-                // Tool selector (if unknown)
-                if knownTool == nil {
+                // Tool selector only when tool is unknown
+                if forcedTool == nil {
                     VStack(spacing: 10) {
                         toolButton("鸭鸭图", subtitle: "LSB 隐写解码", icon: "tortoise.fill",
                                    color: Color(hex: "#FFD166"), tool: .duck)
@@ -434,9 +441,9 @@ private struct DecodeToolSheetView: View {
                     }
                 } else {
                     HStack(spacing: 8) {
-                        Image(systemName: knownTool == .duck ? "tortoise.fill" : "wand.and.stars")
-                            .foregroundColor(knownTool == .duck ? Color(hex: "#FFD166") : Color(hex: "#6C8EFF"))
-                        Text(knownTool == .duck ? "鸭鸭图解码" : "TT Tool V2 解码")
+                        Image(systemName: forcedTool == .duck ? "tortoise.fill" : "wand.and.stars")
+                            .foregroundColor(forcedTool == .duck ? Color(hex: "#FFD166") : Color(hex: "#6C8EFF"))
+                        Text(forcedTool == .duck ? "鸭鸭图解码" : "TT Tool V2 解码")
                             .font(.system(size: 15, weight: .semibold)).foregroundColor(.white)
                     }
                     .padding(14)
@@ -459,7 +466,7 @@ private struct DecodeToolSheetView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
 
-                if let tool = knownTool {
+                if let tool = forcedTool {
                     Button { onConfirm(tool) } label: {
                         Text("确认解码")
                             .font(.system(size: 16, weight: .bold)).foregroundColor(.white)
