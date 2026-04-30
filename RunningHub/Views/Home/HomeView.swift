@@ -51,12 +51,17 @@ struct HomeView: View {
                             historySection
                         }
 
-                        // Footer
-                        Text("By：iPhone83Plus")
-                            .font(.system(size: 11))
-                            .foregroundColor(Color.white.opacity(0.2))
-                            .frame(maxWidth: .infinity)
-                            .padding(.bottom, 100)
+                        // Footer — typewriter effect, pushed to bottom of scroll content
+                        TypewriterText(
+                            fullText: "By：iPhone83Plus · RunningHub AI 创作平台",
+                            font: .system(size: 11),
+                            color: Color.white.opacity(0.22),
+                            delay: 1.2,
+                            charInterval: 0.05
+                        )
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 8)
+                        .padding(.bottom, 100)
                     }
                     .padding(.horizontal, 16)
                 }
@@ -97,7 +102,7 @@ struct HomeView: View {
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .navigationBarLeading) {
             Button { showSettings = true } label: {
-                Image(systemName: "gearshape")
+                Image(systemName: RHIconName.settings.rawValue)
                     .font(.system(size: 17, weight: .medium))
                     .foregroundColor(Color.white.opacity(0.7))
             }
@@ -155,7 +160,7 @@ struct HomeView: View {
                             RoundedRectangle(cornerRadius: 14, style: .continuous)
                                 .stroke(Color.white.opacity(0.15), lineWidth: 1)
                         )
-                    Image(systemName: "list.bullet.clipboard")
+                    Image(systemName: RHIconName.taskCenter.rawValue)
                         .font(.system(size: 20))
                         .foregroundColor(.white)
                         .frame(width: 52, height: 52)
@@ -189,7 +194,7 @@ struct HomeView: View {
 
             HStack(spacing: 10) {
                 HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass")
+                    Image(systemName: RHIconName.search.rawValue)
                         .font(.system(size: 14))
                         .foregroundColor(Color.white.opacity(0.35))
                     TextField("输入 ID 或链接", text: $unifiedInput)
@@ -201,7 +206,7 @@ struct HomeView: View {
                         .onSubmit { fetchUnified() }
                     if !unifiedInput.isEmpty {
                         Button { unifiedInput = "" } label: {
-                            Image(systemName: "xmark.circle.fill")
+                            Image(systemName: RHIconName.clear.rawValue)
                                 .font(.system(size: 14))
                                 .foregroundColor(Color.white.opacity(0.3))
                         }
@@ -218,7 +223,7 @@ struct HomeView: View {
                         if vm.isLoading || appVm.isLoading {
                             ProgressView().tint(.white)
                         } else {
-                            Image(systemName: "arrow.right")
+                            Image(systemName: RHIconName.submit.rawValue)
                                 .font(.system(size: 16, weight: .semibold))
                                 .foregroundColor(.white)
                         }
@@ -244,7 +249,7 @@ struct HomeView: View {
                 let loaded = vm.workflowDetail != nil || !appVm.nodes.isEmpty
                 if loaded {
                     HStack(spacing: 5) {
-                        Image(systemName: "checkmark.circle.fill")
+                        Image(systemName: RHIconName.success.rawValue)
                             .font(.system(size: 12))
                             .foregroundColor(Color(hex: "#4ECDC4"))
                         Text(vm.workflowDetail != nil
@@ -356,11 +361,11 @@ struct HomeView: View {
     // MARK: - Quick Access Row
     private var quickAccessRow: some View {
         HStack(spacing: 10) {
-            quickTile(icon: "brain.head.profile", label: "卸甲 AI",
+            quickTile(icon: RHIconName.grok.rawValue, label: "卸甲 AI",
                       color: Color(hex: "#FFD166")) { showGrok = true }
-            quickTile(icon: "rectangle.stack.fill", label: "批量抽卡",
+            quickTile(icon: RHIconName.gacha.rawValue, label: "批量抽卡",
                       color: Color(hex: "#FF6B6B")) { showGacha = true }
-            quickTile(icon: "star.fill", label: "精品工作流",
+            quickTile(icon: RHIconName.premium.rawValue, label: "精品工作流",
                       color: Color(hex: "#A78BFA")) { showPremium = true }
         }
     }
@@ -419,7 +424,7 @@ struct HomeView: View {
                         }
                     } label: {
                         HStack(spacing: 12) {
-                            Image(systemName: item.itemType == .aiApp ? "app.badge" : "arrow.triangle.branch")
+                            Image(systemName: item.itemType == .aiApp ? RHIconName.aiApp.rawValue : RHIconName.workflow.rawValue)
                                 .font(.system(size: 13))
                                 .foregroundColor(Color(hex: "#6C8EFF"))
                                 .frame(width: 32, height: 32)
@@ -434,7 +439,7 @@ struct HomeView: View {
                                     .foregroundColor(Color.white.opacity(0.4))
                             }
                             Spacer()
-                            Image(systemName: "chevron.right")
+                            Image(systemName: RHIconName.forward.rawValue)
                                 .font(.system(size: 11))
                                 .foregroundColor(Color.white.opacity(0.2))
                         }
@@ -500,7 +505,7 @@ struct HomeView: View {
         switch vm.workflowType {
         case .textToImage: return "photo"
         case .textToVideo, .imageToVideo: return "video"
-        case .unknown: return "arrow.triangle.branch"
+        case .unknown: return RHIconName.workflow.rawValue
         }
     }
 

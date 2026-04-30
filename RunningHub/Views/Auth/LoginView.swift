@@ -26,7 +26,7 @@ struct LoginView: View {
                                 ))
                                 .frame(width: 72, height: 72)
                                 .shadow(color: Color(hex: "#6C8EFF").opacity(0.5), radius: 20, y: 8)
-                            Image(systemName: "sparkles")
+                            Image(systemName: RHIconName.sparkle.rawValue)
                                 .font(.system(size: 30, weight: .medium))
                                 .foregroundColor(.white)
                         }
@@ -46,7 +46,7 @@ struct LoginView: View {
                     VStack(spacing: 14) {
                         // Username
                         HStack(spacing: 12) {
-                            Image(systemName: "person")
+                            Image(systemName: RHIconName.profile.rawValue)
                                 .font(.system(size: 16))
                                 .foregroundColor(focus == .username ? Color(hex: "#6C8EFF") : Color.white.opacity(0.35))
                                 .frame(width: 22)
@@ -71,7 +71,7 @@ struct LoginView: View {
 
                         // Password
                         HStack(spacing: 12) {
-                            Image(systemName: "lock")
+                            Image(systemName: RHIconName.lock.rawValue)
                                 .font(.system(size: 16))
                                 .foregroundColor(focus == .password ? Color(hex: "#6C8EFF") : Color.white.opacity(0.35))
                                 .frame(width: 22)

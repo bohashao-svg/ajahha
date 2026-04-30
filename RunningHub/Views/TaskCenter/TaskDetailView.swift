@@ -98,7 +98,7 @@ struct TaskDetailView: View {
                             .foregroundColor(Color.white.opacity(0.5))
                     }
                 } else {
-                    Image(systemName: "photo")
+                    Image(systemName: RHIconName.image.rawValue)
                         .font(.system(size: 44, weight: .ultraLight))
                         .foregroundColor(Color.white.opacity(0.15))
                 }
@@ -115,7 +115,7 @@ struct TaskDetailView: View {
                 HStack(spacing: 8) {
                     if liveTask.status == .completed && localDecodedData == nil {
                         Button { handleDecodeTap() } label: {
-                            Label(isDecoding ? "解码中" : "解码", systemImage: "lock.open.fill")
+                            Label(isDecoding ? "解码中" : "解码", systemImage: RHIconName.unlock.rawValue)
                                 .font(.system(size: 13, weight: .semibold))
                                 .foregroundColor(.white)
                                 .padding(.horizontal, 12).padding(.vertical, 8)
@@ -126,7 +126,7 @@ struct TaskDetailView: View {
                         .buttonStyle(LiquidButtonStyle())
                     }
                     Button { saveImageFromURL(imageUrls[0]) } label: {
-                        Image(systemName: "square.and.arrow.down")
+                        Image(systemName: RHIconName.save.rawValue)
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundColor(.white)
                             .frame(width: 36, height: 36)
@@ -209,7 +209,7 @@ struct TaskDetailView: View {
                     infoExpanded.toggle()
                 }
             } label: {
-                Image(systemName: infoExpanded ? "chevron.up" : "info.circle")
+                Image(systemName: infoExpanded ? "chevron.up" : RHIconName.info.rawValue)
                     .font(.system(size: 15))
                     .foregroundColor(Color.white.opacity(0.4))
             }
@@ -281,7 +281,7 @@ struct TaskDetailView: View {
     private func decodedResultView(data: Data, isDuck: Bool) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Label(isDuck ? "鸭鸭图解码结果" : "TT Tool 解码结果",
-                  systemImage: isDuck ? "tortoise.fill" : "wand.and.stars")
+                  systemImage: isDuck ? "tortoise.fill" : RHIconName.lora.rawValue)
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundColor(isDuck ? Color(hex: "#FFD166") : Color(hex: "#6C8EFF"))
                 .padding(.horizontal, 16).padding(.top, 14)
@@ -291,7 +291,7 @@ struct TaskDetailView: View {
                 ZStack(alignment: .bottomTrailing) {
                     Image(uiImage: img).resizable().scaledToFit()
                     Button { saveImage(img) } label: {
-                        Image(systemName: "square.and.arrow.down")
+                        Image(systemName: RHIconName.save.rawValue)
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundColor(.white)
                             .frame(width: 36, height: 36)
@@ -304,7 +304,7 @@ struct TaskDetailView: View {
             } else {
                 // Non-image result (video, zip, etc.) — save to Photos/Files
                 HStack(spacing: 14) {
-                    Image(systemName: isVideoData(data) ? "video.fill" : "doc.fill")
+                    Image(systemName: isVideoData(data) ? RHIconName.video.rawValue : RHIconName.document.rawValue)
                         .font(.system(size: 22))
                         .foregroundColor(Color(hex: "#6C8EFF"))
                         .frame(width: 52, height: 52)
@@ -324,7 +324,7 @@ struct TaskDetailView: View {
                         if isVideoData(data) { saveVideo(data) }
                         else { saveRawData(data) }
                     } label: {
-                        Label("保存", systemImage: "square.and.arrow.down")
+                        Label("保存", systemImage: RHIconName.save.rawValue)
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundColor(.white)
                             .padding(.horizontal, 14).padding(.vertical, 9)
@@ -402,7 +402,7 @@ struct TaskDetailView: View {
 
     private func videoRow(url: String) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: "video.fill")
+            Image(systemName: RHIconName.video.rawValue)
                 .font(.system(size: 18))
                 .foregroundColor(Color(hex: "#6C8EFF"))
                 .frame(width: 44, height: 44)
@@ -428,7 +428,7 @@ struct TaskDetailView: View {
     private var toastOverlay: some View {
         Group {
             if let msg = saveToast {
-                Label(msg, systemImage: "checkmark.circle.fill")
+                Label(msg, systemImage: RHIconName.success.rawValue)
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.white)
                     .padding(.horizontal, 18).padding(.vertical, 12)
@@ -545,12 +545,12 @@ private struct DecodeToolSheetView: View {
                     VStack(spacing: 10) {
                         toolButton("鸭鸭图", subtitle: "LSB 隐写解码", icon: "tortoise.fill",
                                    color: Color(hex: "#FFD166"), tool: .duck)
-                        toolButton("TT Tool V2", subtitle: "彩色图解码", icon: "wand.and.stars",
+                        toolButton("TT Tool V2", subtitle: "彩色图解码", icon: RHIconName.lora.rawValue,
                                    color: Color(hex: "#6C8EFF"), tool: .ttV2)
                     }
                 } else {
                     HStack(spacing: 8) {
-                        Image(systemName: forcedTool == .duck ? "tortoise.fill" : "wand.and.stars")
+                        Image(systemName: forcedTool == .duck ? "tortoise.fill" : RHIconName.lora.rawValue)
                             .foregroundColor(forcedTool == .duck ? Color(hex: "#FFD166") : Color(hex: "#6C8EFF"))
                         Text(forcedTool == .duck ? "鸭鸭图解码" : "TT Tool V2 解码")
                             .font(.system(size: 15, weight: .semibold)).foregroundColor(.white)
@@ -618,7 +618,7 @@ private struct DecodeToolSheetView: View {
                     Text(subtitle).font(.system(size: 12)).foregroundColor(Color.white.opacity(0.4))
                 }
                 Spacer()
-                Image(systemName: "chevron.right").font(.system(size: 13)).foregroundColor(Color.white.opacity(0.2))
+                Image(systemName: RHIconName.forward.rawValue).font(.system(size: 13)).foregroundColor(Color.white.opacity(0.2))
             }
             .padding(14)
             .background(Color.white.opacity(0.07))

@@ -280,7 +280,7 @@ struct AppNodeRow: View {
                     LiquidGlassShape(radius: 10)
                         .fill(Color(hex: "#6C8EFF").opacity(0.12))
                         .frame(width: 36, height: 36)
-                    Image(systemName: "wand.and.stars")
+                    Image(systemName: RHIconName.lora.rawValue)
                         .font(.system(size: 16))
                         .foregroundColor(Color(hex: "#6C8EFF"))
                 }
@@ -298,7 +298,7 @@ struct AppNodeRow: View {
                     }
                 }
                 Spacer()
-                Image(systemName: "chevron.right")
+                Image(systemName: RHIconName.forward.rawValue)
                     .font(.system(size: 13))
                     .foregroundColor(Color(hex: "#8B9CC8").opacity(0.5))
             }
@@ -326,13 +326,13 @@ struct AppNodeRow: View {
                         LiquidGlassShape(radius: 10)
                             .fill(Color(hex: "#6C8EFF").opacity(0.1))
                             .frame(width: 52, height: 52)
-                        Image(systemName: "photo.on.rectangle.angled")
+                        Image(systemName: RHIconName.gallery.rawValue)
                             .font(.system(size: 22)).foregroundColor(Color(hex: "#6C8EFF").opacity(0.7))
                     }
                     Text("从相册选择图片").font(.system(size: 14)).foregroundColor(Color(hex: "#8B9CC8"))
                 }
                 Spacer()
-                Image(systemName: "chevron.right").font(.system(size: 13)).foregroundColor(Color(hex: "#8B9CC8").opacity(0.5))
+                Image(systemName: RHIconName.forward.rawValue).font(.system(size: 13)).foregroundColor(Color(hex: "#8B9CC8").opacity(0.5))
             }
             .padding(10)
             .background(LiquidGlassShape(radius: 12).fill(Color.white.opacity(0.04)))
@@ -357,7 +357,7 @@ struct AppNodeRow: View {
                     LiquidGlassShape(radius: 10)
                         .fill(Color(hex: "#6C8EFF").opacity(0.1))
                         .frame(width: 52, height: 52)
-                    Image(systemName: selectedVideos[key] != nil ? "video.fill" : "video.badge.plus")
+                    Image(systemName: selectedVideos[key] != nil ? RHIconName.video.rawValue : "video.badge.plus")
                         .font(.system(size: 22))
                         .foregroundColor(Color(hex: "#6C8EFF"))
                 }
@@ -374,7 +374,7 @@ struct AppNodeRow: View {
                     }
                 }
                 Spacer()
-                Image(systemName: "chevron.right").font(.system(size: 13)).foregroundColor(Color(hex: "#8B9CC8").opacity(0.5))
+                Image(systemName: RHIconName.forward.rawValue).font(.system(size: 13)).foregroundColor(Color(hex: "#8B9CC8").opacity(0.5))
             }
             .padding(10)
             .background(LiquidGlassShape(radius: 12).fill(Color.white.opacity(0.04)))

@@ -53,7 +53,7 @@ struct GachaView: View {
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     HStack(spacing: 6) {
-                        Image(systemName: "rectangle.stack.fill")
+                        Image(systemName: RHIconName.gacha.rawValue)
                             .font(.system(size: 14))
                             .foregroundStyle(LinearGradient(
                                 colors: [Color(hex: "#FF6B6B"), Color(hex: "#FFD166")],
@@ -66,7 +66,7 @@ struct GachaView: View {
                 }
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button { dismiss() } label: {
-                        Image(systemName: "xmark").font(.system(size: 15, weight: .semibold)).foregroundColor(Color.white.opacity(0.6))
+                        Image(systemName: RHIconName.close.rawValue).font(.system(size: 15, weight: .semibold)).foregroundColor(Color.white.opacity(0.6))
                     }
                 }
             }
@@ -76,7 +76,7 @@ struct GachaView: View {
     // MARK: - Warning Banner
     private var warningBanner: some View {
         HStack(spacing: 12) {
-            Image(systemName: "exclamationmark.triangle.fill")
+            Image(systemName: RHIconName.warning.rawValue)
                 .font(.system(size: 18))
                 .foregroundColor(Color(hex: "#FFD166"))
             VStack(alignment: .leading, spacing: 2) {
@@ -99,7 +99,7 @@ struct GachaView: View {
 
             // API Key
             HStack(spacing: 10) {
-                Image(systemName: "key.fill").font(.system(size: 14)).foregroundColor(Color(hex: "#FFD166")).frame(width: 20)
+                Image(systemName: RHIconName.key.rawValue).font(.system(size: 14)).foregroundColor(Color(hex: "#FFD166")).frame(width: 20)
                 SecureField("抽卡专用 API Key", text: $vm.gachaApiKey)
                     .font(.system(size: 14)).foregroundColor(.white)
                     .tint(Color(hex: "#6C8EFF")).autocapitalization(.none).disableAutocorrection(true)
@@ -125,7 +125,7 @@ struct GachaView: View {
                 Button { Task { await vm.fetchTarget() } } label: {
                     Group {
                         if vm.isLoadingTarget { ProgressView().tint(.white) }
-                        else { Image(systemName: "arrow.right").font(.system(size: 15, weight: .semibold)).foregroundColor(.white) }
+                        else { Image(systemName: RHIconName.submit.rawValue).font(.system(size: 15, weight: .semibold)).foregroundColor(.white) }
                     }
                     .frame(width: 44, height: 44)
                     .background(LinearGradient(
@@ -144,7 +144,7 @@ struct GachaView: View {
                 Text(err).font(.system(size: 12)).foregroundColor(Color(hex: "#FF6B6B"))
             } else if vm.targetLoaded {
                 HStack(spacing: 6) {
-                    Image(systemName: "checkmark.circle.fill").font(.system(size: 12)).foregroundColor(Color(hex: "#4ECDC4"))
+                    Image(systemName: RHIconName.success.rawValue).font(.system(size: 12)).foregroundColor(Color(hex: "#4ECDC4"))
                     Text(vm.isWebApp ? "AI 应用已加载" : "工作流已加载 · \(vm.workflowType.displayName)")
                         .font(.system(size: 12)).foregroundColor(Color(hex: "#4ECDC4"))
                 }
@@ -157,14 +157,14 @@ struct GachaView: View {
                 Spacer()
                 HStack(spacing: 0) {
                     Button { if vm.concurrency > 1 { vm.concurrency -= 1 } } label: {
-                        Image(systemName: "minus").font(.system(size: 13, weight: .bold)).foregroundColor(.white)
+                        Image(systemName: RHIconName.cancelled.rawValue).font(.system(size: 13, weight: .bold)).foregroundColor(.white)
                             .frame(width: 36, height: 36).background(Color.white.opacity(0.08))
                     }
                     Text("\(vm.concurrency)")
                         .font(.system(size: 15, weight: .bold)).foregroundColor(.white)
                         .frame(width: 36)
                     Button { if vm.concurrency < 10 { vm.concurrency += 1 } } label: {
-                        Image(systemName: "plus").font(.system(size: 13, weight: .bold)).foregroundColor(.white)
+                        Image(systemName: RHIconName.add.rawValue).font(.system(size: 13, weight: .bold)).foregroundColor(.white)
                             .frame(width: 36, height: 36).background(Color.white.opacity(0.08))
                     }
                 }
@@ -327,7 +327,7 @@ struct GachaView: View {
                             let done = vm.gachaTasks.filter { $0.status == .completed || $0.status == .failed }.count
                             Text("\(done)/\(vm.gachaTasks.count)").font(.system(size: 14, weight: .bold)).foregroundColor(.white)
                         } else {
-                            Image(systemName: "play.fill").font(.system(size: 14)).foregroundColor(.white)
+                            Image(systemName: RHIconName.running.rawValue).font(.system(size: 14)).foregroundColor(.white)
                             Text("开始批量").font(.system(size: 15, weight: .bold)).foregroundColor(.white)
                         }
                     }

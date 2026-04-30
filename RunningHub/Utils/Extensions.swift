@@ -248,68 +248,95 @@ extension View {
 }
 
 // MARK: - Animated Mesh Background
-// Single static background — no per-frame layout changes, no blur on animated layers.
-// Blur is applied once at snapshot time via drawingGroup(); animation only drives opacity.
+// Two alternating spotlight beams sweeping across a dark plane.
+// Uses Canvas + opacity-only animation — zero layout side-effects on ScrollView.
 struct AnimatedMeshBackground: View {
-    @State private var phase: Bool = false
+    @State private var phase: CGFloat = 0
 
     var body: some View {
-        // Fixed dark base — never changes size or position
-        Color(hex: "#0A0E1A")
+        Color(hex: "#080C18")
             .ignoresSafeArea()
-            .overlay(orbs.ignoresSafeArea())
+            .overlay(spotlights.ignoresSafeArea())
     }
 
-    private var orbs: some View {
-        // All orbs are pre-blurred static shapes; only opacity animates.
-        // opacity animation does NOT affect layout, so ScrollView stays still.
-        Canvas { ctx, size in
-            // Orb 1 — blue, top-left
-            ctx.opacity = phase ? 0.22 : 0.14
-            ctx.drawLayer { inner in
-                let r = CGRect(x: size.width * 0.05, y: size.height * 0.02,
-                               width: size.width * 0.65, height: size.height * 0.45)
-                inner.fill(Path(ellipseIn: r),
-                           with: .linearGradient(
-                            Gradient(colors: [Color(hex: "#6C8EFF").opacity(0.55), .clear]),
-                            startPoint: CGPoint(x: r.midX, y: r.minY),
-                            endPoint:   CGPoint(x: r.midX, y: r.maxY)
-                           ))
-            }
-            // Orb 2 — purple, bottom-right
-            ctx.opacity = phase ? 0.18 : 0.10
-            ctx.drawLayer { inner in
-                let r = CGRect(x: size.width * 0.45, y: size.height * 0.5,
-                               width: size.width * 0.6, height: size.height * 0.45)
-                inner.fill(Path(ellipseIn: r),
-                           with: .linearGradient(
-                            Gradient(colors: [Color(hex: "#A78BFA").opacity(0.5), .clear]),
-                            startPoint: CGPoint(x: r.midX, y: r.minY),
-                            endPoint:   CGPoint(x: r.midX, y: r.maxY)
-                           ))
-            }
-            // Orb 3 — teal, center
-            ctx.opacity = phase ? 0.14 : 0.08
-            ctx.drawLayer { inner in
-                let r = CGRect(x: size.width * 0.25, y: size.height * 0.25,
-                               width: size.width * 0.5, height: size.height * 0.35)
-                inner.fill(Path(ellipseIn: r),
-                           with: .linearGradient(
-                            Gradient(colors: [Color(hex: "#4ECDC4").opacity(0.4), .clear]),
-                            startPoint: CGPoint(x: r.midX, y: r.minY),
-                            endPoint:   CGPoint(x: r.midX, y: r.maxY)
-                           ))
+    private var spotlights: some View {
+        TimelineView(.animation(minimumInterval: 1/60)) { tl in
+            Canvas { ctx, size in
+                let t = phase
+                let w = size.width
+                let h = size.height
+
+                // ── Beam 1: blue, sweeps left→right ──────────────────────
+                // Beam origin at top-left area, tip sweeps horizontally
+                let b1x = w * (0.15 + 0.55 * (0.5 + 0.5 * sin(t * 0.7)))
+                let b1y: CGFloat = 0
+                drawBeam(ctx: ctx, size: size,
+                         originX: b1x, originY: b1y,
+                         spreadAngle: 0.38,
+                         length: h * 1.1,
+                         color: Color(hex: "#6C8EFF"),
+                         opacity: 0.13 + 0.06 * sin(t * 1.1))
+
+                // ── Beam 2: purple, sweeps right→left, offset phase ──────
+                let b2x = w * (0.85 - 0.55 * (0.5 + 0.5 * sin(t * 0.55 + 2.1)))
+                let b2y: CGFloat = 0
+                drawBeam(ctx: ctx, size: size,
+                         originX: b2x, originY: b2y,
+                         spreadAngle: 0.32,
+                         length: h * 1.05,
+                         color: Color(hex: "#A78BFA"),
+                         opacity: 0.10 + 0.05 * sin(t * 0.9 + 1.3))
+
+                // ── Ambient floor glow ────────────────────────────────────
+                let floorRect = CGRect(x: 0, y: h * 0.7, width: w, height: h * 0.3)
+                ctx.opacity = 0.06
+                ctx.fill(Path(ellipseIn: floorRect),
+                         with: .linearGradient(
+                            Gradient(colors: [Color(hex: "#6C8EFF").opacity(0.4), .clear]),
+                            startPoint: CGPoint(x: w / 2, y: h * 0.7),
+                            endPoint:   CGPoint(x: w / 2, y: h)
+                         ))
             }
         }
-        // drawingGroup() rasterises to a single Metal texture — zero per-frame CPU layout
         .drawingGroup()
-        .blur(radius: 60)   // single blur pass on the already-rasterised texture
-        .animation(.easeInOut(duration: 5).repeatForever(autoreverses: true), value: phase)
-        .onAppear { phase = true }
+        .onAppear {
+            withAnimation(.linear(duration: 1).repeatForever(autoreverses: false)) {
+                phase = .pi * 2
+            }
+        }
         .allowsHitTesting(false)
     }
-}
 
+    private func drawBeam(ctx: GraphicsContext, size: CGSize,
+                          originX: CGFloat, originY: CGFloat,
+                          spreadAngle: CGFloat, length: CGFloat,
+                          color: Color, opacity: CGFloat) {
+        let halfSpread = spreadAngle / 2
+        let tipX = originX
+        let tipY = originY
+        let leftX  = tipX - length * tan(halfSpread)
+        let rightX = tipX + length * tan(halfSpread)
+        let baseY  = tipY + length
+
+        var beam = Path()
+        beam.move(to: CGPoint(x: tipX, y: tipY))
+        beam.addLine(to: CGPoint(x: leftX, y: baseY))
+        beam.addLine(to: CGPoint(x: rightX, y: baseY))
+        beam.closeSubpath()
+
+        ctx.opacity = opacity
+        ctx.fill(beam, with: .linearGradient(
+            Gradient(stops: [
+                .init(color: color.opacity(0.9), location: 0),
+                .init(color: color.opacity(0.3), location: 0.5),
+                .init(color: color.opacity(0),   location: 1)
+            ]),
+            startPoint: CGPoint(x: tipX, y: tipY),
+            endPoint:   CGPoint(x: tipX, y: baseY)
+        ))
+    }
+}
+                            endPoint:   CGPoint(x: r.midX, y: r.maxY)
 // MARK: - Task Status Color
 extension TaskStatus {
     var color: Color {
@@ -330,6 +357,118 @@ extension TaskStatus {
         case .completed:        return UIColor(hex: "#4ECDC4")
         case .failed:           return UIColor(hex: "#FF6B6B")
         case .cancelled:        return UIColor(hex: "#8B9CC8")
+        }
+    }
+}
+
+// MARK: - App Icon System
+// Centralised SF Symbol names matching the app's AI/creative theme.
+// No emoji anywhere — all icons are SF Symbols.
+enum RHIconName: String {
+    // Navigation & actions
+    case settings       = "gearshape.fill"
+    case close          = "xmark"
+    case back           = "chevron.left"
+    case forward        = "chevron.right"
+    case refresh        = "arrow.clockwise"
+    case add            = "plus"
+    case submit         = "paperplane.fill"
+    case search         = "magnifyingglass"
+    case clear          = "xmark.circle.fill"
+    case delete         = "trash.fill"
+    case save           = "square.and.arrow.down.fill"
+    case share          = "square.and.arrow.up"
+    case copy           = "doc.on.doc"
+    case edit           = "pencil"
+    case filter         = "line.3.horizontal.decrease.circle"
+    case sort           = "arrow.up.arrow.down"
+    case expand         = "arrow.up.left.and.arrow.down.right"
+    case collapse       = "arrow.down.right.and.arrow.up.left"
+    case info           = "info.circle"
+    case warning        = "exclamationmark.triangle.fill"
+    case success        = "checkmark.circle.fill"
+    case error          = "xmark.circle.fill"
+    case lock           = "lock.fill"
+    case unlock         = "lock.open.fill"
+    case key            = "key.fill"
+    case logout         = "rectangle.portrait.and.arrow.right"
+    case clearHistory   = "clock.arrow.circlepath"
+
+    // Content types
+    case image          = "photo.fill"
+    case video          = "video.fill"
+    case audio          = "waveform"
+    case document       = "doc.fill"
+    case workflow       = "arrow.triangle.branch"
+    case aiApp          = "cpu.fill"
+    case lora           = "wand.and.stars"
+    case prompt         = "text.bubble.fill"
+    case node           = "slider.horizontal.3"
+    case batch          = "square.stack.3d.up.fill"
+    case history        = "clock.fill"
+    case gallery        = "photo.stack.fill"
+
+    // Status
+    case running        = "bolt.fill"
+    case queued         = "hourglass"
+    case completed      = "checkmark.seal.fill"
+    case failed         = "exclamationmark.circle.fill"
+    case cancelled      = "minus.circle.fill"
+    case pending        = "clock.badge.fill"
+
+    // User & account
+    case profile        = "person.crop.circle.fill"
+    case premium        = "star.fill"
+    case plus           = "crown.fill"
+
+    // Features
+    case grok           = "brain.head.profile"
+    case gacha          = "square.stack.fill"
+    case decode         = "lock.open.fill"
+    case taskCenter     = "list.bullet.clipboard.fill"
+    case notification   = "bell.fill"
+    case sparkle        = "sparkles"
+}
+
+extension View {
+    func rhIcon(_ name: RHIconName, size: CGFloat = 16, color: Color = .white) -> some View {
+        Image(systemName: name.rawValue)
+            .font(.system(size: size, weight: .medium))
+            .foregroundColor(color)
+    }
+}
+
+// MARK: - Typewriter Text
+struct TypewriterText: View {
+    let fullText: String
+    var font: Font = .system(size: 11)
+    var color: Color = Color.white.opacity(0.25)
+    var delay: Double = 0.5
+    var charInterval: Double = 0.06
+
+    @State private var displayed: String = ""
+    @State private var charIndex: Int = 0
+
+    var body: some View {
+        Text(displayed)
+            .font(font)
+            .foregroundColor(color)
+            .onAppear { startTyping() }
+    }
+
+    private func startTyping() {
+        displayed = ""
+        charIndex = 0
+        typeNext()
+    }
+
+    private func typeNext() {
+        guard charIndex < fullText.count else { return }
+        let idx = fullText.index(fullText.startIndex, offsetBy: charIndex)
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay + Double(charIndex) * charInterval) {
+            displayed.append(fullText[idx])
+            charIndex += 1
+            typeNext()
         }
     }
 }

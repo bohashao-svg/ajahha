@@ -5,7 +5,8 @@ import SwiftUI
 struct SettingsView: View {
     @StateObject private var vm = SettingsViewModel()
     @Environment(\.dismiss) private var dismiss
-    @State private var showLogoutAlert = false
+    @State private var showLogoutAlert      = false
+    @State private var showClearHistoryAlert = false
 
     var body: some View {
         NavigationView {
@@ -54,8 +55,8 @@ struct SettingsView: View {
                     // ── Danger zone ──────────────────────────────────────
                     settingsGroup("账户操作", icon: "person.crop.circle", iconColor: Color(hex: "#FF6B6B")) {
                         VStack(spacing: 0) {
-                            actionRow("清除任务历史", icon: "trash", iconColor: Color(hex: "#FF6B6B")) {
-                                vm.clearHistory()
+                            actionRow("清除任务历史", icon: RHIconName.clearHistory.rawValue, iconColor: Color(hex: "#FF6B6B")) {
+                                showClearHistoryAlert = true
                             }
                             Divider().background(Color.white.opacity(0.07)).padding(.leading, 52)
                             actionRow("退出登录", icon: "rectangle.portrait.and.arrow.right",
@@ -93,6 +94,12 @@ struct SettingsView: View {
             .alert("确认退出登录？", isPresented: $showLogoutAlert) {
                 Button("退出", role: .destructive) { vm.logout() }
                 Button("取消", role: .cancel) {}
+            }
+            .alert("清除任务历史", isPresented: $showClearHistoryAlert) {
+                Button("清除", role: .destructive) { vm.clearHistory() }
+                Button("取消", role: .cancel) {}
+            } message: {
+                Text("将删除所有已完成、失败和已取消的任务记录，此操作不可撤销。")
             }
             .alert("已保存", isPresented: $vm.showSavedAlert) {
                 Button("好", role: .cancel) {}
