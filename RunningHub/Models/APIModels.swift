@@ -244,15 +244,18 @@ struct OutputHistoryPage: Codable {
     let hasNext: Bool?
 }
 
-struct OutputHistoryItem: Codable, Identifiable {
+struct OutputHistoryItem: Codable, Identifiable, Hashable {
     let id: String?
     let taskName: String?
-    let taskStatus: String?       // SUCCESS / FAILED / ...
-    let filePreviewUrl: String?   // 缩略图
-    let fileUrl: String?          // 原图
+    let taskStatus: String?
+    let filePreviewUrl: String?
+    let fileUrl: String?
     let createTime: String?
     let taskType: String?
-    let outputType: String?       // png / zip / ...
+    let outputType: String?
+
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
+    static func == (lhs: OutputHistoryItem, rhs: OutputHistoryItem) -> Bool { lhs.id == rhs.id }
 }
 
 struct AppRunData: Codable {

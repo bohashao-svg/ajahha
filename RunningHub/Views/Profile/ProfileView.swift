@@ -5,6 +5,9 @@ import SwiftUI
 struct ProfileView: View {
     @StateObject private var vm = ProfileViewModel()
     @Environment(\.dismiss) private var dismiss
+    // Auto-open: when set, NavigationLink fires immediately
+    @State private var selectedItem: OutputHistoryItem? = nil
+    @State private var isNavigating = false
 
     private let columns = [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)]
 
@@ -108,8 +111,16 @@ struct ProfileView: View {
     private var outputGrid: some View {
         LazyVGrid(columns: columns, spacing: 10) {
             ForEach(vm.outputs) { item in
-                NavigationLink {
-                    TaskDetailView(task: item.asRHTask(), vm: TaskCenterViewModel(), appState: AppState.shared)
+                // Invisible NavigationLink driven by selectedItem state
+                NavigationLink(
+                    destination: TaskDetailView(task: item.asRHTask(), vm: TaskCenterViewModel(), appState: AppState.shared),
+                    tag: item,
+                    selection: $selectedItem
+                ) { EmptyView() }
+                .hidden()
+
+                Button {
+                    selectedItem = item   // triggers NavigationLink above
                 } label: {
                     outputCell(item)
                 }

@@ -1,276 +1,83 @@
 import UIKit
 import UserNotifications
 
-// MARK: - In-App Notification Banner (pure UIKit, no external deps)
-
-final class RHBannerView: UIView {
-
-    // MARK: - UI
-    private let iconView   = UIImageView()
-    private let titleLabel = UILabel()
-    private let bodyLabel  = UILabel()
-    private let pill       = UIView()
-
-    // MARK: - State
-    private var dismissTimer: Timer?
-    private var panStart: CGFloat = 0
-    private var topConstraint: NSLayoutConstraint!
-
-    // MARK: - Init
-    init(title: String, body: String, isSuccess: Bool) {
-        super.init(frame: .zero)
-        setupAppearance(isSuccess: isSuccess)
-        titleLabel.text = title
-        bodyLabel.text  = body
-        let sfName = isSuccess ? "checkmark.circle.fill" : "xmark.circle.fill"
-        iconView.image = UIImage(systemName: sfName)
-        iconView.tintColor = isSuccess ? UIColor(named: "rhSuccess") ?? .systemGreen
-                                       : UIColor(named: "rhError")  ?? .systemRed
-    }
-
-    required init?(coder: NSCoder) { fatalError() }
-
-    // MARK: - Layout
-    private func setupAppearance(isSuccess: Bool) {
-        backgroundColor = UIColor { tc in
-            tc.userInterfaceStyle == .dark
-                ? UIColor(white: 0.12, alpha: 0.97)
-                : UIColor(white: 0.98, alpha: 0.97)
-        }
-        layer.cornerRadius  = 18
-        layer.shadowColor   = UIColor.black.cgColor
-        layer.shadowOpacity = 0.18
-        layer.shadowRadius  = 12
-        layer.shadowOffset  = CGSize(width: 0, height: 4)
-        clipsToBounds       = false
-
-        // Pill indicator
-        pill.backgroundColor = isSuccess
-            ? (UIColor(named: "rhSuccess") ?? .systemGreen)
-            : (UIColor(named: "rhError")   ?? .systemRed)
-        pill.layer.cornerRadius = 2
-        pill.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(pill)
-
-        // Icon
-        iconView.contentMode = .scaleAspectFit
-        iconView.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(iconView)
-
-        // Title
-        titleLabel.font          = .systemFont(ofSize: 14, weight: .semibold)
-        titleLabel.textColor     = UIColor { tc in
-            tc.userInterfaceStyle == .dark ? .white : UIColor(white: 0.1, alpha: 1)
-        }
-        titleLabel.numberOfLines = 1
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(titleLabel)
-
-        // Body
-        bodyLabel.font          = .systemFont(ofSize: 12, weight: .regular)
-        bodyLabel.textColor     = UIColor { tc in
-            tc.userInterfaceStyle == .dark
-                ? UIColor(white: 0.7, alpha: 1)
-                : UIColor(white: 0.45, alpha: 1)
-        }
-        bodyLabel.numberOfLines = 2
-        bodyLabel.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(bodyLabel)
-
-        NSLayoutConstraint.activate([
-            pill.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
-            pill.centerYAnchor.constraint(equalTo: centerYAnchor),
-            pill.widthAnchor.constraint(equalToConstant: 4),
-            pill.heightAnchor.constraint(equalToConstant: 36),
-
-            iconView.leadingAnchor.constraint(equalTo: pill.trailingAnchor, constant: 12),
-            iconView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            iconView.widthAnchor.constraint(equalToConstant: 28),
-            iconView.heightAnchor.constraint(equalToConstant: 28),
-
-            titleLabel.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 10),
-            titleLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
-            titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 14),
-
-            bodyLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            bodyLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
-            bodyLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 3),
-            bodyLabel.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -14),
-        ])
-
-        let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
-        addGestureRecognizer(pan)
-        let tap = UITapGestureRecognizer(target: self, action: #selector(handleTap))
-        addGestureRecognizer(tap)
-    }
-
-    // MARK: - Show / Dismiss
-    func show(in window: UIWindow, duration: TimeInterval = 4.0) {
-        translatesAutoresizingMaskIntoConstraints = false
-        window.addSubview(self)
-
-        let safeTop = window.safeAreaInsets.top
-        let topOffset = safeTop + 12
-
-        topConstraint = topAnchor.constraint(equalTo: window.topAnchor, constant: -120)
-        NSLayoutConstraint.activate([
-            topConstraint,
-            leadingAnchor.constraint(equalTo: window.leadingAnchor, constant: 16),
-            trailingAnchor.constraint(equalTo: window.trailingAnchor, constant: -16),
-        ])
-        window.layoutIfNeeded()
-
-        // Slide in
-        topConstraint.constant = topOffset
-        UIView.animate(
-            withDuration: 0.45,
-            delay: 0,
-            usingSpringWithDamping: 0.72,
-            initialSpringVelocity: 0.5,
-            options: .curveEaseOut
-        ) {
-            window.layoutIfNeeded()
-        }
-
-        // Haptic
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-
-        // Auto-dismiss
-        dismissTimer = Timer.scheduledTimer(withTimeInterval: duration, repeats: false) { [weak self] _ in
-            self?.dismiss()
-        }
-    }
-
-    func dismiss() {
-        dismissTimer?.invalidate()
-        dismissTimer = nil
-        guard let window = superview as? UIWindow ?? window else {
-            removeFromSuperview(); return
-        }
-        topConstraint.constant = -120
-        UIView.animate(
-            withDuration: 0.35,
-            delay: 0,
-            options: .curveEaseIn
-        ) {
-            window.layoutIfNeeded()
-            self.alpha = 0
-        } completion: { _ in
-            self.removeFromSuperview()
-        }
-    }
-
-    // MARK: - Gestures
-    @objc private func handleTap() { dismiss() }
-
-    @objc private func handlePan(_ gr: UIPanGestureRecognizer) {
-        let ty = gr.translation(in: superview).y
-        switch gr.state {
-        case .began:
-            dismissTimer?.invalidate()
-            panStart = topConstraint.constant
-        case .changed:
-            topConstraint.constant = min(panStart + ty, panStart)
-            superview?.layoutIfNeeded()
-        case .ended, .cancelled:
-            let vy = gr.velocity(in: superview).y
-            if ty < -30 || vy < -400 {
-                dismiss()
-            } else {
-                topConstraint.constant = panStart
-                UIView.animate(withDuration: 0.3) { self.superview?.layoutIfNeeded() }
-                dismissTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { [weak self] _ in
-                    self?.dismiss()
-                }
-            }
-        default: break
-        }
-    }
-}
-
 // MARK: - Notification Service
+// Sends ONLY system (UNUserNotificationCenter) notifications — the kind that
+// appear in the iOS notification centre and lock screen, exactly like WeChat.
+// In-app banners have been removed; the system notification fires even when
+// the app is in the foreground (UNUserNotificationCenterDelegate handles that).
 
-final class NotificationService {
+final class NotificationService: NSObject {
 
     static let shared = NotificationService()
-    private init() {}
 
-    // Queue so banners don't overlap
-    private var queue: [RHBannerView] = []
-    private var isShowing = false
+    private override init() {
+        super.init()
+        UNUserNotificationCenter.current().delegate = self
+    }
 
     // MARK: - Permission
 
     func requestPermission() {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
+        UNUserNotificationCenter.current().requestAuthorization(
+            options: [.alert, .sound, .badge]
+        ) { granted, _ in
+            if granted {
+                DispatchQueue.main.async {
+                    UIApplication.shared.registerForRemoteNotifications()
+                }
+            }
+        }
     }
 
-    // MARK: - Notify (called when task status changes to completed/failed)
+    // MARK: - Notify
 
     func notify(task: RHTask) {
         let name = task.workflowName.isEmpty ? task.workflowType : task.workflowName
 
-        let (title, body, isSuccess): (String, String, Bool)
+        let title: String
+        let body: String
+        let sound: UNNotificationSound
+
         switch task.status {
         case .queued:
-            title = "任务排队中 ⏳"
-            body  = "\(name) 已加入队列，等待执行"
-            isSuccess = true
+            title = "任务排队中"
+            body  = "「\(name)」已加入队列，等待执行"
+            sound = .default
         case .running:
-            title = "任务生成中 ⚡"
-            body  = "\(name) 正在生成，请稍候..."
-            isSuccess = true
+            title = "任务生成中"
+            body  = "「\(name)」正在生成，请稍候..."
+            sound = .default
         case .completed:
             title = "任务完成 ✓"
-            body  = "\(name) 已生成完毕，点击查看结果"
-            isSuccess = true
+            body  = "「\(name)」已生成完毕，点击查看结果"
+            sound = .defaultCritical
         case .failed:
             title = "任务失败"
-            body  = "\(name) 执行失败：\(task.errorMsg ?? "未知错误")"
-            isSuccess = false
+            body  = "「\(name)」执行失败：\(task.errorMsg ?? "未知错误")"
+            sound = .defaultCritical
         case .cancelled:
             title = "任务已取消"
-            body  = "\(name) 已被取消"
-            isSuccess = false
+            body  = "「\(name)」已被取消"
+            sound = .default
         case .pending:
             return
         }
 
-        DispatchQueue.main.async { [weak self] in
-            self?.showBanner(title: title, body: body, isSuccess: isSuccess)
-        }
-        scheduleSystemNotification(title: title, body: body, taskId: task.id, isSuccess: isSuccess)
+        scheduleNotification(
+            title: title,
+            body: body,
+            sound: sound,
+            taskId: task.id,
+            status: task.status.rawStringValue
+        )
     }
 
-    // MARK: - In-App Banner
+    // MARK: - Schedule
 
-    private func showBanner(title: String, body: String, isSuccess: Bool) {
-        guard let window = UIApplication.shared
-            .connectedScenes
-            .compactMap({ $0 as? UIWindowScene })
-            .flatMap({ $0.windows })
-            .first(where: { $0.isKeyWindow }) else { return }
-
-        let banner = RHBannerView(title: title, body: body, isSuccess: isSuccess)
-        queue.append(banner)
-        if !isShowing { showNext(in: window) }
-    }
-
-    private func showNext(in window: UIWindow) {
-        guard !queue.isEmpty else { isShowing = false; return }
-        isShowing = true
-        let banner = queue.removeFirst()
-        banner.show(in: window, duration: 4.5)
-
-        // Chain next banner after current one finishes
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) { [weak self] in
-            self?.showNext(in: window)
-        }
-    }
-
-    // MARK: - System Push Notification
-
-    private func scheduleSystemNotification(title: String, body: String, taskId: String, isSuccess: Bool) {
+    private func scheduleNotification(title: String, body: String,
+                                      sound: UNNotificationSound,
+                                      taskId: String, status: String) {
         UNUserNotificationCenter.current().getNotificationSettings { settings in
             guard settings.authorizationStatus == .authorized ||
                   settings.authorizationStatus == .provisional else { return }
@@ -278,16 +85,103 @@ final class NotificationService {
             let content = UNMutableNotificationContent()
             content.title = title
             content.body  = body
-            content.sound = isSuccess ? .default : UNNotificationSound(named: UNNotificationSoundName("error.caf"))
-            content.userInfo = ["taskId": taskId]
+            content.sound = sound
+            content.userInfo = ["taskId": taskId, "status": status]
+            // Badge: show count of active tasks
+            content.badge = NSNumber(value: AppState.shared.pendingCount)
 
-            // Fire immediately (trigger = nil fires right away)
+            // Use taskId + status as identifier so each status change
+            // creates a NEW notification (not replacing the previous one).
+            let identifier = "rh_\(taskId)_\(status)"
+
             let request = UNNotificationRequest(
-                identifier: "task_\(taskId)",
+                identifier: identifier,
                 content: content,
-                trigger: nil
+                trigger: nil   // nil = deliver immediately
             )
             UNUserNotificationCenter.current().add(request) { _ in }
         }
     }
+
+    // MARK: - Clear badge
+
+    func clearBadge() {
+        DispatchQueue.main.async {
+            UIApplication.shared.applicationIconBadgeNumber = 0
+        }
+        UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+    }
+}
+
+// MARK: - UNUserNotificationCenterDelegate
+// Shows system notification banner even when app is in foreground.
+extension NotificationService: UNUserNotificationCenterDelegate {
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        // Show banner + sound + badge even when app is active (foreground)
+        completionHandler([.banner, .sound, .badge])
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        // User tapped notification — post internal event so app can navigate
+        let userInfo = response.notification.request.content.userInfo
+        if let taskId = userInfo["taskId"] as? String {
+            NotificationCenter.default.post(
+                name: .rhNotificationTapped,
+                object: nil,
+                userInfo: ["taskId": taskId]
+            )
+        }
+        clearBadge()
+        completionHandler()
+    }
+}
+
+// MARK: - Notification Name
+extension Notification.Name {
+    static let rhNotificationTapped = Notification.Name("rhNotificationTapped")
+}
+
+// MARK: - TaskStatus raw string helper
+extension TaskStatus {
+    var rawStringValue: String {
+        switch self {
+        case .queued:    return "queued"
+        case .pending:   return "pending"
+        case .running:   return "running"
+        case .completed: return "completed"
+        case .failed:    return "failed"
+        case .cancelled: return "cancelled"
+        }
+    }
+}
+
+// MARK: - RHBanner (kept for API compatibility — now a no-op wrapper)
+// All actual notifications go through UNUserNotificationCenter above.
+enum RHBanner {
+    static func show(title: String, subtitle: String? = nil, style: BannerStyle = .info) {
+        let body = subtitle ?? ""
+        let isSuccess = style == .success || style == .info
+        NotificationService.shared.notify(task: {
+            // Build a minimal synthetic task just to reuse the notify path
+            var t = RHTask(id: UUID().uuidString, workflowId: "",
+                           workflowName: title, isDuckEncoded: false,
+                           duckPassword: nil, isTTEncoded: false,
+                           isPlusMode: false, workflowType: body)
+            t.status = isSuccess ? .completed : .failed
+            return t
+        }())
+    }
+    static func success(_ title: String, subtitle: String? = nil) { show(title: title, subtitle: subtitle, style: .success) }
+    static func error(_ title: String, subtitle: String? = nil)   { show(title: title, subtitle: subtitle, style: .danger) }
+    static func warning(_ title: String, subtitle: String? = nil) { show(title: title, subtitle: subtitle, style: .warning) }
+    static func info(_ title: String, subtitle: String? = nil)    { show(title: title, subtitle: subtitle, style: .info) }
 }
