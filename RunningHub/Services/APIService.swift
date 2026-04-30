@@ -220,11 +220,9 @@ final class APIService {
         req.httpBody = try JSONEncoder().encode(Body(apiKey: authToken, taskId: taskId))
 
         let (data, _) = try await URLSession.shared.data(for: req)
-        #if DEBUG
         if let str = String(data: data, encoding: .utf8) {
-            print("[API] /task/openapi/outputs → \(str.prefix(800))")
+            print("[POLL] /task/openapi/outputs → \(str.prefix(1000))")
         }
-        #endif
 
         // Parse outer wrapper manually to handle polymorphic data
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
@@ -234,8 +232,11 @@ final class APIService {
         let msg = json["msg"] as? String
 
         guard code == 0 else {
-            // Non-zero code while task is queued/pending — treat as still queued
-            print("[API] /task/openapi/outputs non-zero code \(code): \(msg ?? "")")
+            print("[POLL] non-zero code=\(code) msg=\(msg ?? "nil") — treating as queued")
+            // 认证失败或任务不存在才算真正错误，其余继续等待
+            if code == 401 || code == 403 {
+                throw APIError.serverError(msg ?? "认证失败")
+            }
             return TaskOutputsPollResult(status: .queued, outputUrls: [], errorMessage: nil)
         }
 
