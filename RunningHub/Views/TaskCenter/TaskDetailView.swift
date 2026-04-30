@@ -12,10 +12,13 @@ struct TaskDetailView: View {
     @State private var isDecoding = false
     @State private var decodeError: String?
     @State private var showDecodeSheet = false
-    @State private var showToolPicker = false   // native confirmationDialog — no UIKit present
+    @State private var showToolPicker = false
     @State private var pendingTool: DecodeTool? = nil
     @State private var decodePassword = ""
     @State private var saveToast: String?
+    // Decode results stored locally — never written back to AppState/StorageService
+    @State private var localDecodedData: Data? = nil
+    @State private var localDecodedIsDuck: Bool = false
     @State private var infoExpanded = false
 
     enum DecodeTool { case duck, ttV2 }
@@ -110,7 +113,7 @@ struct TaskDetailView: View {
 
                 // Decode + save overlay
                 HStack(spacing: 8) {
-                    if liveTask.status == .completed && liveTask.decodedImageData == nil && liveTask.ttDecodedData == nil {
+                    if liveTask.status == .completed && localDecodedData == nil {
                         Button { handleDecodeTap() } label: {
                             Label(isDecoding ? "解码中" : "解码", systemImage: "lock.open.fill")
                                 .font(.system(size: 13, weight: .semibold))
@@ -152,8 +155,8 @@ struct TaskDetailView: View {
         }
 
         // Decoded result
-        if let data = liveTask.decodedImageData ?? liveTask.ttDecodedData {
-            decodedResultView(data: data, isDuck: liveTask.decodedImageData != nil)
+        if let data = localDecodedData {
+            decodedResultView(data: data, isDuck: localDecodedIsDuck)
         }
 
         // Video items
@@ -284,6 +287,7 @@ struct TaskDetailView: View {
                 .padding(.horizontal, 16).padding(.top, 14)
 
             if let img = UIImage(data: data) {
+                // Image result
                 ZStack(alignment: .bottomTrailing) {
                     Image(uiImage: img).resizable().scaledToFit()
                     Button { saveImage(img) } label: {
@@ -297,10 +301,75 @@ struct TaskDetailView: View {
                     .buttonStyle(LiquidButtonStyle())
                     .padding(12)
                 }
+            } else {
+                // Non-image result (video, zip, etc.) — save to Photos/Files
+                HStack(spacing: 14) {
+                    Image(systemName: isVideoData(data) ? "video.fill" : "doc.fill")
+                        .font(.system(size: 22))
+                        .foregroundColor(Color(hex: "#6C8EFF"))
+                        .frame(width: 52, height: 52)
+                        .background(Color(hex: "#6C8EFF").opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(isVideoData(data) ? "解码成功（视频）" : "解码成功")
+                            .font(.system(size: 14, weight: .semibold)).foregroundColor(.white)
+                        Text("\(data.count / 1024) KB")
+                            .font(.system(size: 12)).foregroundColor(Color.white.opacity(0.4))
+                    }
+
+                    Spacer()
+
+                    Button {
+                        if isVideoData(data) { saveVideo(data) }
+                        else { saveRawData(data) }
+                    } label: {
+                        Label("保存", systemImage: "square.and.arrow.down")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 14).padding(.vertical, 9)
+                            .background(LinearGradient(
+                                colors: [Color(hex: "#6C8EFF"), Color(hex: "#4A6FE8")],
+                                startPoint: .leading, endPoint: .trailing
+                            ))
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(LiquidButtonStyle())
+                }
+                .padding(14)
+                .background(Color.white.opacity(0.06))
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .padding(.horizontal, 16)
             }
         }
         .background(Color.white.opacity(0.04))
         .clipShape(RoundedRectangle(cornerRadius: 0, style: .continuous))
+    }
+
+    // Detect video by magic bytes (MP4: ftyp, MOV: ftyp/wide, WebM: 0x1A45DFA3)
+    private func isVideoData(_ data: Data) -> Bool {
+        guard data.count >= 12 else { return false }
+        let bytes = [UInt8](data.prefix(12))
+        // MP4/MOV: bytes 4-7 == "ftyp" or "wide" or "moov"
+        if bytes.count >= 8 {
+            let sig = String(bytes: bytes[4..<8], encoding: .ascii) ?? ""
+            if ["ftyp", "wide", "moov", "mdat"].contains(sig) { return true }
+        }
+        // WebM: starts with 0x1A 0x45 0xDF 0xA3
+        if bytes[0] == 0x1A && bytes[1] == 0x45 && bytes[2] == 0xDF && bytes[3] == 0xA3 { return true }
+        return false
+    }
+
+    private func saveRawData(_ data: Data) {
+        let ext = "bin"
+        let tmp = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString + "." + ext)
+        do {
+            try data.write(to: tmp)
+            showToast("文件已保存到临时目录")
+        } catch {
+            showToast("保存失败：\(error.localizedDescription)")
+        }
     }
 
     private func videoRow(url: String) -> some View {
@@ -375,20 +444,32 @@ struct TaskDetailView: View {
 
     private func triggerDecode(tool: DecodeTool, password: String) {
         guard let url = liveTask.primaryOutputUrl else { return }
-        isDecoding = true; decodeError = nil
+        isDecoding = true
+        decodeError = nil
+        localDecodedData = nil
         Task {
             do {
+                let data: Data
                 switch tool {
                 case .duck:
                     let f = try await DuckDecodeService.shared.decode(imageUrl: url, password: password)
-                    var u = liveTask; u.decodedImageData = f.data
-                    await MainActor.run { appState.updateTask(u) }
+                    data = f.data
+                    await MainActor.run {
+                        localDecodedData = data
+                        localDecodedIsDuck = true
+                    }
                 case .ttV2:
                     let f = try await TTDecodeService.shared.decode(imageUrl: url, password: password)
-                    var u = liveTask; u.ttDecodedData = f.data
-                    await MainActor.run { appState.updateTask(u) }
+                    data = f.data
+                    await MainActor.run {
+                        localDecodedData = data
+                        localDecodedIsDuck = false
+                    }
                 }
-            } catch { await MainActor.run { decodeError = error.localizedDescription } }
+                // Do NOT write back to AppState — keeps task list clean and avoids crash
+            } catch {
+                await MainActor.run { decodeError = error.localizedDescription }
+            }
             await MainActor.run { isDecoding = false }
         }
     }
