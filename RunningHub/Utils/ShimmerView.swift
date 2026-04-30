@@ -1,30 +1,41 @@
 import SwiftUI
 
 // MARK: - Liquid Glass Shimmer
+// Uses a moving mask instead of animating gradient endpoints,
+// which avoids per-frame gradient recalculation.
 struct ShimmerModifier: ViewModifier {
-    @State private var phase: CGFloat = -1
+    @State private var moveRight: Bool = false
 
     func body(content: Content) -> some View {
         content
             .overlay(
                 GeometryReader { geo in
-                    LinearGradient(
-                        gradient: Gradient(stops: [
-                            .init(color: .clear, location: 0),
-                            .init(color: Color.white.opacity(0.12), location: 0.35),
-                            .init(color: Color.white.opacity(0.22), location: 0.5),
-                            .init(color: Color.white.opacity(0.12), location: 0.65),
-                            .init(color: .clear, location: 1)
-                        ]),
-                        startPoint: .init(x: phase, y: 0.3),
-                        endPoint: .init(x: phase + 1, y: 0.7)
-                    )
-                    .frame(width: geo.size.width, height: geo.size.height)
-                    .animation(.linear(duration: 1.8).repeatForever(autoreverses: false), value: phase)
+                    let w = geo.size.width
+                    Rectangle()
+                        .fill(
+                            LinearGradient(
+                                stops: [
+                                    .init(color: .clear, location: 0),
+                                    .init(color: Color.white.opacity(0.18), location: 0.4),
+                                    .init(color: Color.white.opacity(0.28), location: 0.5),
+                                    .init(color: Color.white.opacity(0.18), location: 0.6),
+                                    .init(color: .clear, location: 1),
+                                ],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: w * 0.55)
+                        .offset(x: moveRight ? w * 1.2 : -w * 0.6)
+                        .animation(
+                            .linear(duration: 1.6).repeatForever(autoreverses: false),
+                            value: moveRight
+                        )
                 }
                 .allowsHitTesting(false)
+                .clipped()
             )
-            .onAppear { phase = 1 }
+            .onAppear { moveRight = true }
     }
 }
 

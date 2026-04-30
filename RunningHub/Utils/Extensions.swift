@@ -128,22 +128,21 @@ struct GlassBackground: ViewModifier {
     func body(content: Content) -> some View {
         content
             .background(
-                ZStack {
-                    LiquidGlassShape(radius: radius)
-                        .fill(Color(hex: "#111827").opacity(0.72 * intensity))
-                    LiquidGlassShape(radius: radius)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(0.09 * intensity),
-                                    Color.white.opacity(0.02 * intensity)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
+                LiquidGlassShape(radius: radius)
+                    .fill(Color(hex: "#111827").opacity(0.72 * intensity))
+                    .overlay(
+                        LiquidGlassShape(radius: radius)
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(0.09 * intensity),
+                                        Color.white.opacity(0.02 * intensity)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
                             )
-                        )
-                }
-                .compositingGroup()
+                    )
             )
             .overlay(
                 LiquidGlassShape(radius: radius)
@@ -164,11 +163,10 @@ struct GlassBackground: ViewModifier {
 
 // MARK: - View Extensions
 extension View {
-    /// Primary liquid glass card
+    /// Primary liquid glass card — single shadow only to avoid offscreen render
     func glassCard(radius: CGFloat = 18, intensity: Double = 1.0) -> some View {
         self.modifier(GlassBackground(radius: radius, intensity: intensity))
-            .shadow(color: Color.black.opacity(0.35), radius: 20, x: 0, y: 8)
-            .shadow(color: Color(hex: "#6C8EFF").opacity(0.08), radius: 40, x: 0, y: 0)
+            .shadow(color: Color.black.opacity(0.30), radius: 16, x: 0, y: 6)
     }
 
     /// Legacy card style — now renders as glass
@@ -244,8 +242,11 @@ extension View {
 }
 
 // MARK: - Animated Gradient Background
+// Uses drawingGroup() to offload compositing to Metal, avoiding main-thread layout side-effects.
+// Orbs are positioned with fixed offsets + subtle scale animation (no offset animation)
+// to prevent ScrollView content-size recalculation on every frame.
 struct AnimatedMeshBackground: View {
-    @State private var phase: CGFloat = 0
+    @State private var pulse: Bool = false
 
     var body: some View {
         ZStack {
@@ -255,41 +256,50 @@ struct AnimatedMeshBackground: View {
             Circle()
                 .fill(
                     RadialGradient(
-                        colors: [Color(hex: "#6C8EFF").opacity(0.25), .clear],
-                        center: .center, startRadius: 0, endRadius: 220
+                        colors: [Color(hex: "#6C8EFF").opacity(0.22), .clear],
+                        center: .center, startRadius: 0, endRadius: 200
                     )
                 )
-                .frame(width: 440, height: 440)
-                .offset(x: -80 + phase * 20, y: -160 + phase * 10)
+                .frame(width: 420, height: 420)
+                .scaleEffect(pulse ? 1.06 : 0.96)
+                .offset(x: -70, y: -150)
                 .blur(radius: 40)
+                .allowsHitTesting(false)
 
             // Orb 2 — purple
             Circle()
                 .fill(
                     RadialGradient(
-                        colors: [Color(hex: "#A78BFA").opacity(0.18), .clear],
-                        center: .center, startRadius: 0, endRadius: 180
+                        colors: [Color(hex: "#A78BFA").opacity(0.16), .clear],
+                        center: .center, startRadius: 0, endRadius: 160
                     )
                 )
-                .frame(width: 360, height: 360)
-                .offset(x: 120 - phase * 15, y: 200 + phase * 8)
+                .frame(width: 340, height: 340)
+                .scaleEffect(pulse ? 0.94 : 1.04)
+                .offset(x: 130, y: 210)
                 .blur(radius: 50)
+                .allowsHitTesting(false)
 
             // Orb 3 — teal
             Circle()
                 .fill(
                     RadialGradient(
-                        colors: [Color(hex: "#4ECDC4").opacity(0.12), .clear],
-                        center: .center, startRadius: 0, endRadius: 150
+                        colors: [Color(hex: "#4ECDC4").opacity(0.10), .clear],
+                        center: .center, startRadius: 0, endRadius: 130
                     )
                 )
-                .frame(width: 300, height: 300)
-                .offset(x: 60 + phase * 12, y: -80 - phase * 18)
+                .frame(width: 280, height: 280)
+                .scaleEffect(pulse ? 1.08 : 0.92)
+                .offset(x: 70, y: -70)
                 .blur(radius: 45)
+                .allowsHitTesting(false)
         }
+        // drawingGroup() moves compositing to Metal — eliminates per-frame CPU layout cost
+        .drawingGroup()
+        .ignoresSafeArea()
         .onAppear {
-            withAnimation(.easeInOut(duration: 8).repeatForever(autoreverses: true)) {
-                phase = 1
+            withAnimation(.easeInOut(duration: 6).repeatForever(autoreverses: true)) {
+                pulse = true
             }
         }
     }

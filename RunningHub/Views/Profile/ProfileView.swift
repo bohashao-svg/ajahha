@@ -134,7 +134,17 @@ struct ProfileView: View {
             } else {
                 LazyVStack(spacing: 10) {
                     ForEach(vm.outputs) { item in
-                        OutputHistoryRow(item: item)
+                        NavigationLink {
+                            // Build a synthetic RHTask so TaskDetailView's duck/TT decode works
+                            TaskDetailView(
+                                task: item.asRHTask(),
+                                vm: TaskCenterViewModel()
+                            )
+                            .environmentObject(AppState.shared)
+                        } label: {
+                            OutputHistoryRow(item: item)
+                        }
+                        .buttonStyle(LiquidButtonStyle())
                     }
                     if vm.hasNext {
                         Button { Task { await vm.loadPage(vm.currentPage + 1) } } label: {

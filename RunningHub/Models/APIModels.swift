@@ -380,3 +380,25 @@ struct AnyCodable: Codable {
     var intValue: Int? { value as? Int }
     var doubleValue: Double? { value as? Double }
 }
+
+// MARK: - OutputHistoryItem → RHTask bridge
+extension OutputHistoryItem {
+    /// Converts a history record into a synthetic RHTask so TaskDetailView
+    /// can display the image and offer duck/TT decode functionality.
+    func asRHTask() -> RHTask {
+        var task = RHTask(
+            id: id ?? UUID().uuidString,
+            workflowId: "",
+            workflowName: taskName ?? "历史作品",
+            isDuckEncoded: false,
+            duckPassword: nil,
+            isTTEncoded: false,
+            isPlusMode: false,
+            workflowType: taskType ?? "文生图"
+        )
+        task.status = .completed
+        task.progress = 1.0
+        if let url = fileUrl { task.outputUrls = [url] }
+        return task
+    }
+}
