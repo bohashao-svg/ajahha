@@ -131,7 +131,7 @@ struct TaskCenterView: View {
                         ForEach(tasks) { task in
                             HStack(spacing: 8) {
                                 NavigationLink {
-                                    TaskDetailView(task: task, vm: vm).environmentObject(appState)
+                                    TaskDetailView(task: task, vm: vm, appState: appState)
                                 } label: {
                                     TaskCardView(task: task)
                                 }

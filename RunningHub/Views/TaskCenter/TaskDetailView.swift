@@ -5,7 +5,9 @@ import Photos
 struct TaskDetailView: View {
     let task: RHTask
     let vm: TaskCenterViewModel
-    @EnvironmentObject private var appState: AppState
+    // Use direct reference instead of @EnvironmentObject to avoid
+    // crash when presented from a sheet (sheet breaks env chain).
+    var appState: AppState = AppState.shared
     @Environment(\.dismiss) private var dismiss
 
     @State private var isDecoding = false
@@ -28,35 +30,32 @@ struct TaskDetailView: View {
                 if !liveTask.outputUrls.isEmpty { outputSection }
                 if liveTask.status == .running || liveTask.status == .pending || liveTask.status == .queued {
                     cancelButton
-                    }
-                }
-                .padding(16)
-            }
-            .background(AnimatedMeshBackground().ignoresSafeArea())
-            .overlay(alignment: .bottom) {
-                if let toast = saveToast {
-                    HStack(spacing: 8) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 14))
-                            .foregroundColor(Color(hex: "#4ECDC4"))
-                        Text(toast)
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(Color(hex: "#F0F4FF"))
-                    }
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 12)
-                    .background(
-                        LiquidGlassShape(radius: 22)
-                            .fill(Color(hex: "#111827").opacity(0.9))
-                    )
-                    .overlay(LiquidGlassShape(radius: 22).stroke(Color.white.opacity(0.15), lineWidth: 0.8))
-                    .shadow(color: Color.black.opacity(0.3), radius: 16, x: 0, y: 6)
-                    .padding(.bottom, 44)
-                    .transition(.opacity.combined(with: .move(edge: .bottom)))
-                    .animation(.spring(response: 0.3, dampingFraction: 0.8), value: saveToast)
                 }
             }
-            .navigationBarTitleDisplayMode(.inline)
+            .padding(16)
+        }
+        .background(AnimatedMeshBackground().ignoresSafeArea())
+        .overlay(alignment: .bottom) {
+            if let toast = saveToast {
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 14))
+                        .foregroundColor(Color(hex: "#4ECDC4"))
+                    Text(toast)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(Color(hex: "#F0F4FF"))
+                }
+                .padding(.horizontal, 18)
+                .padding(.vertical, 12)
+                .background(LiquidGlassShape(radius: 22).fill(Color(hex: "#111827").opacity(0.9)))
+                .overlay(LiquidGlassShape(radius: 22).stroke(Color.white.opacity(0.15), lineWidth: 0.8))
+                .shadow(color: Color.black.opacity(0.3), radius: 16, x: 0, y: 6)
+                .padding(.bottom, 44)
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+                .animation(.spring(response: 0.3, dampingFraction: 0.8), value: saveToast)
+            }
+        }
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
                 Text("任务详情")
@@ -72,7 +71,6 @@ struct TaskDetailView: View {
         .sheet(isPresented: $showDecodeToolSheet) {
             decodeToolSheet
         }
-        // XLActionController sheet for unknown decode tool selection
         .liquidActionSheet(
             isPresented: $showActionSheet,
             title: "选择解码工具",
@@ -182,11 +180,11 @@ struct TaskDetailView: View {
                     .foregroundColor(Color(hex: "#F0F4FF"))
             }
 
-            let imageUrls = liveTask.outputUrls.filter { url in
-                !["mp4", "mov", "webm"].contains(url.split(separator: ".").last?.lowercased() ?? "")
+            let imageUrls = liveTask.outputUrls.filter {
+                !["mp4", "mov", "webm"].contains($0.split(separator: ".").last?.lowercased() ?? "")
             }
-            let videoUrls = liveTask.outputUrls.filter { url in
-                ["mp4", "mov", "webm"].contains(url.split(separator: ".").last?.lowercased() ?? "")
+            let videoUrls = liveTask.outputUrls.filter {
+                ["mp4", "mov", "webm"].contains($0.split(separator: ".").last?.lowercased() ?? "")
             }
 
             if imageUrls.count > 1 {
@@ -207,7 +205,9 @@ struct TaskDetailView: View {
                 ForEach(imageUrls, id: \.self) { url in
                     OutputItemView(
                         url: url,
-                        showDecodeButton: liveTask.status == .completed && liveTask.decodedImageData == nil && liveTask.ttDecodedData == nil,
+                        showDecodeButton: liveTask.status == .completed
+                            && liveTask.decodedImageData == nil
+                            && liveTask.ttDecodedData == nil,
                         isDecoding: isDecoding,
                         onDecode: { handleDecodeButtonTap() },
                         onToast: { showToast($0) }
@@ -219,9 +219,7 @@ struct TaskDetailView: View {
                 OutputItemView(url: url, onToast: { showToast($0) })
             }
 
-            if liveTask.status == .completed {
-                decodeResultBlock
-            }
+            if liveTask.status == .completed { decodeResultBlock }
 
             if let err = decodeError {
                 Text(err)
@@ -235,7 +233,6 @@ struct TaskDetailView: View {
 
     private func handleDecodeButtonTap() {
         decodePassword = ""
-        // Use XLActionController sheet if tool is unknown, otherwise go straight to password
         if liveTask.isDuckEncoded || liveTask.isTTEncoded {
             showDecodeToolSheet = true
         } else {
@@ -270,10 +267,7 @@ struct TaskDetailView: View {
                             }
                             .foregroundColor(.white)
                             .padding(.horizontal, 10).padding(.vertical, 7)
-                            .background(
-                                LiquidGlassShape(radius: 10)
-                                    .fill(Color.black.opacity(0.55))
-                            )
+                            .background(LiquidGlassShape(radius: 10).fill(Color.black.opacity(0.55)))
                             .overlay(LiquidGlassShape(radius: 10).stroke(Color.white.opacity(0.15), lineWidth: 0.6))
                         }.padding(10),
                         alignment: .bottomTrailing
@@ -313,11 +307,13 @@ struct TaskDetailView: View {
                 switch tool {
                 case .duck:
                     let duckFile = try await DuckDecodeService.shared.decode(imageUrl: url, password: password)
-                    var updated = liveTask; updated.decodedImageData = duckFile.data
+                    var updated = liveTask
+                    updated.decodedImageData = duckFile.data
                     await MainActor.run { appState.updateTask(updated) }
                 case .ttV2:
                     let file = try await TTDecodeService.shared.decode(imageUrl: url, password: password)
-                    var updated = liveTask; updated.ttDecodedData = file.data
+                    var updated = liveTask
+                    updated.ttDecodedData = file.data
                     await MainActor.run { appState.updateTask(updated) }
                 }
             } catch {
@@ -438,10 +434,7 @@ private struct OutputItemView: View {
                 }
                 .foregroundColor(.white)
                 .padding(.horizontal, 10).padding(.vertical, 7)
-                .background(
-                    LiquidGlassShape(radius: 10)
-                        .fill(Color(hex: "#6C8EFF").opacity(0.85))
-                )
+                .background(LiquidGlassShape(radius: 10).fill(Color(hex: "#6C8EFF").opacity(0.85)))
                 .overlay(LiquidGlassShape(radius: 10).stroke(Color.white.opacity(0.2), lineWidth: 0.6))
             }
             .disabled(isDecoding)
@@ -453,7 +446,7 @@ private struct OutputItemView: View {
         Button {
             guard let urlObj = URL(string: url) else { return }
             URLSession.shared.dataTask(with: urlObj) { data, _, _ in
-                guard let data = data, let img = UIImage(data: data) else { return }
+                guard let data, let img = UIImage(data: data) else { return }
                 PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
                     DispatchQueue.main.async {
                         if status == .authorized || status == .limited {
@@ -516,17 +509,13 @@ private struct DecodeToolSheetView: View {
     var body: some View {
         ZStack {
             AnimatedMeshBackground()
-
             VStack(spacing: 0) {
                 LiquidGlassShape(radius: 3)
                     .fill(Color.white.opacity(0.2))
                     .frame(width: 36, height: 5)
                     .padding(.top, 12).padding(.bottom, 20)
 
-                Text("解码")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(Color(hex: "#F0F4FF"))
-                    .padding(.bottom, 6)
+                Text("解码").font(.system(size: 16, weight: .semibold)).foregroundColor(Color(hex: "#F0F4FF")).padding(.bottom, 6)
 
                 if let tool = knownTool {
                     HStack(spacing: 6) {
@@ -534,94 +523,65 @@ private struct DecodeToolSheetView: View {
                             .font(.system(size: 12))
                             .foregroundColor(tool == .duck ? Color(hex: "#FFD166") : Color(hex: "#6C8EFF"))
                         Text(tool == .duck ? "鸭鸭图" : "TT Tool V2")
-                            .font(.system(size: 12))
-                            .foregroundColor(Color(hex: "#8B9CC8"))
-                    }
-                    .padding(.bottom, 24)
+                            .font(.system(size: 12)).foregroundColor(Color(hex: "#8B9CC8"))
+                    }.padding(.bottom, 24)
                 } else {
-                    Text("请选择解码工具")
-                        .font(.system(size: 12)).foregroundColor(Color(hex: "#8B9CC8"))
-                        .padding(.bottom, 24)
+                    Text("请选择解码工具").font(.system(size: 12)).foregroundColor(Color(hex: "#8B9CC8")).padding(.bottom, 24)
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("密码（留空则无密码）")
-                        .font(.system(size: 12)).foregroundColor(Color(hex: "#8B9CC8"))
+                    Text("密码（留空则无密码）").font(.system(size: 12)).foregroundColor(Color(hex: "#8B9CC8"))
                     SecureField("无密码请留空", text: $password)
-                        .font(.system(size: 14))
-                        .foregroundColor(Color(hex: "#F0F4FF"))
+                        .font(.system(size: 14)).foregroundColor(Color(hex: "#F0F4FF"))
                         .tint(Color(hex: "#6C8EFF"))
-                        .padding(12)
-                        .background(LiquidGlassShape(radius: 10).fill(Color.white.opacity(0.05)))
-                        .overlay(LiquidGlassShape(radius: 10).stroke(Color.white.opacity(0.1), lineWidth: 0.8))
+                        .nativeInput()
                 }
                 .padding(.horizontal, 20).padding(.bottom, 20)
 
                 if let tool = knownTool {
                     Button { onConfirm(tool) } label: {
-                        Text("确认解码")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(.white)
+                        Text("确认解码").font(.system(size: 15, weight: .semibold)).foregroundColor(.white)
                             .frame(maxWidth: .infinity).padding(.vertical, 14)
-                            .background(
-                                LiquidGlassShape(radius: 14)
-                                    .fill(LinearGradient(
-                                        colors: [Color(hex: "#6C8EFF"), Color(hex: "#4A6FE8")],
-                                        startPoint: .topLeading, endPoint: .bottomTrailing
-                                    ))
-                            )
+                            .background(LiquidGlassShape(radius: 14).fill(LinearGradient(
+                                colors: [Color(hex: "#6C8EFF"), Color(hex: "#4A6FE8")],
+                                startPoint: .topLeading, endPoint: .bottomTrailing
+                            )))
                             .overlay(LiquidGlassShape(radius: 14).stroke(Color.white.opacity(0.2), lineWidth: 0.8))
                             .shadow(color: Color(hex: "#6C8EFF").opacity(0.4), radius: 12)
                     }
-                    .buttonStyle(.plain)
-                    .padding(.horizontal, 20)
+                    .buttonStyle(.plain).padding(.horizontal, 20)
                 } else {
                     VStack(spacing: 10) {
-                        Button { onConfirm(.duck) } label: {
-                            HStack(spacing: 10) {
-                                ZStack {
-                                    Circle().fill(Color(hex: "#FFD166").opacity(0.12)).frame(width: 36, height: 36)
-                                    Image(systemName: "tortoise.fill").font(.system(size: 16)).foregroundColor(Color(hex: "#FFD166"))
-                                }
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("鸭鸭图").font(.system(size: 14, weight: .semibold)).foregroundColor(Color(hex: "#F0F4FF"))
-                                    Text("LSB 隐写解码").font(.system(size: 11)).foregroundColor(Color(hex: "#8B9CC8"))
-                                }
-                                Spacer()
-                                Image(systemName: "chevron.right").font(.system(size: 13)).foregroundColor(Color(hex: "#8B9CC8").opacity(0.5))
-                            }
-                            .padding(14)
-                            .glassCard(radius: 14)
-                        }
-                        .buttonStyle(.plain)
-
-                        Button { onConfirm(.ttV2) } label: {
-                            HStack(spacing: 10) {
-                                ZStack {
-                                    Circle().fill(Color(hex: "#6C8EFF").opacity(0.12)).frame(width: 36, height: 36)
-                                    Image(systemName: "wand.and.stars").font(.system(size: 16)).foregroundColor(Color(hex: "#6C8EFF"))
-                                }
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("TT Tool").font(.system(size: 14, weight: .semibold)).foregroundColor(Color(hex: "#F0F4FF"))
-                                    Text("V2 彩色图解码").font(.system(size: 11)).foregroundColor(Color(hex: "#8B9CC8"))
-                                }
-                                Spacer()
-                                Image(systemName: "chevron.right").font(.system(size: 13)).foregroundColor(Color(hex: "#8B9CC8").opacity(0.5))
-                            }
-                            .padding(14)
-                            .glassCard(radius: 14)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .padding(.horizontal, 20)
+                        toolButton(title: "鸭鸭图", subtitle: "LSB 隐写解码", icon: "tortoise.fill",
+                                   color: Color(hex: "#FFD166"), tool: .duck)
+                        toolButton(title: "TT Tool", subtitle: "V2 彩色图解码", icon: "wand.and.stars",
+                                   color: Color(hex: "#6C8EFF"), tool: .ttV2)
+                    }.padding(.horizontal, 20)
                 }
 
                 Button("取消") { onDismiss() }
-                    .font(.system(size: 14)).foregroundColor(Color(hex: "#8B9CC8"))
-                    .padding(.top, 20)
-
+                    .font(.system(size: 14)).foregroundColor(Color(hex: "#8B9CC8")).padding(.top, 20)
                 Spacer()
             }
         }
+    }
+
+    private func toolButton(title: String, subtitle: String, icon: String, color: Color, tool: TaskDetailView.DecodeTool) -> some View {
+        Button { onConfirm(tool) } label: {
+            HStack(spacing: 10) {
+                ZStack {
+                    Circle().fill(color.opacity(0.12)).frame(width: 36, height: 36)
+                    Image(systemName: icon).font(.system(size: 16)).foregroundColor(color)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(.system(size: 14, weight: .semibold)).foregroundColor(Color(hex: "#F0F4FF"))
+                    Text(subtitle).font(.system(size: 11)).foregroundColor(Color(hex: "#8B9CC8"))
+                }
+                Spacer()
+                Image(systemName: "chevron.right").font(.system(size: 13)).foregroundColor(Color(hex: "#8B9CC8").opacity(0.5))
+            }
+            .padding(14).glassCard(radius: 14)
+        }
+        .buttonStyle(.plain)
     }
 }
