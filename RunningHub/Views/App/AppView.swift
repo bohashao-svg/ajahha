@@ -123,7 +123,7 @@ struct AppView: View {
             }
 
             ForEach(vm.nodes.indices, id: \.self) { i in
-                AppNodeRow(node: $vm.nodes[i], selectedImages: $vm.selectedImages)
+                AppNodeRow(node: $vm.nodes[i], selectedImages: $vm.selectedImages, selectedVideos: $vm.selectedVideos)
                 if i < vm.nodes.count - 1 {
                     Divider().padding(.vertical, 4)
                 }
@@ -162,7 +162,9 @@ struct AppView: View {
 struct AppNodeRow: View {
     @Binding var node: AppNodeInfo
     @Binding var selectedImages: [String: UIImage]
+    @Binding var selectedVideos: [String: URL]
     @State private var photoItem: PhotosPickerItem?
+    @State private var videoItem: PhotosPickerItem?
     @State private var showLoraPicker = false
 
     private var key: String { node.nodeId + node.fieldName }
@@ -187,8 +189,10 @@ struct AppNodeRow: View {
 
             if isLora {
                 loraField
-            } else if ft == "IMAGE" || ft == "AUDIO" || ft == "VIDEO" {
+            } else if ft == "IMAGE" || ft == "AUDIO" {
                 imagePickerField
+            } else if ft == "VIDEO" {
+                videoPickerField
             } else if ft == "LIST" {
                 listField
             } else if ft == "BOOLEAN" || ft == "BOOL" {
@@ -292,6 +296,50 @@ struct AppNodeRow: View {
                 if let data = try? await newItem.loadTransferable(type: Data.self),
                    let img = UIImage(data: data) {
                     selectedImages[key] = img
+                    node.fieldValue = "pending_upload"
+                }
+            }
+        }
+    }
+
+    private var videoPickerField: some View {
+        PhotosPicker(selection: $videoItem, matching: .videos) {
+            HStack(spacing: 10) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Color.rhAccentSoft)
+                        .frame(width: 52, height: 52)
+                    Image(systemName: selectedVideos[key] != nil ? "video.fill" : "video.badge.plus")
+                        .font(.system(size: 22))
+                        .foregroundColor(.rhAccent)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    if let videoURL = selectedVideos[key] {
+                        Text(videoURL.lastPathComponent)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.rhPrimary)
+                            .lineLimit(1)
+                        Text("点击重新选择").font(.system(size: 11)).foregroundColor(.rhSecondary)
+                    } else {
+                        Text("从相册选择视频")
+                            .font(.system(size: 14)).foregroundColor(.rhSecondary)
+                    }
+                }
+                Spacer()
+                Image(systemName: "chevron.right").font(.system(size: 13)).foregroundColor(.rhBorder)
+            }
+            .padding(10).background(Color.rhBackground).cornerRadius(12)
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.rhBorder, lineWidth: 1))
+        }
+        .onChange(of: videoItem) { newItem in
+            guard let newItem else { return }
+            Task {
+                if let data = try? await newItem.loadTransferable(type: Data.self) {
+                    let ext = (newItem.supportedContentTypes.first?.preferredFilenameExtension ?? "mp4")
+                    let tmp = FileManager.default.temporaryDirectory
+                        .appendingPathComponent(UUID().uuidString + "." + ext)
+                    try? data.write(to: tmp)
+                    selectedVideos[key] = tmp
                     node.fieldValue = "pending_upload"
                 }
             }

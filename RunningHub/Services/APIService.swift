@@ -267,6 +267,42 @@ final class APIService {
     }
 
     /// POST /task/openapi/upload — multipart/form-data 上传图片，返回文件名
+    func uploadVideo(_ videoURL: URL) async throws -> String {
+        guard !authToken.isEmpty else { throw APIError.noAPIKey }
+        guard let url = URL(string: baseURL + "/task/openapi/upload") else { throw APIError.invalidURL }
+
+        let videoData = try Data(contentsOf: videoURL)
+        let ext = videoURL.pathExtension.lowercased()
+        let mimeType = ext == "mov" ? "video/quicktime" : "video/mp4"
+        let filename = "upload.\(ext.isEmpty ? "mp4" : ext)"
+
+        let boundary = "Boundary-\(UUID().uuidString)"
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        req.timeoutInterval = 120
+
+        var body = Data()
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"apiKey\"\r\n\r\n".data(using: .utf8)!)
+        body.append("\(authToken)\r\n".data(using: .utf8)!)
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(filename)\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: \(mimeType)\r\n\r\n".data(using: .utf8)!)
+        body.append(videoData)
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+        req.httpBody = body
+
+        let (data, _) = try await URLSession.shared.data(for: req)
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let decoded = try decoder.decode(APIResponse<UploadImageResponse>.self, from: data)
+        guard decoded.isSuccess, let result = decoded.data else {
+            throw APIError.serverError(decoded.msg ?? "视频上传失败")
+        }
+        return result.fileName
+    }
+
     func uploadImage(_ image: UIImage) async throws -> String {
         guard !authToken.isEmpty else { throw APIError.noAPIKey }
         guard let url = URL(string: baseURL + "/task/openapi/upload") else { throw APIError.invalidURL }

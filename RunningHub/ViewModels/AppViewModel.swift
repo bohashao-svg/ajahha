@@ -13,6 +13,7 @@ final class AppViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var didSubmitSuccessfully: Bool = false
     @Published var selectedImages: [String: UIImage] = [:]  // nodeId+fieldName → UIImage
+    @Published var selectedVideos: [String: URL] = [:]      // nodeId+fieldName → video file URL
 
     private let appState: AppState
 
@@ -73,9 +74,13 @@ final class AppViewModel: ObservableObject {
             for i in resolvedNodes.indices {
                 let key = resolvedNodes[i].nodeId + resolvedNodes[i].fieldName
                 let ft = resolvedNodes[i].fieldType.uppercased()
-                if (ft == "IMAGE" || ft == "AUDIO" || ft == "VIDEO"),
+                if ft == "IMAGE" || ft == "AUDIO",
                    let img = selectedImages[key] {
                     let fileName = try await APIService.shared.uploadImage(img)
+                    resolvedNodes[i].fieldValue = fileName
+                } else if ft == "VIDEO",
+                          let videoURL = selectedVideos[key] {
+                    let fileName = try await APIService.shared.uploadVideo(videoURL)
                     resolvedNodes[i].fieldValue = fileName
                 }
             }
