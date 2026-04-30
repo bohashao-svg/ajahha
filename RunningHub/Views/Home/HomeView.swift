@@ -537,15 +537,166 @@ struct HomeView: View {
     }
 }
 
-// MARK: - Persistent WebView
-final class GrokWebViewModel: ObservableObject {
-    let webView: WKWebView = {
+// MARK: - Ad-blocking WebView
+// 注入 CSS + JS 屏蔽广告弹窗、悬浮广告、自动跳转。
+// WKNavigationDelegate 拦截第三方跳转，WKUIDelegate 屏蔽 alert/confirm/open。
+
+private let adBlockCSS = """
+/* 通用广告容器 */
+[class*="ad-"],[class*="-ad"],[class*="ads-"],[class*="-ads"],
+[class*="advert"],[class*="banner"],[class*="popup"],[class*="modal"],
+[class*="overlay"],[class*="float"],[class*="fixed-bottom"],[class*="fixed-top"],
+[id*="ad-"],[id*="-ad"],[id*="ads"],[id*="popup"],[id*="modal"],
+[id*="overlay"],[id*="float"],[id*="banner"],
+iframe[src*="ad"],iframe[src*="doubleclick"],iframe[src*="googlesyndication"],
+ins.adsbygoogle, .adsbygoogle,
+div[style*="position:fixed"], div[style*="position: fixed"] {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    height: 0 !important;
+    overflow: hidden !important;
+}
+/* 恢复正文滚动 */
+body { overflow: auto !important; }
+"""
+
+private let adBlockJS = """
+(function() {
+    // 1. 屏蔽 window.open（弹窗广告）
+    window.open = function() { return null; };
+
+    // 2. 屏蔽 alert / confirm / prompt
+    window.alert   = function() {};
+    window.confirm = function() { return false; };
+    window.prompt  = function() { return null; };
+
+    // 3. 拦截自动跳转（location.href / location.replace / location.assign）
+    var _href = Object.getOwnPropertyDescriptor(window.location, 'href');
+    if (_href && _href.set) {
+        Object.defineProperty(window.location, 'href', {
+            set: function(v) {
+                // 只允许同域跳转
+                try {
+                    var cur  = new URL(window.location.href);
+                    var next = new URL(v, window.location.href);
+                    if (cur.hostname === next.hostname) { _href.set.call(window.location, v); }
+                } catch(e) {}
+            },
+            get: _href.get
+        });
+    }
+    var _replace = window.location.replace.bind(window.location);
+    window.location.replace = function(url) {
+        try {
+            var cur  = new URL(window.location.href);
+            var next = new URL(url, window.location.href);
+            if (cur.hostname === next.hostname) { _replace(url); }
+        } catch(e) {}
+    };
+
+    // 4. 移除已有固定定位广告层（DOM 就绪后执行）
+    function removeAds() {
+        document.querySelectorAll(
+            '[class*="ad-"],[class*="-ad"],[class*="popup"],[class*="modal"],' +
+            '[class*="overlay"],[id*="popup"],[id*="modal"],[id*="overlay"]'
+        ).forEach(function(el) {
+            var s = window.getComputedStyle(el);
+            if (s.position === 'fixed' || s.position === 'sticky') {
+                el.style.display = 'none';
+            }
+        });
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', removeAds);
+    } else {
+        removeAds();
+    }
+    // 持续监听 DOM 变化，移除动态插入的广告
+    new MutationObserver(removeAds).observe(document.documentElement, {
+        childList: true, subtree: true
+    });
+})();
+"""
+
+final class GrokWebViewModel: NSObject, ObservableObject, WKNavigationDelegate, WKUIDelegate {
+
+    let webView: WKWebView
+
+    override init() {
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .default()
-        let wv = WKWebView(frame: .zero, configuration: config)
-        wv.load(URLRequest(url: URL(string: "https://grok.dairoot.cn/")!))
-        return wv
-    }()
+
+        // 注入 CSS（document_start，最早执行）
+        let cssScript = WKUserScript(
+            source: "var s=document.createElement('style');s.textContent=`\(adBlockCSS)`;document.documentElement.appendChild(s);",
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: false
+        )
+        // 注入 JS 拦截（document_start）
+        let jsScript = WKUserScript(
+            source: adBlockJS,
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: false
+        )
+        config.userContentController.addUserScript(cssScript)
+        config.userContentController.addUserScript(jsScript)
+
+        webView = WKWebView(frame: .zero, configuration: config)
+        super.init()
+
+        webView.navigationDelegate = self
+        webView.uiDelegate = self
+        webView.load(URLRequest(url: URL(string: "https://grok.dairoot.cn/")!))
+    }
+
+    // MARK: - WKNavigationDelegate：拦截第三方跳转
+
+    func webView(_ webView: WKWebView,
+                 decidePolicyFor navigationAction: WKNavigationAction,
+                 decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        guard let url = navigationAction.request.url else {
+            decisionHandler(.allow); return
+        }
+        let currentHost = webView.url?.host ?? ""
+        let targetHost  = url.host ?? ""
+
+        // 允许：同域、初始加载、用户主动点击同域链接
+        let isSameDomain = currentHost.isEmpty || targetHost.isEmpty
+            || targetHost == currentHost
+            || targetHost.hasSuffix("." + currentHost)
+            || currentHost.hasSuffix("." + targetHost)
+
+        // 拦截：非用户点击的跨域跳转（自动跳转广告）
+        if !isSameDomain && navigationAction.navigationType == .other {
+            decisionHandler(.cancel); return
+        }
+        decisionHandler(.allow)
+    }
+
+    // MARK: - WKUIDelegate：屏蔽弹窗
+
+    func webView(_ webView: WKWebView,
+                 runJavaScriptAlertPanelWithMessage message: String,
+                 initiatedByFrame frame: WKFrameInfo,
+                 completionHandler: @escaping () -> Void) {
+        completionHandler()   // 静默忽略
+    }
+
+    func webView(_ webView: WKWebView,
+                 runJavaScriptConfirmPanelWithMessage message: String,
+                 initiatedByFrame frame: WKFrameInfo,
+                 completionHandler: @escaping (Bool) -> Void) {
+        completionHandler(false)
+    }
+
+    func webView(_ webView: WKWebView,
+                 createWebViewWith configuration: WKWebViewConfiguration,
+                 for navigationAction: WKNavigationAction,
+                 windowFeatures: WKWindowFeatures) -> WKWebView? {
+        // 拦截 window.open() 弹出新窗口
+        return nil
+    }
 }
 
 struct GrokWebView: UIViewRepresentable {

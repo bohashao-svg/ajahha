@@ -231,8 +231,8 @@ extension View {
 }
 
 // MARK: - Animated Dual-Orb Background
-// 两个光晕球体在屏幕内自由游走浮动，使用 TimelineView + Canvas。
-// 零 @State，零 SwiftUI invalidation，ScrollView 完全静止。
+// 两个光晕沿 Lissajous 曲线游走，频率比为无理数，轨迹永不重复。
+// TimelineView + Canvas，零 @State，零 SwiftUI invalidation。
 struct AnimatedMeshBackground: View {
     private let startDate = Date()
 
@@ -241,26 +241,29 @@ struct AnimatedMeshBackground: View {
             .ignoresSafeArea()
             .overlay(
                 TimelineView(.animation) { tl in
-                    let t = CGFloat(tl.date.timeIntervalSince(startDate))
+                    // t 以极慢速度增长，避免视觉上的快速抖动
+                    let t = CGFloat(tl.date.timeIntervalSince(startDate)) * 0.12
                     Canvas { ctx, size in
                         let w = size.width
                         let h = size.height
 
-                        // 光晕1：蓝色，椭圆轨迹游走
-                        let o1x = w * (0.5 + 0.38 * cos(t * 0.31))
-                        let o1y = h * (0.38 + 0.28 * sin(t * 0.23))
+                        // 光晕1：蓝色
+                        // Lissajous: x 频率 1.0，y 频率 √2 ≈ 1.414（无理数比，永不重复）
+                        let o1x = w * (0.5 + 0.36 * sin(t * 1.000))
+                        let o1y = h * (0.5 + 0.30 * sin(t * 1.414 + 0.5))
                         drawOrb(&ctx, cx: o1x, cy: o1y,
-                                rx: w * 0.55, ry: h * 0.38,
+                                rx: w * 0.60, ry: h * 0.42,
                                 color: Color(hex: "#6C8EFF"),
-                                opacity: 0.18 + 0.06 * sin(t * 0.7))
+                                opacity: 0.20)
 
-                        // 光晕2：紫色，反向椭圆轨迹，相位偏移
-                        let o2x = w * (0.5 - 0.35 * cos(t * 0.19 + 1.8))
-                        let o2y = h * (0.62 - 0.25 * sin(t * 0.27 + 0.9))
+                        // 光晕2：紫色
+                        // Lissajous: x 频率 √3 ≈ 1.732，y 频率 √5 ≈ 2.236，相位偏移 π
+                        let o2x = w * (0.5 + 0.34 * sin(t * 1.732 + 3.14))
+                        let o2y = h * (0.5 + 0.28 * sin(t * 2.236 + 1.57))
                         drawOrb(&ctx, cx: o2x, cy: o2y,
-                                rx: w * 0.50, ry: h * 0.35,
+                                rx: w * 0.55, ry: h * 0.38,
                                 color: Color(hex: "#A78BFA"),
-                                opacity: 0.14 + 0.05 * sin(t * 0.55 + 1.2))
+                                opacity: 0.16)
                     }
                     .drawingGroup()
                 }
@@ -280,9 +283,9 @@ struct AnimatedMeshBackground: View {
             Path(ellipseIn: rect),
             with: .radialGradient(
                 Gradient(stops: [
-                    .init(color: color.opacity(0.85), location: 0),
-                    .init(color: color.opacity(0.35), location: 0.45),
-                    .init(color: color.opacity(0),    location: 1)
+                    .init(color: color.opacity(0.9), location: 0),
+                    .init(color: color.opacity(0.4), location: 0.4),
+                    .init(color: color.opacity(0),   location: 1)
                 ]),
                 center: CGPoint(x: rect.midX, y: rect.midY),
                 startRadius: 0,
