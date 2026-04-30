@@ -46,12 +46,6 @@ targets:
         NSMicrophoneUsageDescription: "需要访问麦克风以录制视频"
         NSLocationWhenInUseUsageDescription: "需要访问位置以标记照片"
         CFBundleIconName: AppIcon
-        CFBundleIcons:
-          CFBundlePrimaryIcon:
-            CFBundleIconFiles:
-              - AppIcon
-            CFBundleIconName: AppIcon
-            UIPrerenderedIcon: true
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
     settings:
