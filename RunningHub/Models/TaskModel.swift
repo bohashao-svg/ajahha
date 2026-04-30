@@ -73,4 +73,16 @@ struct RHTask: Codable, Identifiable {
     }
 
     var primaryOutputUrl: String? { outputUrls.first }
+
+    // 占位任务，用于 NavigationLink destination 在 selectedItem 为 nil 时不崩溃
+    static let placeholder = RHTask(
+        id: "__placeholder__",
+        workflowId: "",
+        workflowName: "",
+        isDuckEncoded: false,
+        duckPassword: nil,
+        isTTEncoded: false,
+        isPlusMode: false,
+        workflowType: ""
+    )
 }

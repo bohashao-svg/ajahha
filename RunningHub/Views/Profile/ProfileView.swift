@@ -18,24 +18,18 @@ struct ProfileView: View {
         NavigationView {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 0) {
-                    // 始终存在的隐藏 NavigationLink（不在条件块里，不会被销毁）
+                    // NavigationLink 始终存在，不在条件块里，不被 disabled
+                    // destination 用 @State selectedItem 延迟解包
                     NavigationLink(
-                        destination: Group {
-                            if let item = selectedItem {
-                                TaskDetailView(
-                                    task: item.asRHTask(),
-                                    vm: TaskCenterViewModel(),
-                                    appState: AppState.shared
-                                )
-                            } else {
-                                EmptyView()
-                            }
-                        },
+                        destination: TaskDetailView(
+                            task: selectedItem?.asRHTask() ?? RHTask.placeholder,
+                            vm: TaskCenterViewModel(),
+                            appState: AppState.shared
+                        ),
                         isActive: $isDetailActive
                     ) { EmptyView() }
                     .frame(width: 0, height: 0)
                     .opacity(0)
-                    .disabled(true)
 
                     headerStrip
                         .padding(.horizontal, 16)
