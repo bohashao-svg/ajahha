@@ -2,12 +2,10 @@ import BackgroundTasks
 import Foundation
 
 // MARK: - Background Refresh Service
-// Two entry points for background polling:
-//   1. SwiftUI .backgroundTask(.appRefresh) — preferred on iOS 16+
-//   2. BGTaskScheduler legacy handler — fallback
-//
-// iOS controls actual wake-up frequency (typically ≥15 min based on usage).
-// This is the standard pattern used by Mail, Weather, etc.
+// SwiftUI .backgroundTask(.appRefresh) in RunningHubApp handles BGTaskScheduler
+// registration internally. This service only needs to:
+//   1. scheduleNext() — request the next wake-up via BGTaskScheduler.submit
+//   2. runOnce()      — poll all unfinished tasks (called by the background task handler)
 
 final class BackgroundRefreshService {
 
@@ -16,23 +14,7 @@ final class BackgroundRefreshService {
 
     static let taskIdentifier = "com.runninghub.ios.refresh"
 
-    // MARK: - Register (call before app finishes launching)
-
-    func register() {
-        BGTaskScheduler.shared.register(
-            forTaskWithIdentifier: Self.taskIdentifier,
-            using: nil
-        ) { task in
-            guard let refreshTask = task as? BGAppRefreshTask else { return }
-            refreshTask.expirationHandler = { refreshTask.setTaskCompleted(success: false) }
-            Task {
-                await self.runOnce()
-                refreshTask.setTaskCompleted(success: true)
-            }
-        }
-    }
-
-    // MARK: - Schedule next wake-up (call on foreground appear + every background entry)
+    // MARK: - Schedule next wake-up
 
     func scheduleNext() {
         let request = BGAppRefreshTaskRequest(identifier: Self.taskIdentifier)
@@ -54,7 +36,6 @@ final class BackgroundRefreshService {
             }
         }
 
-        // Reschedule for the next cycle
         scheduleNext()
     }
 
@@ -73,7 +54,6 @@ final class BackgroundRefreshService {
 
             await MainActor.run {
                 AppState.shared.updateTask(updated)
-                // Only notify on terminal state changes (avoid spammy "running" pings)
                 if updated.isFinished {
                     NotificationService.shared.notify(task: updated)
                     LiveActivityService.shared.end(task: updated)

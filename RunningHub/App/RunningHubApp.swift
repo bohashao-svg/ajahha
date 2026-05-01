@@ -6,11 +6,6 @@ struct RunningHubApp: App {
     @StateObject private var appState = AppState.shared
     @StateObject private var appConfig = AppConfigService.shared
 
-    init() {
-        // Register BGAppRefreshTask before the app finishes launching
-        BackgroundRefreshService.shared.register()
-    }
-
     var body: some Scene {
         WindowGroup {
             ContentRootView()
@@ -18,6 +13,8 @@ struct RunningHubApp: App {
                 .environmentObject(appConfig)
                 .preferredColorScheme(.light)
         }
+        // SwiftUI handles BGTaskScheduler registration internally — do NOT also call
+        // BGTaskScheduler.shared.register() for the same identifier, it will crash.
         .backgroundTask(.appRefresh(BackgroundRefreshService.taskIdentifier)) {
             await BackgroundRefreshService.shared.runOnce()
         }
