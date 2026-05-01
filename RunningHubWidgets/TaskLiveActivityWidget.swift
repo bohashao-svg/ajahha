@@ -3,25 +3,21 @@ import SwiftUI
 import WidgetKit
 
 // MARK: - Live Activity Widget
-// Displays task status on the lock screen and Dynamic Island.
-// Requires iOS 16.2+.
 
 @main
 struct RunningHubWidgets: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: TaskActivityAttributes.self) { context in
-            // Lock screen / StandBy view
             LockScreenView(state: context.state)
         } dynamicIsland: { context in
             DynamicIsland {
-                // Expanded (long-press)
                 DynamicIslandExpandedRegion(.leading) {
                     statusIcon(state: context.state)
                         .font(.system(size: 18))
                         .padding(.leading, 4)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    if !context.state.isFinished {
+                    if !context.state.isFinished && context.state.progressPercent > 0 {
                         Text("\(context.state.progressPercent)%")
                             .font(.system(size: 13, weight: .semibold, design: .rounded))
                             .foregroundColor(.white.opacity(0.7))
@@ -48,10 +44,14 @@ struct RunningHubWidgets: Widget {
                     Text(context.state.isSuccess ? "完成" : "失败")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundColor(context.state.isSuccess ? .green : .red)
-                } else {
+                } else if context.state.progressPercent > 0 {
                     Text("\(context.state.progressPercent)%")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundColor(.white.opacity(0.8))
+                } else {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 10))
+                        .foregroundColor(.white.opacity(0.6))
                 }
             } minimal: {
                 statusIcon(state: context.state)
@@ -101,22 +101,8 @@ private struct LockScreenView: View {
 
             Spacer()
 
-            // Progress or checkmark
-            if !state.isFinished {
-                ZStack {
-                    Circle()
-                        .stroke(Color.white.opacity(0.2), lineWidth: 3)
-                        .frame(width: 36, height: 36)
-                    Circle()
-                        .trim(from: 0, to: CGFloat(state.progressPercent) / 100)
-                        .stroke(Color.blue, style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                        .frame(width: 36, height: 36)
-                        .rotationEffect(.degrees(-90))
-                    Text("\(state.progressPercent)%")
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundColor(.white)
-                }
-            }
+            // Progress indicator
+            progressView
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -124,6 +110,37 @@ private struct LockScreenView: View {
             RoundedRectangle(cornerRadius: 16)
                 .fill(Color(red: 0.05, green: 0.07, blue: 0.12))
         )
+    }
+
+    @ViewBuilder
+    private var progressView: some View {
+        if state.isFinished {
+            // No ring when done
+            EmptyView()
+        } else if state.progressPercent > 0 {
+            // Known percentage
+            ZStack {
+                Circle()
+                    .stroke(Color.white.opacity(0.2), lineWidth: 3)
+                    .frame(width: 36, height: 36)
+                Circle()
+                    .trim(from: 0, to: CGFloat(state.progressPercent) / 100)
+                    .stroke(Color.blue, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                    .frame(width: 36, height: 36)
+                    .rotationEffect(.degrees(-90))
+                Text("\(state.progressPercent)%")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundColor(.white)
+            }
+        } else {
+            // Indeterminate — dashed spinning ring
+            Circle()
+                .stroke(
+                    Color.blue.opacity(0.5),
+                    style: StrokeStyle(lineWidth: 3, dash: [4, 4])
+                )
+                .frame(width: 36, height: 36)
+        }
     }
 
     private var iconName: String {
@@ -134,17 +151,13 @@ private struct LockScreenView: View {
     }
 
     private var iconColor: Color {
-        if state.isFinished {
-            return state.isSuccess ? .green : .red
-        }
+        if state.isFinished { return state.isSuccess ? .green : .red }
         return .blue
     }
 
     private var iconBackground: Color {
         if state.isFinished {
-            return state.isSuccess
-                ? Color.green.opacity(0.15)
-                : Color.red.opacity(0.15)
+            return state.isSuccess ? Color.green.opacity(0.15) : Color.red.opacity(0.15)
         }
         return Color.blue.opacity(0.15)
     }

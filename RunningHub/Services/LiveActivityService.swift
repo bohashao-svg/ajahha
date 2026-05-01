@@ -11,7 +11,6 @@ final class LiveActivityService {
     static let shared = LiveActivityService()
     private init() {}
 
-    // The one active activity we track (only the latest task)
     private var currentActivity: Activity<TaskActivityAttributes>?
 
     // MARK: - Start
@@ -20,21 +19,25 @@ final class LiveActivityService {
         guard #available(iOS 16.2, *) else { return }
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
 
-        // End any existing activity immediately (no-animation dismiss)
-        endCurrentActivity(animated: false)
+        // Synchronously clear the old reference BEFORE requesting a new activity.
+        // Never delegate this to an async Task — any `await` between clearing and
+        // assigning would let the async closure overwrite the NEW reference with nil.
+        let old = currentActivity
+        currentActivity = nil
+        if let old {
+            Task { [old] in await old.end(nil, dismissalPolicy: .immediate) }
+        }
 
-        let state = contentState(for: task)
         let attributes = TaskActivityAttributes(taskId: task.id)
-
+        let state = contentState(for: task)
         do {
-            let activity = try Activity.request(
+            currentActivity = try Activity.request(
                 attributes: attributes,
                 content: .init(state: state, staleDate: nil),
                 pushType: nil
             )
-            currentActivity = activity
         } catch {
-            // Live Activities not available or limit reached — fail silently
+            // Live Activities disabled, device unsupported, or limit reached
         }
     }
 
@@ -46,7 +49,7 @@ final class LiveActivityService {
               activity.attributes.taskId == task.id else { return }
 
         let state = contentState(for: task)
-        Task {
+        Task { [activity] in
             await activity.update(.init(state: state, staleDate: nil))
         }
     }
@@ -58,27 +61,18 @@ final class LiveActivityService {
         guard let activity = currentActivity,
               activity.attributes.taskId == task.id else { return }
 
+        // Clear synchronously so a concurrent start() won't be overwritten
+        currentActivity = nil
         let finalState = contentState(for: task)
-        Task {
-            // Keep the final state visible for 5 seconds, then dismiss
+        Task { [activity] in
             await activity.end(
-                .init(state: finalState, staleDate: Date().addingTimeInterval(5)),
-                dismissalPolicy: .after(Date().addingTimeInterval(5))
+                .init(state: finalState, staleDate: Date().addingTimeInterval(8)),
+                dismissalPolicy: .after(Date().addingTimeInterval(8))
             )
-            currentActivity = nil
         }
     }
 
-    // MARK: - Private helpers
-
-    private func endCurrentActivity(animated: Bool) {
-        guard #available(iOS 16.2, *) else { return }
-        guard let activity = currentActivity else { return }
-        Task {
-            await activity.end(nil, dismissalPolicy: .immediate)
-            currentActivity = nil
-        }
-    }
+    // MARK: - Content State
 
     private func contentState(for task: RHTask) -> TaskActivityAttributes.ContentState {
         let name = task.workflowName.isEmpty ? task.workflowType : task.workflowName
@@ -90,10 +84,14 @@ final class LiveActivityService {
         case .failed:           statusText = "执行失败：\(task.errorMsg ?? "未知错误")"
         case .cancelled:        statusText = "已取消"
         }
+        // API doesn't return progress — use -1 as sentinel for "indeterminate"
+        let progress = task.progress > 0
+            ? Int((task.progress * 100).rounded())
+            : (task.status == .running ? -1 : 0)
         return TaskActivityAttributes.ContentState(
             taskName: name,
             statusText: statusText,
-            progressPercent: Int((task.progress * 100).rounded()),
+            progressPercent: progress,
             isFinished: task.isFinished,
             isSuccess: task.status == .completed
         )
