@@ -123,6 +123,8 @@ final class GachaViewModel: ObservableObject {
                 let ft = $0.fieldType.uppercased()
                 return ft != "STRING" && ft != "TEXT"
             }
+            // Convert appNodes → extraFields so ParameterFormView can render them
+            extraFields = appNodes.map { appNodeToFormField($0) }
             promptNodeLabels = appPromptNodes.map { $0.fieldName.isEmpty ? "提示词" : $0.fieldName }
             isWebApp = true
             resolvedId = parsed
@@ -132,7 +134,35 @@ final class GachaViewModel: ObservableObject {
         }
     }
 
-    /// Extract pure ID from a URL or plain ID string
+    /// Convert an AppNodeInfo (IMAGE / AUDIO / LIST / etc.) to a FormField
+    private func appNodeToFormField(_ node: AppNodeInfo) -> FormField {
+        let ft = node.fieldType.uppercased()
+        let label = node.nodeName ?? node.fieldName
+        let placeholder = node.description ?? ""
+        switch ft {
+        case "IMAGE", "AUDIO":
+            return FormField(nodeId: node.nodeId, fieldName: node.fieldName,
+                             label: label, placeholder: placeholder,
+                             value: node.fieldValue, type: .imageInput, promptRole: nil)
+        case "LIST":
+            let opts = node.fieldData?.arrayValue?.compactMap { $0.stringValue } ?? []
+            if opts.isEmpty {
+                return FormField(nodeId: node.nodeId, fieldName: node.fieldName,
+                                 label: label, placeholder: placeholder,
+                                 value: node.fieldValue, type: .text, promptRole: nil)
+            }
+            var f = FormField(nodeId: node.nodeId, fieldName: node.fieldName,
+                              label: label, placeholder: placeholder,
+                              value: node.fieldValue.isEmpty ? (opts.first ?? "") : node.fieldValue,
+                              type: .picker, promptRole: nil)
+            f.options = opts
+            return f
+        default:
+            return FormField(nodeId: node.nodeId, fieldName: node.fieldName,
+                             label: label, placeholder: placeholder,
+                             value: node.fieldValue, type: .text, promptRole: nil)
+        }
+    }
     private static func extractId(from input: String) -> String {
         guard input.contains("://") || input.hasPrefix("http"),
               let urlObj = URL(string: input),
@@ -278,9 +308,10 @@ final class GachaViewModel: ObservableObject {
         req.timeoutInterval = 30
 
         var nodeInputs: [[String: String]] = []
-        // Extra fields (image, lora, etc.) — user-configured values
-        for node in appNodes where !node.fieldValue.isBlank {
-            nodeInputs.append(["nodeId": node.nodeId, "fieldName": node.fieldName, "fieldValue": node.fieldValue])
+        // Extra fields (image, lora, list, text…) — values come from extraFields
+        // which mirrors appNodes but is editable via ParameterFormView
+        for field in extraFields where !field.value.isBlank && field.value != "pending_upload" {
+            nodeInputs.append(["nodeId": field.nodeId, "fieldName": field.fieldName, "fieldValue": field.value])
         }
         // Inject prompt into all STRING/TEXT nodes
         for node in appPromptNodes {
@@ -512,25 +543,52 @@ final class GachaViewModel: ObservableObject {
             if ct.contains("loadimage") {
                 fields.append(FormField(nodeId: nodeId, fieldName: "image", label: title,
                     placeholder: "图片 URL", value: "", type: .imageInput, promptRole: nil))
+
             } else if ct.contains("lora") {
                 let loraName = inputs["lora_name"]?.stringValue ?? inputs["lora"]?.stringValue ?? ""
                 fields.append(FormField(nodeId: nodeId, fieldName: "lora_name", label: title,
                     placeholder: "选择 LoRA 模型...", value: loraName, type: .loraInput, promptRole: nil))
+
+            } else if ct.contains("checkpoint") || ct.contains("unet") {
+                // Model selector — expose as plain text so users can type model name
+                let modelName = inputs["ckpt_name"]?.stringValue ?? inputs["unet_name"]?.stringValue ?? ""
+                if !modelName.isEmpty {
+                    fields.append(FormField(nodeId: nodeId, fieldName: "ckpt_name", label: title,
+                        placeholder: "模型名称", value: modelName, type: .text, promptRole: nil))
+                }
+
+            } else if ct.contains("integer") || ct.contains("int input") {
+                if let valKey = ["value", "integer"].first(where: { inputs[$0] != nil }),
+                   let val = inputs[valKey] {
+                    let strVal = val.intValue.map(String.init) ?? val.stringValue ?? ""
+                    fields.append(FormField(nodeId: nodeId, fieldName: valKey, label: title,
+                        placeholder: "整数值", value: strVal, type: .text, promptRole: nil))
+                }
+
+            } else if ct.contains("float") {
+                if let valKey = ["value", "float"].first(where: { inputs[$0] != nil }),
+                   let val = inputs[valKey] {
+                    let strVal = val.doubleValue.map { String($0) } ?? val.stringValue ?? ""
+                    fields.append(FormField(nodeId: nodeId, fieldName: valKey, label: title,
+                        placeholder: "浮点值", value: strVal, type: .text, promptRole: nil))
+                }
             }
-            // Skip text/prompt fields — those are filled per-prompt
+            // Skip text/prompt fields — filled per-prompt in startBatch
         }
         return fields
     }
 
     private func buildPromptNodeLabels(from detail: WorkflowDetailResponse) -> [String] {
+        // Store "nodeId::fieldName" so runWorkflow's fallback can reconstruct the input
         let nodeDict = detail.parsedNodes
         return nodeDict
             .filter { !($0.value.classType?.lowercased().contains("duck") ?? false) }
             .sorted { (Int($0.key) ?? Int.max) < (Int($1.key) ?? Int.max) }
-            .compactMap { (_, node) -> String? in
+            .compactMap { (nodeId, node) -> String? in
                 let inputs = node.inputs?.dictValue ?? [:]
-                guard inputs.keys.contains("text") || inputs.keys.contains("prompt") else { return nil }
-                return node.meta?.title ?? node.classType ?? "提示词节点"
+                if inputs.keys.contains("text")   { return "\(nodeId)::text" }
+                if inputs.keys.contains("prompt") { return "\(nodeId)::prompt" }
+                return nil
             }
     }
 }
