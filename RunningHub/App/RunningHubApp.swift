@@ -1,9 +1,15 @@
 import SwiftUI
+import BackgroundTasks
 
 @main
 struct RunningHubApp: App {
     @StateObject private var appState = AppState.shared
     @StateObject private var appConfig = AppConfigService.shared
+
+    init() {
+        // Register BGAppRefreshTask before the app finishes launching
+        BackgroundRefreshService.shared.register()
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -11,6 +17,9 @@ struct RunningHubApp: App {
                 .environmentObject(appState)
                 .environmentObject(appConfig)
                 .preferredColorScheme(.light)
+        }
+        .backgroundTask(.appRefresh(BackgroundRefreshService.taskIdentifier)) {
+            await BackgroundRefreshService.shared.runOnce()
         }
     }
 }
@@ -53,6 +62,12 @@ struct ContentRootView: View {
         .onAppear {
             appConfig.load()
             NotificationService.shared.requestPermission()
+            BackgroundRefreshService.shared.scheduleNext()
+        }
+        .onChange(of: scenePhase) { phase in
+            if phase == .background {
+                BackgroundRefreshService.shared.scheduleNext()
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .authStateChanged)) { _ in
             isLoggedIn = StorageService.shared.isLoggedIn

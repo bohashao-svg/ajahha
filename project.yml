@@ -51,6 +51,11 @@ targets:
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
         NSSupportsLiveActivities: true
+        BGTaskSchedulerPermittedIdentifiers:
+          - com.runninghub.ios.refresh
+        UIBackgroundModes:
+          - fetch
+          - processing
     settings:
       base:
         INFOPLIST_FILE: RunningHub/Info.plist
